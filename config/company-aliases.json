@@ -1,0 +1,11 @@
+{
+  "Alphabet": ["Google", "Google LLC", "Alphabet Inc"],
+  "Microsoft": ["GitHub", "LinkedIn", "Microsoft Corporation"],
+  "Match Group": ["Hinge", "Match", "Tinder"],
+  "Electronic Arts": ["EA", "Respawn", "Respawn Entertainment"],
+  "IBM": ["Red Hat", "HashiCorp"],
+  "Block": ["Square", "Cash App"],
+  "PayPal": ["Venmo"],
+  "Sony Interactive Entertainment": ["PlayStation"],
+  "Take-Two Interactive": ["Rockstar", "2K"]
+}

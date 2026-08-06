@@ -1,0 +1,100 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-job_discovery}
+      POSTGRES_USER: ${POSTGRES_USER:-job_pipeline}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  migrate:
+    build: .
+    command: ["node", "dist/cli.js", "migrate"]
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-job_pipeline}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-job_discovery}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  n8n:
+    build:
+      context: ..
+      dockerfile: job-discovery/Dockerfile.n8n
+    image: laksh-job-discovery-n8n:1.0.0
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${N8N_PORT:-5678}:5678"
+    environment:
+      DB_TYPE: postgresdb
+      DB_POSTGRESDB_HOST: postgres
+      DB_POSTGRESDB_PORT: 5432
+      DB_POSTGRESDB_DATABASE: ${POSTGRES_DB:-job_discovery}
+      DB_POSTGRESDB_USER: ${POSTGRES_USER:-job_pipeline}
+      DB_POSTGRESDB_PASSWORD: ${POSTGRES_PASSWORD}
+      N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY}
+      N8N_USER_MANAGEMENT_JWT_SECRET: ${N8N_USER_MANAGEMENT_JWT_SECRET}
+      N8N_HOST: ${N8N_HOST:-localhost}
+      N8N_PROTOCOL: ${N8N_PROTOCOL:-http}
+      N8N_EDITOR_BASE_URL: ${N8N_EDITOR_BASE_URL:-http://localhost:5678}
+      GENERIC_TIMEZONE: ${GENERIC_TIMEZONE:-America/Los_Angeles}
+      TZ: ${GENERIC_TIMEZONE:-America/Los_Angeles}
+      NODES_EXCLUDE: '["n8n-nodes-base.localFileTrigger"]'
+      N8N_BLOCK_ENV_ACCESS_IN_NODE: "false"
+      N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS: "true"
+      N8N_UNVERIFIED_PACKAGES_ENABLED: "false"
+      N8N_RUNNERS_TASK_TIMEOUT: 300
+      N8N_COMPRESSION_NODE_MAX_DECOMPRESSED_SIZE_BYTES: 268435456
+      N8N_COMPRESSION_NODE_MAX_ZIP_ENTRIES: 1000
+      EXECUTIONS_DATA_PRUNE: "true"
+      EXECUTIONS_DATA_MAX_AGE: 336
+      JOB_PIPELINE_DIR: /opt/job-pipeline
+      DATABASE_URL: postgresql://${POSTGRES_USER:-job_pipeline}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-job_discovery}
+      # Required; set them in .env. Config validation rejects empty values.
+      EMAIL_TO: ${EMAIL_TO:?set EMAIL_TO in .env}
+      NOTION_TOKEN: ${NOTION_TOKEN:-}
+      NOTION_DATABASE_ID: ${NOTION_DATABASE_ID:?set NOTION_DATABASE_ID in .env}
+      NOTION_DATA_SOURCE_ID: ${NOTION_DATA_SOURCE_ID:?set NOTION_DATA_SOURCE_ID in .env}
+      APIFY_TOKEN: ${APIFY_TOKEN:-}
+      APIFY_LINKEDIN_ACTOR: ${APIFY_LINKEDIN_ACTOR:-curious_coder/linkedin-jobs-scraper}
+      APIFY_INDEED_ACTOR: ${APIFY_INDEED_ACTOR:-schnellscrapers/indeed-jobs-scraper}
+      APIFY_MONSTER_ACTOR: ${APIFY_MONSTER_ACTOR:-axlymxp/monster-scraper}
+      APIFY_LINKEDIN_MAX_RESULTS: ${APIFY_LINKEDIN_MAX_RESULTS:-35}
+      APIFY_INDEED_MAX_RESULTS: ${APIFY_INDEED_MAX_RESULTS:-15}
+      APIFY_MONSTER_MAX_RESULTS: ${APIFY_MONSTER_MAX_RESULTS:-35}
+      APIFY_MIN_INTERVAL_HOURS: ${APIFY_MIN_INTERVAL_HOURS:-24}
+      APIFY_MAX_TOTAL_CHARGE_USD: ${APIFY_MAX_TOTAL_CHARGE_USD:-0.50}
+      APIFY_ENABLED: ${APIFY_ENABLED:-false}
+      PAID_SOURCES_ENABLED: ${PAID_SOURCES_ENABLED:-false}
+      SEND_EMAIL_ENABLED: ${SEND_EMAIL_ENABLED:-false}
+      REZZY_API_KEY: ${REZZY_API_KEY:-}
+      REZZY_PROFILE_ID: ${REZZY_PROFILE_ID:-}
+      REZZY_WEBHOOK_SECRET: ${REZZY_WEBHOOK_SECRET:-}
+      REZZY_DRAFT_PATH: ${REZZY_DRAFT_PATH:-/resume/create}
+    volumes:
+      - n8n_data:/home/node/.n8n
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1:5678/healthz || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+
+volumes:
+  postgres_data:
+    name: laksh_job_discovery_postgres_v1
+  n8n_data:
+    name: laksh_job_discovery_n8n_v1

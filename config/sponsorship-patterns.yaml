@@ -1,0 +1,19 @@
+supported:
+  - "(?:visa|employment) sponsorship (?:is|will be) (?:available|provided|offered)"
+  - "we sponsor (?:employment|work) visas"
+  - "international students (?:are|may be) eligible"
+  - "cpt(?:/opt)? (?:is|are) (?:accepted|supported|eligible)"
+unsupported:
+  - "no sponsorship (?:is )?(?:available|provided|offered)(?: now or in the future)?"
+  - "(?:will|can) not (?:provide|offer) (?:employment |visa )?sponsorship"
+  - "must not (?:now or in the future )?require sponsorship"
+  - "u\\.?s\\.? citizens? only"
+  - "(?:permanent resident|green card holder)s? only"
+  - "unrestricted permanent (?:u\\.?s\\.? )?work authorization (?:is )?required"
+  - "(?:active )?(?:secret|top secret|ts/sl|ts/sci) (?:security )?clearance (?:is )?required"
+  - "must be eligible to obtain (?:a )?(?:secret|top secret|security) clearance"
+  - "due to (?:u\\.?s\\.? )?export control.{0,120}(?:u\\.?s\\.? person|citizen|permanent resident)"
+ambiguous:
+  - "authorized to work in the (?:united states|u\\.?s\\.?)"
+  - "work authorization"
+  - "sponsorship"

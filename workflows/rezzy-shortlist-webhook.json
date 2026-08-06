@@ -1,0 +1,33 @@
+{
+  "id": "LakshRezzyShortlist",
+  "name": "Laksh Rezzy — Manual Shortlist Webhook",
+  "nodes": [
+    {
+      "parameters":{"httpMethod":"POST","path":"rezzy-shortlist","responseMode":"responseNode","options":{}},
+      "id":"15e4b97a-08ef-477e-b95e-8fcba2268fb0","name":"Shortlist Webhook","type":"n8n-nodes-base.webhook","typeVersion":2,"position":[-500,0],"webhookId":"b6ce11b7-2aa0-4435-9530-37a4f0087e76"
+    },
+    {
+      "parameters":{"jsCode":"const expected = $env.REZZY_WEBHOOK_SECRET || ''; const supplied = $json.headers?.['x-rezzy-webhook-secret'] || ''; const configured = Boolean($env.REZZY_API_KEY && $env.REZZY_PROFILE_ID); const validBody = Boolean($json.body?.jobDescription && $json.body?.jobDescription.length >= 50); return [{json:{authorized:Boolean(expected && supplied === expected),configured,validBody,jobDescription:$json.body?.jobDescription || '',jobTitle:$json.body?.jobTitle || '',company:$json.body?.company || '',companyUrl:$json.body?.companyUrl || ''}}];"},
+      "id":"c98d278e-88ad-4401-9af7-cac23f23e12d","name":"Validate Secret and Payload","type":"n8n-nodes-base.code","typeVersion":2,"position":[-260,0]
+    },
+    {
+      "parameters":{"conditions":{"options":{"caseSensitive":true,"typeValidation":"strict"},"conditions":[{"id":"4f174ae7-f6eb-4a19-8926-2bc8e20d02c5","leftValue":"={{ $json.authorized && $json.configured && $json.validBody }}","rightValue":true,"operator":{"type":"boolean","operation":"true","singleValue":true}}],"combinator":"and"}},
+      "id":"21691b68-65c0-47a0-83e0-bccf64fdfefa","name":"Authorized and Configured?","type":"n8n-nodes-base.if","typeVersion":2.2,"position":[-20,0]
+    },
+    {
+      "parameters":{"method":"POST","url":"={{ ($env.REZZY_API_BASE_URL || 'https://api.rezzy.dev/v1').replace(/\\\/$/, '') + ($env.REZZY_DRAFT_PATH || '/resume/create') }}","sendHeaders":true,"headerParameters":{"parameters":[{"name":"Authorization","value":"={{ 'Bearer ' + $env.REZZY_API_KEY }}"},{"name":"Content-Type","value":"application/json"}]},"sendBody":true,"contentType":"raw","rawContentType":"application/json","body":"={{ JSON.stringify({ title: $json.jobTitle || ('Resume for ' + ($json.company || 'shortlisted role')), job_description: $json.jobDescription, ...($json.companyUrl ? { company_url: $json.companyUrl } : {}) }) }}","options":{"timeout":30000}},
+      "id":"e4274862-b500-461b-913f-ef1c0bb04e04","name":"Create Rezzy Draft","type":"n8n-nodes-base.httpRequest","typeVersion":4.2,"position":[220,-100],"retryOnFail":false
+    },
+    {
+      "parameters":{"respondWith":"json","responseBody":"={{ $json }}","options":{"responseCode":200}},
+      "id":"85464174-e842-46a6-bcf3-e81f7b667c86","name":"Return Draft","type":"n8n-nodes-base.respondToWebhook","typeVersion":1.4,"position":[460,-100]
+    },
+    {
+      "parameters":{"respondWith":"json","responseBody":"={{ { ok:false, error: !$json.authorized ? 'unauthorized' : !$json.configured ? 'rezzy_disabled' : 'invalid_payload' } }}","options":{"responseCode":403}},
+      "id":"bbfce74e-8d41-4fc0-8647-c956a07de847","name":"Reject Safely","type":"n8n-nodes-base.respondToWebhook","typeVersion":1.4,"position":[220,100]
+    }
+  ],
+  "pinData":{},
+  "connections":{"Shortlist Webhook":{"main":[[{"node":"Validate Secret and Payload","type":"main","index":0}]]},"Validate Secret and Payload":{"main":[[{"node":"Authorized and Configured?","type":"main","index":0}]]},"Authorized and Configured?":{"main":[[{"node":"Create Rezzy Draft","type":"main","index":0}],[{"node":"Reject Safely","type":"main","index":0}]]},"Create Rezzy Draft":{"main":[[{"node":"Return Draft","type":"main","index":0}]]}},
+  "active":false,"settings":{"executionOrder":"v1","saveManualExecutions":true,"callerPolicy":"workflowsFromSameOwner"},"versionId":"16240c8b-e120-4f5d-a40f-e0dd8cdfaf70","meta":{"templateCredsSetupCompleted":false},"tags":[]
+}

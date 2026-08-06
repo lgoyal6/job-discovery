@@ -1,0 +1,19 @@
+{
+  "community": [
+    {"name":"vanshb03-summer","url":"https://raw.githubusercontent.com/vanshb03/Summer2027-Internships/dev/README.md","format":"markdown","cycle":"Summer 2027"},
+    {"name":"vanshb03-offseason","url":"https://raw.githubusercontent.com/vanshb03/Summer2027-Internships/dev/OFFSEASON_README.md","format":"markdown"},
+    {"name":"simplify-summer","url":"https://raw.githubusercontent.com/SimplifyJobs/Summer2027-Internships/dev/README.md","format":"markdown","cycle":"Summer 2027"},
+    {"name":"simplify-offseason","url":"https://raw.githubusercontent.com/SimplifyJobs/Summer2027-Internships/dev/README-Off-Season.md","format":"markdown"},
+    {"name":"intern-list-swe","url":"https://www.intern-list.com/swe-intern-list","format":"html"},
+    {"name":"intern-list-data","url":"https://www.intern-list.com/da-intern-list","format":"html"},
+    {"name":"speedyapply","url":"https://raw.githubusercontent.com/speedyapply/2027-SWE-College-Jobs/main/README.md","format":"markdown","cycle":"Summer 2027"},
+    {"name":"sndsh404","url":"https://raw.githubusercontent.com/sndsh404/summer-2027-internships/main/README.md","format":"markdown","cycle":"Summer 2027"}
+  ],
+  "ats": [
+    {"type":"greenhouse","board":"andurilindustries","company":"Anduril"},
+    {"type":"greenhouse","board":"fiveringsllc","company":"Five Rings"},
+    {"type":"lever","site":"palantir","company":"Palantir"},
+    {"type":"ashby","board":"openai","company":"OpenAI"},
+    {"type":"ashby","board":"notion","company":"Notion"}
+  ]
+}

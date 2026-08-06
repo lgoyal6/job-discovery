@@ -1,0 +1,79 @@
+[
+  {
+    "sourceName": "fixture-greenhouse",
+    "sourceJobId": "101",
+    "title": "Software Engineering Intern — Summer 2027",
+    "company": "Google LLC",
+    "location": "San Diego, CA",
+    "postedAt": "2026-08-03T10:00:00Z",
+    "description": "Build backend services in Python and TypeScript. International students are eligible and visa sponsorship is available.",
+    "employmentType": "Internship",
+    "sourceUrl": "https://boards.greenhouse.io/google/jobs/101?utm_source=test",
+    "directApplyUrl": "https://boards.greenhouse.io/google/jobs/101?gh_src=fixture",
+    "scrapedAt": "2026-08-04T12:00:00Z",
+    "cycleHint": "Summer 2027"
+  },
+  {
+    "sourceName": "fixture-community",
+    "title": "Software Engineering Intern — Summer 2027",
+    "company": "Google",
+    "location": "San Diego, CA",
+    "description": "Duplicate community copy.",
+    "sourceUrl": "https://example.org/feed",
+    "directApplyUrl": "https://boards.greenhouse.io/google/jobs/101?utm_campaign=community",
+    "scrapedAt": "2026-08-04T12:00:00Z",
+    "cycleHint": "Summer 2027"
+  },
+  {
+    "sourceName": "fixture-lever",
+    "sourceJobId": "unknown-2027",
+    "title": "Machine Learning Engineering Intern, Summer 2027",
+    "company": "Example AI",
+    "location": "Remote — United States",
+    "description": "Train computer vision models with PyTorch and Python. Applicants must be authorized to work in the United States.",
+    "sourceUrl": "https://jobs.lever.co/example/unknown-2027",
+    "directApplyUrl": "https://jobs.lever.co/example/unknown-2027",
+    "scrapedAt": "2026-08-04T12:00:00Z"
+  },
+  {
+    "sourceName": "fixture-workday",
+    "sourceJobId": "fall-2026",
+    "title": "Data Engineering Co-op — Fall 2026",
+    "company": "Microsoft Corporation",
+    "location": "Redmond, WA",
+    "description": "Develop SQL and cloud data services. We sponsor employment visas for qualifying technical candidates.",
+    "sourceUrl": "https://example.wd5.myworkdayjobs.com/jobs/fall-2026",
+    "scrapedAt": "2026-08-04T12:00:00Z"
+  },
+  {
+    "sourceName": "fixture-unsupported",
+    "sourceJobId": "clearance-1",
+    "title": "Systems Software Intern Summer 2027",
+    "company": "Defense Example",
+    "location": "Virginia",
+    "description": "C++ systems work. U.S. citizens only; active Secret security clearance required.",
+    "sourceUrl": "https://example.com/jobs/clearance-1",
+    "scrapedAt": "2026-08-04T12:00:00Z"
+  },
+  {
+    "sourceName": "fixture-newgrad",
+    "sourceJobId": "ng-2027",
+    "title": "Software Engineer, New Grad 2027",
+    "company": "Example Corp",
+    "location": "New York, NY",
+    "description": "Candidates must graduate in 2027.",
+    "sourceUrl": "https://example.com/jobs/ng-2027",
+    "scrapedAt": "2026-08-04T12:00:00Z"
+  },
+  {
+    "sourceName": "fixture-closed",
+    "sourceJobId": "closed-1",
+    "title": "Frontend Engineering Intern Summer 2027",
+    "company": "Closed Example",
+    "location": "Remote",
+    "description": "React internship.",
+    "sourceUrl": "https://example.com/jobs/closed-1",
+    "scrapedAt": "2026-08-04T12:00:00Z",
+    "status": "CLOSED"
+  }
+]

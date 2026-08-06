@@ -1,0 +1,22 @@
+FROM node:22-alpine AS pipeline-build
+WORKDIR /opt/job-pipeline
+COPY job-discovery/package.json job-discovery/package-lock.json ./
+RUN npm ci --include=dev
+COPY job-discovery/ ./
+RUN npm run build && npm prune --omit=dev
+
+FROM n8nio/n8n:2.30.5
+USER root
+WORKDIR /opt/job-pipeline
+COPY --from=pipeline-build --chown=node:node /opt/job-pipeline/package.json /opt/job-pipeline/package-lock.json ./
+COPY --from=pipeline-build --chown=node:node /opt/job-pipeline/node_modules ./node_modules
+COPY --from=pipeline-build --chown=node:node /opt/job-pipeline/dist ./dist
+COPY --from=pipeline-build --chown=node:node /opt/job-pipeline/config ./config
+COPY --from=pipeline-build --chown=node:node /opt/job-pipeline/fixtures ./fixtures
+COPY --from=pipeline-build --chown=node:node /opt/job-pipeline/migrations ./migrations
+COPY --from=pipeline-build --chown=node:node /opt/job-pipeline/workflows ./workflows
+COPY --chown=node:node automation/job-company-watchlist.md /opt/automation/job-company-watchlist.md
+COPY --chmod=755 job-discovery/scripts/railway-entrypoint.sh /usr/local/bin/job-discovery-entrypoint.sh
+USER node
+WORKDIR /home/node
+ENTRYPOINT ["tini", "--", "/usr/local/bin/job-discovery-entrypoint.sh"]

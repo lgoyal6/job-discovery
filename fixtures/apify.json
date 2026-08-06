@@ -1,0 +1,4 @@
+[
+  {"jobId":"li-123","title":"Software Engineering Intern Summer 2027","companyName":"Acme","location":"Remote","descriptionText":"Python","jobUrl":"https://linkedin.com/jobs/view/123","applicationUrl":"https://acme.com/jobs/123","postedDate":"2026-08-01"},
+  {"job_id":"indeed-456","jobTitle":"Backend Intern Summer 2027","company":{"name":"Beta"},"location":{"name":"Austin, TX"},"description":"Java","url":"https://indeed.com/viewjob?jk=456","applyUrl":"https://beta.com/careers/456"}
+]
