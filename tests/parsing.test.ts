@@ -16,6 +16,34 @@ describe('source parsers', () => {
     expect(jobs[0]?.directApplyUrl).toContain('greenhouse.io');
   });
 
+  // Both regressions below shipped silently: the sources returned 200 with a
+  // full document, parsed to zero rows, and reported SUCCESS for over a day.
+  it('parses table cells that use raw <a> tags instead of Markdown links', () => {
+    const markdown = [
+      '| Company | Role | Location | Application |',
+      '| --- | --- | --- | --- |',
+      '| <a href="https://www.tiktok.com"><strong>TikTok</strong></a> | Fullstack SWE Intern | Seattle, WA | <a href="https://lifeattiktok.com/search/7670700387322300677">Apply</a> |'
+    ].join('\n');
+    const jobs = parseMarkdownJobs(markdown, { name: 'fixture', url: 'https://example.com/feed' }, '2026-08-07T00:00:00Z');
+    expect(jobs).toHaveLength(1);
+    expect(jobs[0]?.company).toBe('TikTok');
+    expect(jobs[0]?.directApplyUrl).toContain('lifeattiktok.com');
+  });
+
+  it('falls back to <tr>/<td> rows when the pipe table is gone, and drops marker emoji', () => {
+    const html = [
+      '<table><thead><tr><th>Company</th><th>Role</th><th>Location</th></tr></thead><tbody>',
+      '<tr><td>🔥 <strong><a href="https://simplify.jobs/c/Stripe">Stripe</a></strong></td>',
+      '<td>Software Engineer Intern</td><td>NYC</td>',
+      '<td><a href="https://boards.greenhouse.io/stripe/jobs/123">Apply</a></td></tr>',
+      '</tbody></table>'
+    ].join('');
+    const jobs = parseMarkdownJobs(html, { name: 'fixture', url: 'https://example.com/feed' }, '2026-08-07T00:00:00Z');
+    expect(jobs).toHaveLength(1);
+    expect(jobs[0]?.company).toBe('Stripe');
+    expect(jobs[0]?.location).toBe('NYC');
+  });
+
   it('normalizes Greenhouse, Lever, Ashby and SmartRecruiters schemas', async () => {
     const now = '2026-08-04T00:00:00Z';
     expect(normalizeGreenhouse(await fixture('greenhouse.json'), { type: 'greenhouse', board: 'acme', company: 'Acme' }, now)[0]?.sourceJobId).toBe('123');
