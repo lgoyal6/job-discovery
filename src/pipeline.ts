@@ -98,12 +98,71 @@ export async function classifyRawJob(raw: RawJob, context: { aliases: Map<string
   };
 }
 
+// Words that vary between lists describing the same requisition. Dropping them
+// lets "SWE Intern - C++ or Python", "Software Engineering Internship - C++ or
+// Python - Summer 2027" and "Software Engineering Intern (Summer 2027, C++ /
+// Python)" collapse to one row instead of three.
+const TITLE_NOISE = /^(intern|interns|internship|internships|co|op|coop|summer|fall|winter|spring|20\d\d|the|and|or|a|an|of|for|at|in|to|program|programme)$/;
+
+// Truncation is what makes engineer/engineering agree. Five characters is short
+// enough to stem those pairs and long enough that backend/frontend, undergrad/
+// masters, and distinct team suffixes stay separate.
+// One requisition open in several cities gets rendered differently by every
+// list — "6 locations Atlanta, GA …", "Atlanta, GA +5", "New York, NY
+// (multiple)" — so those must share a bucket. Two postings each naming a single
+// distinct city are genuinely separate roles and must not.
+const MULTI_LOCATION = /\+\s*\d|\b\d+\s+locations?\b|\bmultiple\b|\bvarious\b/i;
+function locationBucket(location: string, normalizedLocation: string): string {
+  if (MULTI_LOCATION.test(location) || location.split(',').length >= 3) return '*';
+  return normalizedLocation;
+}
+
+function titleSignature(normalizedTitle: string): string {
+  const tokens = normalizedTitle.split(/[^a-z0-9+#]+/)
+    .filter(token => token && !TITLE_NOISE.test(token))
+    .map(token => token.slice(0, 5));
+  return [...new Set(tokens)].sort().join('.');
+}
+
+// A flat score sort hands the whole cap to whoever posts the most: dozens of
+// roles tie on score, the tiebreak is alphabetical, and one high-volume employer
+// takes 40% of the digest. Deal one role per company per pass instead, companies
+// ordered by their best role, so breadth wins before any employer gets seconds.
+export function diversifiedTop(jobs: DigestJob[], limit: number): DigestJob[] {
+  const ranked = [...jobs].sort((a, b) => b.score - a.score || a.company.localeCompare(b.company));
+  const queues = new Map<string, DigestJob[]>();
+  for (const job of ranked) {
+    const key = job.normalizedCompany || job.company;
+    const queue = queues.get(key);
+    if (queue) queue.push(job); else queues.set(key, [job]);
+  }
+  const picked: DigestJob[] = [];
+  const rotation = [...queues.values()];
+  let dealt = true;
+  while (picked.length < limit && dealt) {
+    dealt = false;
+    for (const queue of rotation) {
+      if (picked.length >= limit) break;
+      const next = queue.shift();
+      if (next) { picked.push(next); dealt = true; }
+    }
+  }
+  return picked;
+}
+
 export function localDedupe(jobs: ClassifiedJob[]): { unique: ClassifiedJob[]; count: number } {
   const seen = new Set<string>();
   const unique: ClassifiedJob[] = [];
   let count = 0;
   for (const job of jobs.sort((a, b) => b.score - a.score)) {
-    const keys = [`key:${job.canonicalKey}`, job.canonicalUrl.startsWith('http') ? `url:${job.canonicalUrl}` : '', `tuple:${job.normalizedCompany}|${job.normalizedTitle}|${job.normalizedLocation}|${job.cycle}`].filter(Boolean);
+    const signature = titleSignature(job.normalizedTitle);
+    const keys = [
+      `key:${job.canonicalKey}`,
+      job.canonicalUrl.startsWith('http') ? `url:${job.canonicalUrl}` : '',
+      `tuple:${job.normalizedCompany}|${job.normalizedTitle}|${job.normalizedLocation}|${job.cycle}`,
+      // Same company, same cycle, same role in different words.
+      signature ? `sig:${job.normalizedCompany}|${job.cycle}|${locationBucket(job.location ?? '', job.normalizedLocation)}|${signature}` : ''
+    ].filter(Boolean);
     if (keys.some(key => seen.has(key))) { count += 1; continue; }
     keys.forEach(key => seen.add(key)); unique.push(job);
   }
@@ -168,6 +227,14 @@ async function execute(options: RunOptions): Promise<PipelineReport> {
     await closeStaleJobs();
     const unsentIds = await getUnsentJobIds(stored.map(item => item.job.id).filter((id): id is string => Boolean(id)));
     digestJobs = stored.map(item => item.job).filter(job => job.id && unsentIds.has(job.id));
+  }
+  // Highest score first, then cap. Whatever is left keeps sent_at NULL and is
+  // picked up by the next tick, so a backlog drains over several readable
+  // emails instead of one Gmail truncates while marking every role sent.
+  const digestCandidates = digestJobs.length;
+  if (digestJobs.length > config.DIGEST_MAX_ROLES) {
+    digestJobs = diversifiedTop(digestJobs, config.DIGEST_MAX_ROLES);
+    log('info', 'digest_capped', { runId, sending: digestJobs.length, deferred: digestCandidates - digestJobs.length });
   }
   const digest = buildDigest(digestJobs, sourceRuns);
   if (digestJobs.length > 0 && options.persistent && config.SEND_EMAIL_ENABLED) {

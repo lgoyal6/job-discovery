@@ -38,6 +38,11 @@ const envSchema = z.object({
   // only ABANDONED rows are re-claimable. Treat a claim older than this as dead
   // so a failed send self-heals instead of silencing the digest indefinitely.
   EMAIL_BATCH_STALE_MINUTES: z.coerce.number().int().min(5).max(1440).default(60),
+  // Gmail clips messages over ~102 KB and a role renders at roughly 640 bytes,
+  // so anything past ~158 roles is invisible in an email whose jobs are all
+  // marked sent regardless. Cap well under that; the remainder is not dropped,
+  // it simply arrives on the following ticks.
+  DIGEST_MAX_ROLES: z.coerce.number().int().min(1).max(150).default(60),
   SEND_EMAIL_ENABLED: z.enum(['true', 'false']).default('false').transform(v => v === 'true'),
   APIFY_ENABLED: z.enum(['true', 'false']).default('false').transform(v => v === 'true'),
   PAID_SOURCES_ENABLED: z.enum(['true', 'false']).default('false').transform(v => v === 'true'),
