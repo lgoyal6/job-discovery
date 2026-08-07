@@ -1,8 +1,12 @@
+# Build context is this repository root. The watchlist lands at /opt/automation
+# rather than inside /opt/job-pipeline because pipeline.ts resolves it as
+# `resolve(projectRoot, '../automation/job-company-watchlist.md')` — keep the
+# two in step if either ever moves.
 FROM node:22-alpine AS pipeline-build
 WORKDIR /opt/job-pipeline
-COPY job-discovery/package.json job-discovery/package-lock.json ./
+COPY package.json package-lock.json ./
 RUN npm ci --include=dev
-COPY job-discovery/ ./
+COPY . ./
 RUN npm run build && npm prune --omit=dev
 
 FROM n8nio/n8n:2.30.5
@@ -16,7 +20,7 @@ COPY --from=pipeline-build --chown=node:node /opt/job-pipeline/fixtures ./fixtur
 COPY --from=pipeline-build --chown=node:node /opt/job-pipeline/migrations ./migrations
 COPY --from=pipeline-build --chown=node:node /opt/job-pipeline/workflows ./workflows
 COPY --chown=node:node automation/job-company-watchlist.md /opt/automation/job-company-watchlist.md
-COPY --chmod=755 job-discovery/scripts/railway-entrypoint.sh /usr/local/bin/job-discovery-entrypoint.sh
+COPY --chmod=755 scripts/railway-entrypoint.sh /usr/local/bin/job-discovery-entrypoint.sh
 USER node
 WORKDIR /home/node
 ENTRYPOINT ["tini", "--", "/usr/local/bin/job-discovery-entrypoint.sh"]
