@@ -1,0 +1,11 @@
+# Required, not optional: without a .railwayignore here, `railway up` walks up
+# and applies the parent directory's, which begins with `*` and silently strips
+# src/, scripts/, and package.json from the build context — the build then fails
+# on a confusing "not found" for whichever COPY runs first.
+node_modules/
+dist/
+coverage/
+.env
+data/
+*.log
+.git/
