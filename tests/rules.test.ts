@@ -27,6 +27,57 @@ describe('sponsorship markers from community lists', () => {
   });
 });
 
+describe('category is judged on the title, not the description', () => {
+  // Every description at a software company mentions software, security and
+  // systems; matching on it filed a compliance opening as SWE.
+  const techDescription = 'You will partner with software engineering on security controls across our systems and cloud platform.';
+
+  it('does not call a governance/risk/compliance role SWE', () => {
+    const result = classifyCategory('Governance, Risk, and Compliance Intern (Fall 2026)', techDescription);
+    expect(result.eligible).toBe(false);
+    expect(result.category).not.toBe('SWE');
+  });
+
+  it('still keeps a genuine engineering role whose title names the track', () => {
+    expect(classifyCategory('Privacy and Civil Liberties Software Engineer Intern', '').category).toBe('SWE');
+  });
+
+  it('reads the description only when the title carries no track', () => {
+    expect(classifyCategory('Engineering Intern', techDescription).category).toBe('SWE');
+  });
+
+  it('recognises quant titles that never say developer', () => {
+    expect(classifyCategory('Quantitative Risk Intern', '').category).toBe('Quant');
+    expect(classifyCategory('Quantitative Trader Intern', '').category).toBe('Quant');
+  });
+});
+
+describe('sponsorship phrasings that never use the word sponsorship', () => {
+  const check = async (text: string) => {
+    const patterns = await loadSponsorshipPatterns();
+    return classifySponsorship(text, patterns).status;
+  };
+
+  it('catches citizenship and residency requirements', async () => {
+    expect(await check('Applicants must be a U.S. citizen.')).toBe('UNSUPPORTED');
+    expect(await check('This role requires U.S. citizenship.')).toBe('UNSUPPORTED');
+    expect(await check('Open to U.S. citizens or lawful permanent residents.')).toBe('UNSUPPORTED');
+    expect(await check('Must be a U.S. person as defined by ITAR.')).toBe('UNSUPPORTED');
+  });
+
+  it('catches negative sponsorship phrasings', async () => {
+    expect(await check('We are unable to sponsor visas for this position.')).toBe('UNSUPPORTED');
+    expect(await check('Our company does not sponsor employment visas.')).toBe('UNSUPPORTED');
+    expect(await check('Candidates must be authorized to work without sponsorship now or in the future.')).toBe('UNSUPPORTED');
+    expect(await check('No visa sponsorship is offered for interns.')).toBe('UNSUPPORTED');
+  });
+
+  it('does not fire on equal-opportunity boilerplate', async () => {
+    expect(await check('We consider all applicants regardless of citizenship status or national origin.')).not.toBe('UNSUPPORTED');
+    expect(await check('Visa sponsorship is available for this role.')).toBe('SUPPORTED');
+  });
+});
+
 describe('digest shaping', () => {
   it('merges the same requisition described differently by different lists', () => {
     const { unique, count } = localDedupe([

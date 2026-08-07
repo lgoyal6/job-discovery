@@ -3,23 +3,40 @@ import type { SponsorshipPatterns } from './config.js';
 
 const categories: Array<[Category, RegExp]> = [
   ['ML/AI', /\b(machine learning|ml engineer|artificial intelligence|ai engineer|computer vision|applied scientist|research engineer|deep learning|nlp)\b/i],
-  ['Quant', /\b(quantitative (developer|research|trading)|quant (developer|researcher)|algorithmic trading)\b/i],
+  // Quant titles rarely say "developer": "Quantitative Risk Intern" and
+  // "Quantitative Trader" are the roles worth catching here.
+  ['Quant', /\b(quantitative|quant)\s+(developer|research(?:er)?|trading|trader|analyst|risk|strategist|engineer)\b|\balgorithmic trading\b|\btrading intern(?:ship)?\b/i],
   ['GTM Eng', /\b(forward deployed|solutions? engineer|gtm engineer|sales engineer)\b/i],
   ['SWE', /\b(software|firmware|embedded|developer|frontend|front-end|backend|back-end|full[ -]?stack|mobile|ios|android|infrastructure|platform|cloud|systems?|security|devops|site reliability|sre|data engineer|developer tool)\b/i]
 ];
 
-const nonTechnical = /\b(marketing|accounting|human resources|recruiter|sales intern|business development|communications|legal|finance intern|operations intern|product marketing)\b/i;
+const nonTechnical = /\b(marketing|accounting|human resources|recruiter|sales intern|business development|communications|legal|finance intern|operations intern|product marketing|governance,? risk,? and compliance|\bgrc\b|compliance|paralegal|talent acquisition|people operations)\b/i;
+
+// Titles that carry no track information on their own, where reading the
+// description is the only way to categorise. Everything else is judged on its
+// title alone.
+const genericTechTitle = /\b(technical|technology|engineering|engineer|developer|intern(?:ship)?|university|early career|new grad)\b/i;
 const hardwareOnly = /\b(hardware|mechanical|electrical|rf|analog|asic|semiconductor)\b/i;
 const softwareSignal = /\b(software|firmware|programming|python|coding|embedded|algorithm)\b|c\+\+/i;
 
 export function classifyCategory(title: string, description = ''): { category: Category; eligible: boolean; reason?: string } {
   const text = `${title} ${description}`;
+  // Title first. Matching the description put a "Governance, Risk, and
+  // Compliance Intern" in SWE, because every job description at a software
+  // company says software, security and systems somewhere in the body.
   for (const [category, pattern] of categories) {
-    if (pattern.test(text)) return { category, eligible: true };
+    if (pattern.test(title)) return { category, eligible: true };
   }
-  if (nonTechnical.test(title) && !softwareSignal.test(description)) return { category: 'Other', eligible: false, reason: 'clearly_non_technical' };
+  if (nonTechnical.test(title)) return { category: 'Other', eligible: false, reason: 'clearly_non_technical' };
   if (hardwareOnly.test(title) && !softwareSignal.test(text)) return { category: 'Other', eligible: false, reason: 'hardware_only' };
   if (hardwareOnly.test(title) && softwareSignal.test(text)) return { category: 'SWE', eligible: true };
+  // Only a title with no track of its own ("Engineering Intern", "Technical
+  // Intern") earns a look at the description.
+  if (genericTechTitle.test(title)) {
+    for (const [category, pattern] of categories) {
+      if (pattern.test(description)) return { category, eligible: true };
+    }
+  }
   // Generic “engineering”, “technology”, and “all tracks” programs are not
   // enough evidence that a role belongs to one of the allowed technical tracks.
   return { category: 'Other', eligible: false, reason: 'no_technical_signal' };

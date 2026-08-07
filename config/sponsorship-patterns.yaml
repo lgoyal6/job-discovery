@@ -13,6 +13,24 @@ unsupported:
   - "(?:active )?(?:secret|top secret|ts/sl|ts/sci) (?:security )?clearance (?:is )?required"
   - "must be eligible to obtain (?:a )?(?:secret|top secret|security) clearance"
   - "due to (?:u\\.?s\\.? )?export control.{0,120}(?:u\\.?s\\.? person|citizen|permanent resident)"
+  # Employers phrase "no sponsorship" many ways, and most never use the word
+  # sponsorship at all — requiring citizenship or permanent residency says the
+  # same thing. Anchored to imperative wording so that boilerplate such as
+  # "regardless of citizenship" in an EEO statement does not match.
+  - "(?:are|is|we are|we're) (?:not|unable) (?:able |currently )?to sponsor"
+  - "(?:do|does|will|can) not (?:currently )?sponsor"
+  - "no (?:visa |employment |work )?sponsorship"
+  - "sponsorship (?:is )?not (?:available|offered|provided)"
+  - "without (?:the need for |any need for |requiring )?(?:visa |employment |work )?sponsorship"
+  - "(?:must|need to) be (?:a |an )?(?:u\\.?s\\.?|united states) citizen"
+  - "(?:u\\.?s\\.?|united states) citizenship (?:is )?(?:required|a requirement)"
+  - "(?:must be|requires?)(?: a| an)? (?:u\\.?s\\.? )?(?:citizen|permanent resident|green card holder)"
+  - "(?:u\\.?s\\.?|united states) citizens? or (?:lawful )?permanent residents?"
+  - "citizens? or (?:lawful )?permanent residents? only"
+  - "(?:must be|be) (?:a |an )?u\\.?s\\.? person"
+  - "\\bitar\\b"
+  - "must be legally authoriz(?:ed|able) to work.{0,80}without (?:current or future |any )?sponsorship"
+  - "not (?:be )?requir(?:e|ing) (?:visa |employment |work )?sponsorship (?:now or in the future)?"
 ambiguous:
   - "authorized to work in the (?:united states|u\\.?s\\.?)"
   - "work authorization"
