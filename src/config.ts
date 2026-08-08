@@ -61,6 +61,9 @@ const envSchema = z.object({
   ENRICHMENT_MAX_JOBS: z.coerce.number().int().min(0).max(400).default(90),
   ENRICHMENT_CONCURRENCY: z.coerce.number().int().min(1).max(16).default(6),
   ENRICHMENT_TIMEOUT_MS: z.coerce.number().int().min(1000).max(30000).default(10000),
+  // Board discovery probes public ATS endpoints; keep it polite since it runs
+  // against a few hundred companies at once.
+  DISCOVERY_CONCURRENCY: z.coerce.number().int().min(1).max(32).default(10),
   SEND_EMAIL_ENABLED: z.enum(['true', 'false']).default('false').transform(v => v === 'true'),
   APIFY_ENABLED: z.enum(['true', 'false']).default('false').transform(v => v === 'true'),
   PAID_SOURCES_ENABLED: z.enum(['true', 'false']).default('false').transform(v => v === 'true'),

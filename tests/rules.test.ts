@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { diversifiedTop, localDedupe } from '../src/pipeline.js';
+import { slugCandidates } from '../src/discovery.js';
 import { classifyCategory, classifyCycle, classifyGraduation, classifySponsorship } from '../src/classification.js';
 import { loadCompanyAliases, loadSponsorshipPatterns } from '../src/config.js';
 import { buildAliasMap, canonicalizeUrl, canonicalKey, normalizeCompany } from '../src/normalization.js';
@@ -159,5 +160,19 @@ describe('deterministic role rules', () => {
     expect(classifySponsorship('Must not now or in the future require sponsorship.', patterns).status).toBe('UNSUPPORTED');
     expect(classifySponsorship('Must be authorized to work in the United States.', patterns).status).toBe('UNKNOWN');
     expect(classifySponsorship('No policy stated.', patterns).status).toBe('UNKNOWN');
+  });
+});
+
+describe('board discovery', () => {
+  it('derives the slug spellings ATS boards actually use', () => {
+    expect(slugCandidates('Jane Street')).toContain('janestreet');
+    expect(slugCandidates('Jane Street')).toContain('jane-street');
+    // Legal suffixes are usually absent from the board slug.
+    expect(slugCandidates('Rocket Lab Inc')).toContain('rocketlab');
+    expect(slugCandidates('Point72')).toContain('point72');
+  });
+
+  it('drops slugs too short to be real boards', () => {
+    expect(slugCandidates('X')).toHaveLength(0);
   });
 });

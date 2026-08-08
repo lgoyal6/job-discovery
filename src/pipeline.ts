@@ -190,7 +190,15 @@ async function execute(options: RunOptions): Promise<PipelineReport> {
   const watchlistCohort = rotateWatchlist(watchlist, slot, config.WATCHLIST_COMPANIES_PER_RUN);
   const sourceRuns = await collectSources(options, watchlistCohort);
   const now = new Date().toISOString();
-  sourceRuns.push({ sourceName: 'watchlist-rotation', status: 'SUCCESS', jobs: [], startedAt: now, finishedAt: now, durationMs: 0, costUnits: 0, metrics: { slot, scheduledCompanies: watchlistCohort.map(company => company.parent), linkedInScanEnabled: !options.liveFree && (config.APIFY_ENABLED || config.PAID_SOURCES_ENABLED), totalCompanies: watchlist.length } });
+  // Coverage is reported every run because its absence is what hid the gap:
+  // 288 of 338 target companies produced nothing for weeks and no number said so.
+  const watchlistNames = new Set(watchlist.map(company => normalizeText(company.parent)));
+  const companiesWithRoles = new Set<string>();
+  for (const run of sourceRuns) for (const job of run.jobs) {
+    const normalized = normalizeText(job.company);
+    if (watchlistNames.has(normalized)) companiesWithRoles.add(normalized);
+  }
+  sourceRuns.push({ sourceName: 'watchlist-rotation', status: 'SUCCESS', jobs: [], startedAt: now, finishedAt: now, durationMs: 0, costUnits: 0, metrics: { slot, scheduledCompanies: watchlistCohort.map(company => company.parent), linkedInScanEnabled: !options.liveFree && (config.APIFY_ENABLED || config.PAID_SOURCES_ENABLED), totalCompanies: watchlist.length, watchlistCompaniesWithRoles: companiesWithRoles.size, watchlistCoveragePercent: watchlist.length ? Math.round((100 * companiesWithRoles.size) / watchlist.length) : 0 } });
   const aliases = buildAliasMap(aliasesConfig);
   let sponsorshipOverrides: SponsorshipOverrideRow[] = [];
   if (options.persistent) {

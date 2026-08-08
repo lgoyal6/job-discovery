@@ -61,6 +61,15 @@ const fmt = d => d
     console.log(`  ${r.batch_key}  ${r.status}  jobs=${r.jobs}  claimed=${fmt(r.claimed_at)}  sent=${fmt(r.sent_at)}  msg=${r.provider_message_id || '—'}`);
   }
 
+  // Coverage first: a source can be green while most target companies are absent.
+  const cov = await c.query(
+    "SELECT metrics, finished_at FROM source_runs WHERE source_name='watchlist-rotation' ORDER BY started_at DESC LIMIT 1");
+  const m = cov.rows[0]?.metrics;
+  if (m) {
+    console.log('\n=== WATCHLIST COVERAGE ===');
+    console.log(`  ${m.watchlistCompaniesWithRoles ?? '?'} of ${m.totalCompanies ?? '?'} target companies returned roles (${m.watchlistCoveragePercent ?? '?'}%)`);
+  }
+
   const s = await c.query(
     'SELECT source_name, status, fetched_count, accepted_count, error_message, finished_at FROM source_runs ORDER BY started_at DESC LIMIT 12');
   console.log('\n=== RECENT SOURCE RUNS ===');

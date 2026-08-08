@@ -70,6 +70,601 @@
       "type": "ashby",
       "board": "notion",
       "company": "Notion"
+    },
+    {
+      "type": "ashby",
+      "company": "1Password",
+      "board": "1password"
+    },
+    {
+      "type": "greenhouse",
+      "company": "Adyen",
+      "board": "adyen"
+    },
+    {
+      "type": "greenhouse",
+      "company": "Affirm",
+      "board": "affirm"
+    },
+    {
+      "type": "greenhouse",
+      "company": "Airbnb",
+      "board": "airbnb"
+    },
+    {
+      "type": "greenhouse",
+      "company": "Airtable",
+      "board": "airtable"
+    },
+    {
+      "type": "greenhouse",
+      "company": "Anthropic",
+      "board": "anthropic"
+    },
+    {
+      "type": "greenhouse",
+      "company": "AQR",
+      "board": "aqr"
+    },
+    {
+      "type": "greenhouse",
+      "company": "Asana",
+      "board": "asana"
+    },
+    {
+      "type": "ashby",
+      "company": "Baseten",
+      "board": "baseten"
+    },
+    {
+      "type": "lever",
+      "company": "Belvedere Trading",
+      "site": "belvederetrading"
+    },
+    {
+      "type": "greenhouse",
+      "company": "Block",
+      "board": "block"
+    },
+    {
+      "type": "greenhouse",
+      "company": "Brex",
+      "board": "brex"
+    },
+    {
+      "type": "greenhouse",
+      "company": "Bungie",
+      "board": "bungie"
+    },
+    {
+      "type": "greenhouse",
+      "company": "Carta",
+      "board": "carta"
+    },
+    {
+      "type": "ashby",
+      "company": "Cerebras",
+      "board": "cerebras"
+    },
+    {
+      "type": "greenhouse",
+      "company": "Chicago Trading Company",
+      "board": "chicagotrading"
+    },
+    {
+      "type": "greenhouse",
+      "company": "Chime",
+      "board": "chime"
+    },
+    {
+      "type": "greenhouse",
+      "company": "ClickHouse",
+      "board": "clickhouse"
+    },
+    {
+      "type": "ashby",
+      "company": "ClickHouse",
+      "board": "clickhouse"
+    },
+    {
+      "type": "ashby",
+      "company": "ClickUp",
+      "board": "clickup"
+    },
+    {
+      "type": "greenhouse",
+      "company": "Cloudflare",
+      "board": "cloudflare"
+    },
+    {
+      "type": "greenhouse",
+      "company": "Cockroach Labs",
+      "board": "cockroachlabs"
+    },
+    {
+      "type": "ashby",
+      "company": "Cognition",
+      "board": "cognition"
+    },
+    {
+      "type": "greenhouse",
+      "company": "Coinbase",
+      "board": "coinbase"
+    },
+    {
+      "type": "ashby",
+      "company": "Confluent",
+      "board": "confluent"
+    },
+    {
+      "type": "greenhouse",
+      "company": "CoreWeave",
+      "board": "coreweave"
+    },
+    {
+      "type": "ashby",
+      "company": "Crusoe",
+      "board": "crusoe"
+    },
+    {
+      "type": "ashby",
+      "company": "Cursor",
+      "board": "cursor"
+    },
+    {
+      "type": "greenhouse",
+      "company": "Databricks",
+      "board": "databricks"
+    },
+    {
+      "type": "greenhouse",
+      "company": "Datadog",
+      "board": "datadog"
+    },
+    {
+      "type": "ashby",
+      "company": "Deepgram",
+      "board": "deepgram"
+    },
+    {
+      "type": "greenhouse",
+      "company": "Discord",
+      "board": "discord"
+    },
+    {
+      "type": "greenhouse",
+      "company": "Disney",
+      "board": "disney"
+    },
+    {
+      "type": "ashby",
+      "company": "Docker",
+      "board": "docker"
+    },
+    {
+      "type": "ashby",
+      "company": "Drata",
+      "board": "drata"
+    },
+    {
+      "type": "greenhouse",
+      "company": "Dropbox",
+      "board": "dropbox"
+    },
+    {
+      "type": "greenhouse",
+      "company": "Duolingo",
+      "board": "duolingo"
+    },
+    {
+      "type": "greenhouse",
+      "company": "Elastic",
+      "board": "elastic"
+    },
+    {
+      "type": "ashby",
+      "company": "ElevenLabs",
+      "board": "elevenlabs"
+    },
+    {
+      "type": "greenhouse",
+      "company": "Epic Games",
+      "board": "epicgames"
+    },
+    {
+      "type": "greenhouse",
+      "company": "FanDuel",
+      "board": "fanduel"
+    },
+    {
+      "type": "greenhouse",
+      "company": "Figma",
+      "board": "figma"
+    },
+    {
+      "type": "greenhouse",
+      "company": "Flatiron Health",
+      "board": "flatironhealth"
+    },
+    {
+      "type": "greenhouse",
+      "company": "Flexport",
+      "board": "flexport"
+    },
+    {
+      "type": "greenhouse",
+      "company": "Gemini",
+      "board": "gemini"
+    },
+    {
+      "type": "greenhouse",
+      "company": "GitLab",
+      "board": "gitlab"
+    },
+    {
+      "type": "greenhouse",
+      "company": "Grafana Labs",
+      "board": "grafanalabs"
+    },
+    {
+      "type": "ashby",
+      "company": "Harvey",
+      "board": "harvey"
+    },
+    {
+      "type": "greenhouse",
+      "company": "IMC",
+      "board": "imc"
+    },
+    {
+      "type": "greenhouse",
+      "company": "Instacart",
+      "board": "instacart"
+    },
+    {
+      "type": "greenhouse",
+      "company": "Jane Street",
+      "board": "janestreet"
+    },
+    {
+      "type": "greenhouse",
+      "company": "Jump Trading",
+      "board": "jumptrading"
+    },
+    {
+      "type": "ashby",
+      "company": "Lambda",
+      "board": "lambda"
+    },
+    {
+      "type": "ashby",
+      "company": "Linear",
+      "board": "linear"
+    },
+    {
+      "type": "greenhouse",
+      "company": "LinkedIn",
+      "board": "linkedin"
+    },
+    {
+      "type": "lever",
+      "company": "LinkedIn",
+      "site": "linkedin"
+    },
+    {
+      "type": "greenhouse",
+      "company": "Lyft",
+      "board": "lyft"
+    },
+    {
+      "type": "greenhouse",
+      "company": "Marqeta",
+      "board": "marqeta"
+    },
+    {
+      "type": "lever",
+      "company": "Match Group",
+      "site": "matchgroup"
+    },
+    {
+      "type": "greenhouse",
+      "company": "Mercury",
+      "board": "mercury"
+    },
+    {
+      "type": "lever",
+      "company": "MetLife",
+      "site": "metlife"
+    },
+    {
+      "type": "ashby",
+      "company": "Miro",
+      "board": "miro"
+    },
+    {
+      "type": "ashby",
+      "company": "Modal",
+      "board": "modal"
+    },
+    {
+      "type": "ashby",
+      "company": "Modern Treasury",
+      "board": "moderntreasury"
+    },
+    {
+      "type": "greenhouse",
+      "company": "MongoDB",
+      "board": "mongodb"
+    },
+    {
+      "type": "greenhouse",
+      "company": "Nebius",
+      "board": "nebius"
+    },
+    {
+      "type": "greenhouse",
+      "company": "Nintendo",
+      "board": "nintendo"
+    },
+    {
+      "type": "greenhouse",
+      "company": "Nuro",
+      "board": "nuro"
+    },
+    {
+      "type": "greenhouse",
+      "company": "Okta",
+      "board": "okta"
+    },
+    {
+      "type": "greenhouse",
+      "company": "PDT Partners",
+      "board": "pdtpartners"
+    },
+    {
+      "type": "ashby",
+      "company": "Perplexity",
+      "board": "perplexity"
+    },
+    {
+      "type": "ashby",
+      "company": "Physical Intelligence",
+      "board": "physicalintelligence"
+    },
+    {
+      "type": "ashby",
+      "company": "Pinecone",
+      "board": "pinecone"
+    },
+    {
+      "type": "greenhouse",
+      "company": "Pinterest",
+      "board": "pinterest"
+    },
+    {
+      "type": "ashby",
+      "company": "Plaid",
+      "board": "plaid"
+    },
+    {
+      "type": "greenhouse",
+      "company": "Platform Science",
+      "board": "platformscience"
+    },
+    {
+      "type": "greenhouse",
+      "company": "Point72",
+      "board": "point72"
+    },
+    {
+      "type": "greenhouse",
+      "company": "Postman",
+      "board": "postman"
+    },
+    {
+      "type": "ashby",
+      "company": "Ramp",
+      "board": "ramp"
+    },
+    {
+      "type": "greenhouse",
+      "company": "Reddit",
+      "board": "reddit"
+    },
+    {
+      "type": "ashby",
+      "company": "Reflection AI",
+      "board": "reflectionai"
+    },
+    {
+      "type": "greenhouse",
+      "company": "Riot Games",
+      "board": "riotgames"
+    },
+    {
+      "type": "greenhouse",
+      "company": "Robinhood",
+      "board": "robinhood"
+    },
+    {
+      "type": "greenhouse",
+      "company": "Roblox",
+      "board": "roblox"
+    },
+    {
+      "type": "greenhouse",
+      "company": "Rocket Lab",
+      "board": "rocketlab"
+    },
+    {
+      "type": "ashby",
+      "company": "Runway",
+      "board": "runway"
+    },
+    {
+      "type": "greenhouse",
+      "company": "Samsara",
+      "board": "samsara"
+    },
+    {
+      "type": "greenhouse",
+      "company": "Scale AI",
+      "board": "scaleai"
+    },
+    {
+      "type": "greenhouse",
+      "company": "Schonfeld",
+      "board": "schonfeld"
+    },
+    {
+      "type": "greenhouse",
+      "company": "Scopely",
+      "board": "scopely"
+    },
+    {
+      "type": "greenhouse",
+      "company": "SeatGeek",
+      "board": "seatgeek"
+    },
+    {
+      "type": "ashby",
+      "company": "Sentry",
+      "board": "sentry"
+    },
+    {
+      "type": "lever",
+      "company": "Shield AI",
+      "site": "shieldai"
+    },
+    {
+      "type": "ashby",
+      "company": "Shield AI",
+      "board": "shield-ai"
+    },
+    {
+      "type": "ashby",
+      "company": "Sierra",
+      "board": "sierra"
+    },
+    {
+      "type": "greenhouse",
+      "company": "Smartsheet",
+      "board": "smartsheet"
+    },
+    {
+      "type": "ashby",
+      "company": "Snowflake",
+      "board": "snowflake"
+    },
+    {
+      "type": "greenhouse",
+      "company": "SoFi",
+      "board": "sofi"
+    },
+    {
+      "type": "greenhouse",
+      "company": "SpaceX",
+      "board": "spacex"
+    },
+    {
+      "type": "lever",
+      "company": "Spotify",
+      "site": "spotify"
+    },
+    {
+      "type": "greenhouse",
+      "company": "Stripe",
+      "board": "stripe"
+    },
+    {
+      "type": "ashby",
+      "company": "Supabase",
+      "board": "supabase"
+    },
+    {
+      "type": "greenhouse",
+      "company": "Take-Two",
+      "board": "taketwo"
+    },
+    {
+      "type": "ashby",
+      "company": "Temporal",
+      "board": "temporal"
+    },
+    {
+      "type": "greenhouse",
+      "company": "Toast",
+      "board": "toast"
+    },
+    {
+      "type": "greenhouse",
+      "company": "Together AI",
+      "board": "togetherai"
+    },
+    {
+      "type": "greenhouse",
+      "company": "Twilio",
+      "board": "twilio"
+    },
+    {
+      "type": "greenhouse",
+      "company": "Twitch",
+      "board": "twitch"
+    },
+    {
+      "type": "ashby",
+      "company": "Vanta",
+      "board": "vanta"
+    },
+    {
+      "type": "lever",
+      "company": "Veeva",
+      "site": "veeva"
+    },
+    {
+      "type": "greenhouse",
+      "company": "Vercel",
+      "board": "vercel"
+    },
+    {
+      "type": "greenhouse",
+      "company": "Verkada",
+      "board": "verkada"
+    },
+    {
+      "type": "greenhouse",
+      "company": "Virtu",
+      "board": "virtu"
+    },
+    {
+      "type": "ashby",
+      "company": "Vultr",
+      "board": "vultr"
+    },
+    {
+      "type": "greenhouse",
+      "company": "Waymo",
+      "board": "waymo"
+    },
+    {
+      "type": "greenhouse",
+      "company": "Webflow",
+      "board": "webflow"
+    },
+    {
+      "type": "greenhouse",
+      "company": "xAI",
+      "board": "xai"
+    },
+    {
+      "type": "lever",
+      "company": "Zoox",
+      "site": "zoox"
+    },
+    {
+      "type": "greenhouse",
+      "company": "Zscaler",
+      "board": "zscaler"
     }
   ],
   "linkedin": [
