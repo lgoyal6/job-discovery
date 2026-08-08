@@ -46,6 +46,15 @@ const envSchema = z.object({
   // Fetch each candidate posting to recover sponsorship wording the source
   // listings omit. Verdicts persist, so this is expensive only while a backlog
   // drains — in steady state it touches the handful of roles that are new.
+  // LinkedIn's public guest endpoint. Twice a day by default: the coverage
+  // against a 24-hour window is nearly identical to running every tick, and a
+  // fixed egress address makes restraint the difference between working and
+  // being blocked for every source.
+  LINKEDIN_ENABLED: z.enum(['true', 'false']).default('true').transform(v => v === 'true'),
+  LINKEDIN_MIN_INTERVAL_HOURS: z.coerce.number().int().min(1).max(168).default(12),
+  LINKEDIN_PAGES_PER_QUERY: z.coerce.number().int().min(1).max(40).default(5),
+  LINKEDIN_REQUEST_DELAY_MS: z.coerce.number().int().min(0).max(30000).default(1500),
+  LINKEDIN_RECENCY_SECONDS: z.coerce.number().int().min(3600).max(2592000).default(86400),
   ENRICHMENT_ENABLED: z.enum(['true', 'false']).default('true').transform(v => v === 'true'),
   ENRICHMENT_MAX_JOBS: z.coerce.number().int().min(0).max(400).default(90),
   ENRICHMENT_CONCURRENCY: z.coerce.number().int().min(1).max(16).default(6),

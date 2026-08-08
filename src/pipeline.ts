@@ -11,6 +11,7 @@ import { enrichSponsorship } from './enrichment.js';
 import { loadCommunitySources } from './sources/community.js';
 import { ApifySource } from './sources/apify.js';
 import { loadAtsSources } from './sources/ats.js';
+import { loadLinkedInSources } from './sources/linkedin.js';
 import { skippedSource } from './sources/base.js';
 import { readAppliedExclusions, isApplied, type AppliedExclusion } from './notion.js';
 import { buildDigest } from './digest.js';
@@ -33,9 +34,19 @@ async function fixtureRuns(): Promise<SourceResult[]> {
 
 async function collectSources(options: RunOptions, watchlistCohort: WatchlistCompany[]): Promise<SourceResult[]> {
   if (options.fixtures) return fixtureRuns();
-  const [community, ats] = await Promise.all([loadCommunitySources(), loadAtsSources()]);
+  const [community, ats, linkedin] = await Promise.all([loadCommunitySources(), loadAtsSources(), loadLinkedInSources()]);
   const sources: SourceAdapter[] = [...community, ...ats];
   const deferred: SourceResult[] = [];
+  // Twice a day, gated on the same watermark the Apify actors use. A dry run is
+  // always allowed through so the source can be exercised without waiting.
+  for (const source of linkedin) {
+    const due = !options.persistent || await isSourceDue(source.name, config.LINKEDIN_MIN_INTERVAL_HOURS);
+    if (due) sources.push(source);
+    else {
+      const now = new Date().toISOString();
+      deferred.push({ sourceName: source.name, status: 'SUCCESS', jobs: [], startedAt: now, finishedAt: now, durationMs: 0, costUnits: 0, metrics: { skippedDueToCadence: true, minimumIntervalHours: config.LINKEDIN_MIN_INTERVAL_HOURS } });
+    }
+  }
   if (!options.liveFree) {
     const apify = [
       new ApifySource('linkedin', config.APIFY_LINKEDIN_ACTOR, config.APIFY_LINKEDIN_MAX_RESULTS, watchlistCohort.map(company => company.parent)),
