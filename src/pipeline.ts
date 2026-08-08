@@ -7,13 +7,14 @@ import { buildAliasMap, canonicalizeUrl, canonicalKey, extractSourceJobId, norma
 import { classifyCategory, classifyCycle, classifyGraduation, classifySponsorship, extractSkills, scoreJob } from './classification.js';
 import { parseWatchlist, rotateWatchlist, type WatchlistCompany } from './watchlist.js';
 import type { ClassifiedJob, DigestJob, PipelineReport, RawJob, SourceAdapter, SourceResult } from './types.js';
+import { enrichSponsorship } from './enrichment.js';
 import { loadCommunitySources } from './sources/community.js';
 import { ApifySource } from './sources/apify.js';
 import { loadAtsSources } from './sources/ats.js';
 import { skippedSource } from './sources/base.js';
 import { readAppliedExclusions, isApplied, type AppliedExclusion } from './notion.js';
 import { buildDigest } from './digest.js';
-import { closeStaleJobs, getUnsentJobIds, isSourceDue, loadCachedAppliedExclusions, loadCompanyAliasRows, loadSponsorshipOverrides, prepareEmailBatch, recordSourceRuns, syncAppliedExclusions, upsertJob, withPipelineLock, type SponsorshipOverrideRow } from './db.js';
+import { closeStaleJobs, getEnrichment, getUnsentJobIds, isSourceDue, saveEnrichment, loadCachedAppliedExclusions, loadCompanyAliasRows, loadSponsorshipOverrides, prepareEmailBatch, recordSourceRuns, syncAppliedExclusions, upsertJob, withPipelineLock, type SponsorshipOverrideRow } from './db.js';
 import { log } from './logger.js';
 
 interface RunOptions { fixtures?: boolean; liveFree?: boolean; persistent?: boolean }
@@ -232,9 +233,34 @@ async function execute(options: RunOptions): Promise<PipelineReport> {
   // picked up by the next tick, so a backlog drains over several readable
   // emails instead of one Gmail truncates while marking every role sent.
   const digestCandidates = digestJobs.length;
+  let enrichmentDropped = 0;
+  if (options.persistent && config.ENRICHMENT_ENABLED && digestJobs.length) {
+    // Oversample: some candidates will be dropped once their page is read, and
+    // the digest should still fill. Enrich only what has never been resolved,
+    // so a drained backlog costs a handful of requests per run rather than 90.
+    const shortlist = diversifiedTop(digestJobs, Math.min(config.ENRICHMENT_MAX_JOBS, digestJobs.length));
+    const known = await getEnrichment(shortlist.map(job => job.id).filter((id): id is string => Boolean(id)));
+    const pending = shortlist.filter(job => job.id && !known.has(job.id));
+    if (pending.length) {
+      const verdicts = await enrichSponsorship(pending, patterns);
+      await saveEnrichment(verdicts);
+      for (const verdict of verdicts) known.set(verdict.jobId, { status: verdict.status, evidence: verdict.evidence, httpOk: verdict.httpOk });
+    }
+    digestJobs = digestJobs.filter(job => {
+      const verdict = job.id ? known.get(job.id) : undefined;
+      if (verdict?.status === 'UNSUPPORTED') { enrichmentDropped += 1; return false; }
+      // Promote a confirmed yes so the digest's "Strong matches" section can
+      // finally distinguish it from everything merely unstated.
+      if (verdict?.status === 'SUPPORTED') { job.sponsorshipStatus = 'SUPPORTED'; job.sponsorshipEvidence = verdict.evidence; }
+      return true;
+    });
+    if (enrichmentDropped) log('warn', 'enrichment_dropped_roles', { runId, dropped: enrichmentDropped });
+  }
   if (digestJobs.length > config.DIGEST_MAX_ROLES) {
     digestJobs = diversifiedTop(digestJobs, config.DIGEST_MAX_ROLES);
-    log('info', 'digest_capped', { runId, sending: digestJobs.length, deferred: digestCandidates - digestJobs.length });
+  }
+  if (digestCandidates > digestJobs.length) {
+    log('info', 'digest_capped', { runId, sending: digestJobs.length, deferred: digestCandidates - digestJobs.length - enrichmentDropped, droppedUnsupported: enrichmentDropped });
   }
   const digest = buildDigest(digestJobs, sourceRuns);
   if (digestJobs.length > 0 && options.persistent && config.SEND_EMAIL_ENABLED) {

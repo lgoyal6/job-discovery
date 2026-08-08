@@ -199,4 +199,33 @@ export async function closeStaleJobs(): Promise<number> {
   return result.rowCount ?? 0;
 }
 
+export interface StoredEnrichment { status: string; evidence: string; httpOk: boolean }
+
+/** Verdicts already recovered, so a posting is fetched at most once. */
+export async function getEnrichment(ids: string[]): Promise<Map<string, StoredEnrichment>> {
+  if (!ids.length) return new Map();
+  const rows = await pool.query<{ job_id: string; status: string; evidence: string; http_ok: boolean }>(
+    'SELECT job_id, status, evidence, http_ok FROM job_enrichment WHERE job_id = ANY($1::uuid[])', [ids]);
+  return new Map(rows.rows.map(row => [row.job_id, { status: row.status, evidence: row.evidence, httpOk: row.http_ok }]));
+}
+
+export async function saveEnrichment(verdicts: Array<{ jobId: string; status: string; evidence: string; sourceUrl: string; httpOk: boolean }>): Promise<number> {
+  if (!verdicts.length) return 0;
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    for (const verdict of verdicts) {
+      if (!verdict.jobId) continue;
+      await client.query(
+        `INSERT INTO job_enrichment(job_id,status,evidence,source_url,http_ok,fetched_at)
+         VALUES($1,$2,$3,$4,$5,now())
+         ON CONFLICT(job_id) DO UPDATE SET status=EXCLUDED.status, evidence=EXCLUDED.evidence,
+           source_url=EXCLUDED.source_url, http_ok=EXCLUDED.http_ok, fetched_at=now()`,
+        [verdict.jobId, verdict.status, verdict.evidence.slice(0, 500), verdict.sourceUrl.slice(0, 1000), verdict.httpOk]);
+    }
+    await client.query('COMMIT');
+    return verdicts.length;
+  } catch (error) { await client.query('ROLLBACK'); throw error; } finally { client.release(); }
+}
+
 export function newRunId(): string { return randomUUID(); }

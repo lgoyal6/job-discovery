@@ -43,6 +43,13 @@ const envSchema = z.object({
   // marked sent regardless. Cap well under that; the remainder is not dropped,
   // it simply arrives on the following ticks.
   DIGEST_MAX_ROLES: z.coerce.number().int().min(1).max(150).default(60),
+  // Fetch each candidate posting to recover sponsorship wording the source
+  // listings omit. Verdicts persist, so this is expensive only while a backlog
+  // drains — in steady state it touches the handful of roles that are new.
+  ENRICHMENT_ENABLED: z.enum(['true', 'false']).default('true').transform(v => v === 'true'),
+  ENRICHMENT_MAX_JOBS: z.coerce.number().int().min(0).max(400).default(90),
+  ENRICHMENT_CONCURRENCY: z.coerce.number().int().min(1).max(16).default(6),
+  ENRICHMENT_TIMEOUT_MS: z.coerce.number().int().min(1000).max(30000).default(10000),
   SEND_EMAIL_ENABLED: z.enum(['true', 'false']).default('false').transform(v => v === 'true'),
   APIFY_ENABLED: z.enum(['true', 'false']).default('false').transform(v => v === 'true'),
   PAID_SOURCES_ENABLED: z.enum(['true', 'false']).default('false').transform(v => v === 'true'),
