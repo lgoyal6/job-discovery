@@ -10,7 +10,7 @@ export const projectRoot = resolve(here, '..');
 const envSchema = z.object({
   DATABASE_URL: z.string().default('postgresql://job_pipeline:job_pipeline@localhost:5432/job_discovery'),
   // No defaults: these identify a specific mailbox and Notion workspace, so a
-  // baked-in fallback is both a leak and a silent-wrong-value hazard — the stale
+  // baked-in fallback is both a leak and a silent-wrong-value hazard, the stale
   // default here pointed at a different database than production for weeks.
   // Missing values must fail loudly at startup instead.
   EMAIL_TO: z.string().email(),
@@ -43,18 +43,20 @@ const envSchema = z.object({
   // marked sent regardless. Cap well under that; the remainder is not dropped,
   // it simply arrives on the following ticks.
   DIGEST_MAX_ROLES: z.coerce.number().int().min(1).max(150).default(60),
-  // Fetch each candidate posting to recover sponsorship wording the source
-  // listings omit. Verdicts persist, so this is expensive only while a backlog
-  // drains — in steady state it touches the handful of roles that are new.
-  // LinkedIn's public guest endpoint. Twice a day by default: the coverage
-  // against a 24-hour window is nearly identical to running every tick, and a
-  // fixed egress address makes restraint the difference between working and
-  // being blocked for every source.
+  // LinkedIn's public guest endpoint. Twice a day by default: coverage against
+  // a 24-hour window is nearly identical to running every tick, and a fixed
+  // egress address makes restraint the difference between working and being
+  // blocked for every source.
   LINKEDIN_ENABLED: z.enum(['true', 'false']).default('true').transform(v => v === 'true'),
   LINKEDIN_MIN_INTERVAL_HOURS: z.coerce.number().int().min(1).max(168).default(12),
-  LINKEDIN_PAGES_PER_QUERY: z.coerce.number().int().min(1).max(40).default(5),
+  // Relevance decays sharply with depth (measured 5, 4, 2, 1, 1 intern-titled
+  // per page), so deep paging buys noise and request budget, not coverage.
+  LINKEDIN_PAGES_PER_QUERY: z.coerce.number().int().min(1).max(40).default(3),
   LINKEDIN_REQUEST_DELAY_MS: z.coerce.number().int().min(0).max(30000).default(1500),
   LINKEDIN_RECENCY_SECONDS: z.coerce.number().int().min(3600).max(2592000).default(86400),
+  // Fetch each candidate posting to recover sponsorship wording the source
+  // listings omit. Verdicts persist, so this costs requests only while a
+  // backlog drains; in steady state it touches the few roles that are new.
   ENRICHMENT_ENABLED: z.enum(['true', 'false']).default('true').transform(v => v === 'true'),
   ENRICHMENT_MAX_JOBS: z.coerce.number().int().min(0).max(400).default(90),
   ENRICHMENT_CONCURRENCY: z.coerce.number().int().min(1).max(16).default(6),

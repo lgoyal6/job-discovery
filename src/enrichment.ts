@@ -11,7 +11,7 @@ export interface EnrichmentVerdict {
   httpOk: boolean;
 }
 
-// Community lists give a company, a title, a location and a link — no prose.
+// Community lists give a company, a title, a location and a link, no prose.
 // The sponsorship rules need prose, so the posting's own page is the only place
 // "U.S. citizens or permanent residents" can be found for these roles.
 const SCRIPT_AND_STYLE = /<(script|style|noscript)\b[^>]*>[\s\S]*?<\/\1>/gi;

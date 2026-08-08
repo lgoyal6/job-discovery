@@ -120,8 +120,8 @@ const TITLE_NOISE = /^(intern|interns|internship|internships|co|op|coop|summer|f
 // enough to stem those pairs and long enough that backend/frontend, undergrad/
 // masters, and distinct team suffixes stay separate.
 // One requisition open in several cities gets rendered differently by every
-// list — "6 locations Atlanta, GA …", "Atlanta, GA +5", "New York, NY
-// (multiple)" — so those must share a bucket. Two postings each naming a single
+// list, "6 locations Atlanta, GA …", "Atlanta, GA +5", "New York, NY
+// (multiple)", so those must share a bucket. Two postings each naming a single
 // distinct city are genuinely separate roles and must not.
 const MULTI_LOCATION = /\+\s*\d|\b\d+\s+locations?\b|\bmultiple\b|\bvarious\b/i;
 function locationBucket(location: string, normalizedLocation: string): string {

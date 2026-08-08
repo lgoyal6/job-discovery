@@ -99,7 +99,7 @@ export class LinkedInGuestSource extends SafeSource {
     // An undocumented endpoint changing its markup looks exactly like a quiet
     // day unless a full page that parsed to nothing is treated as a failure.
     if (!jobs.length && firstPageBytes > 2000) {
-      throw new Error(`parsed 0 job cards from ${firstPageBytes} bytes — LinkedIn markup likely changed`);
+      throw new Error(`parsed 0 job cards from ${firstPageBytes} bytes, LinkedIn markup likely changed`);
     }
     if (throttled) log('warn', 'linkedin_throttled', { source: this.name, collected: jobs.length });
     return jobs.slice(0, config.COMMUNITY_MAX_RESULTS_PER_SOURCE);

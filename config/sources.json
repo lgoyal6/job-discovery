@@ -74,28 +74,19 @@
   ],
   "linkedin": [
     {
+      "name": "linkedin:swe-internship",
+      "keywords": "software engineering internship",
+      "location": "United States"
+    },
+    {
       "name": "linkedin:swe-intern",
-      "keywords": "software engineer intern 2027",
-      "location": "United States",
-      "cycle": "Summer 2027"
+      "keywords": "software engineer intern",
+      "location": "United States"
     },
     {
-      "name": "linkedin:swe-summer",
-      "keywords": "software engineering internship summer 2027",
-      "location": "United States",
-      "cycle": "Summer 2027"
-    },
-    {
-      "name": "linkedin:quant",
-      "keywords": "quantitative trading research intern",
-      "location": "United States",
-      "cycle": "Summer 2027"
-    },
-    {
-      "name": "linkedin:ml",
-      "keywords": "machine learning intern 2027",
-      "location": "United States",
-      "cycle": "Summer 2027"
+      "name": "linkedin:backend-internship",
+      "keywords": "backend engineering internship",
+      "location": "United States"
     }
   ]
 }

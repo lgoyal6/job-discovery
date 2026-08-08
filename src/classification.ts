@@ -79,15 +79,15 @@ export function classifyGraduation(title: string, description = ''): { eligible:
 
 // The community lists state this in the title, and far more reliably than any
 // prose pattern: 🛂 "Does NOT offer Sponsorship", 🇺🇸 "Requires U.S. Citizenship".
-// Both disqualify an F-1 candidate outright, so they outrank the pattern files —
+// Both disqualify an F-1 candidate outright, so they outrank the pattern files -
 // which otherwise abstain to UNKNOWN on these rows, since community entries
 // carry no description to match against.
 const NO_SPONSORSHIP_MARKER = /\u{1F6C2}/u;
 const US_CITIZENSHIP_MARKER = /\u{1F1FA}\u{1F1F8}/u;
 
 export function classifySponsorship(text: string, patterns: SponsorshipPatterns): { status: SponsorshipStatus; evidence: string } {
-  if (NO_SPONSORSHIP_MARKER.test(text)) return { status: 'UNSUPPORTED', evidence: 'Listed with 🛂 — does not offer sponsorship.' };
-  if (US_CITIZENSHIP_MARKER.test(text)) return { status: 'UNSUPPORTED', evidence: 'Listed with 🇺🇸 — requires U.S. citizenship.' };
+  if (NO_SPONSORSHIP_MARKER.test(text)) return { status: 'UNSUPPORTED', evidence: 'Listed with 🛂, does not offer sponsorship.' };
+  if (US_CITIZENSHIP_MARKER.test(text)) return { status: 'UNSUPPORTED', evidence: 'Listed with 🇺🇸, requires U.S. citizenship.' };
   for (const source of patterns.unsupported) {
     const match = text.match(new RegExp(source, 'i'));
     if (match) return { status: 'UNSUPPORTED', evidence: match[0] };

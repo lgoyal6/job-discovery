@@ -105,7 +105,7 @@ export class CommunitySource extends SafeSource {
     // Upstream changing its markup is indistinguishable from "no roles today"
     // if this returns an empty array, and that silence cost a day of digests.
     if (!jobs.length && body.length > EMPTY_PARSE_MIN_BYTES) {
-      throw new Error(`parsed 0 jobs from ${body.length} bytes — upstream format likely changed`);
+      throw new Error(`parsed 0 jobs from ${body.length} bytes, upstream format likely changed`);
     }
     return jobs.slice(0, config.COMMUNITY_MAX_RESULTS_PER_SOURCE);
   }
