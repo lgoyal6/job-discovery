@@ -835,6 +835,26 @@
       "url": "https://akunacapital.com/work-with-us/early-careers/",
       "company": "Akuna Capital",
       "label": "Early careers"
+    },
+    {
+      "url": "https://joinbytedance.com/earlycareers",
+      "company": "ByteDance",
+      "label": "Early careers"
+    },
+    {
+      "url": "https://www.drw.com/work-at-drw/interns",
+      "company": "DRW",
+      "label": "Interns"
+    },
+    {
+      "url": "https://www.twosigma.com/careers/",
+      "company": "Two Sigma",
+      "label": "Careers"
+    },
+    {
+      "url": "https://www.jumptrading.com/careers/",
+      "company": "Jump Trading",
+      "label": "Careers"
     }
   ]
 }
