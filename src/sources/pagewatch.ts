@@ -50,9 +50,19 @@ async function checkOne(page: WatchPage): Promise<PageWatchResult> {
       headers: { 'user-agent': BROWSER_UA, accept: 'text/html,application/xhtml+xml' }
     });
     if (!response.ok) return { ...base, error: `HTTP ${response.status}` };
+    // A retired program URL usually redirects to the site or careers root, which
+    // returns plenty of text and would then be hashed as if it were the program
+    // page. A homepage changes for marketing reasons constantly, so watching one
+    // produces confident noise rather than a missing signal.
+    const landed = new URL(response.url);
+    if (landed.pathname.replace(/\/+$/, '').length === 0) {
+      return { ...base, httpOk: true, error: `redirected to site root ${landed.origin}, not a program page` };
+    }
     const text = extractText(await response.text());
     if (text.length < MIN_TEXT_LENGTH) return { ...base, httpOk: true, textLength: text.length, error: `only ${text.length} characters of text` };
-    return { url: page.url, company: page.company, label: page.label, hash: hashPageText(text), textLength: text.length, httpOk: true };
+    // Watch where the request landed, not where it was aimed: a redirect to a
+    // renamed program page is the page we actually want to track.
+    return { url: response.url, company: page.company, label: page.label, hash: hashPageText(text), textLength: text.length, httpOk: true };
   } catch (error) {
     return { ...base, error: error instanceof Error ? error.message : String(error) };
   }

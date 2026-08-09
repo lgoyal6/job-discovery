@@ -817,9 +817,9 @@
   ],
   "watchPages": [
     {
-      "url": "https://careers.blackrock.com/early-careers/students",
+      "url": "https://careers.blackrock.com/early-careers",
       "company": "BlackRock",
-      "label": "Students and early careers"
+      "label": "Students and graduates"
     },
     {
       "url": "https://www.janestreet.com/join-jane-street/internships/",
@@ -829,6 +829,11 @@
     {
       "url": "https://optiver.com/working-at-optiver/early-careers/",
       "company": "Optiver",
+      "label": "Early careers"
+    },
+    {
+      "url": "https://akunacapital.com/work-with-us/early-careers/",
+      "company": "Akuna Capital",
       "label": "Early careers"
     }
   ]
