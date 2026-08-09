@@ -70,6 +70,19 @@ const fmt = d => d
     console.log(`  ${m.watchlistCompaniesWithRoles ?? '?'} of ${m.totalCompanies ?? '?'} target companies returned roles (${m.watchlistCoveragePercent ?? '?'}%)`);
   }
 
+  // A source that actually ran and returned nothing, repeatedly, is the shape of
+  // a silent scrape failure. Cadence skips are excluded because they did not run.
+  const stalled = await c.query(`
+    SELECT source_name, count(*) AS runs, max(finished_at) AS last_run
+      FROM source_runs
+     WHERE status = 'SUCCESS' AND started_at > now() - interval '48 hours'
+     GROUP BY source_name
+    HAVING sum(fetched_count) = 0
+     ORDER BY 2 DESC`);
+  console.log('\n=== SOURCES RETURNING NOTHING (ran, but fetched 0) ===');
+  if (!stalled.rows.length) console.log('  none, every source that ran returned rows');
+  for (const r of stalled.rows) console.log(`  ${String(r.source_name).padEnd(30)} ${r.runs} runs, all empty, last ${fmt(r.last_run)}`);
+
   const s = await c.query(
     'SELECT source_name, status, fetched_count, accepted_count, error_message, finished_at FROM source_runs ORDER BY started_at DESC LIMIT 12');
   console.log('\n=== RECENT SOURCE RUNS ===');

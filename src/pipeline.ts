@@ -43,8 +43,10 @@ async function collectSources(options: RunOptions, watchlistCohort: WatchlistCom
     const due = !options.persistent || await isSourceDue(source.name, config.LINKEDIN_MIN_INTERVAL_HOURS);
     if (due) sources.push(source);
     else {
-      const now = new Date().toISOString();
-      deferred.push({ sourceName: source.name, status: 'SUCCESS', jobs: [], startedAt: now, finishedAt: now, durationMs: 0, costUnits: 0, metrics: { skippedDueToCadence: true, minimumIntervalHours: config.LINKEDIN_MIN_INTERVAL_HOURS } });
+      // SKIPPED, not SUCCESS: a source that did not run must never look like a
+      // source that ran and found nothing. That is the distinction whose absence
+      // let three community feeds report healthy while parsing zero rows.
+      deferred.push({ ...skippedSource(source.name, `not due: runs every ${config.LINKEDIN_MIN_INTERVAL_HOURS}h`), metrics: { skippedDueToCadence: true, minimumIntervalHours: config.LINKEDIN_MIN_INTERVAL_HOURS } });
     }
   }
   if (!options.liveFree) {
@@ -57,8 +59,7 @@ async function collectSources(options: RunOptions, watchlistCohort: WatchlistCom
       const due = !options.persistent || await isSourceDue(source.name, config.APIFY_MIN_INTERVAL_HOURS);
       if (due) sources.push(source);
       else {
-        const now = new Date().toISOString();
-        deferred.push({ sourceName: source.name, status: 'SUCCESS', jobs: [], startedAt: now, finishedAt: now, durationMs: 0, costUnits: 0, metrics: { skippedDueToCadence: true, minimumIntervalHours: config.APIFY_MIN_INTERVAL_HOURS } });
+        deferred.push({ ...skippedSource(source.name, `not due: runs every ${config.APIFY_MIN_INTERVAL_HOURS}h`), metrics: { skippedDueToCadence: true, minimumIntervalHours: config.APIFY_MIN_INTERVAL_HOURS } });
       }
     }
   }
