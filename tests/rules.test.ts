@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { diversifiedTop, localDedupe } from '../src/pipeline.js';
 import { boardFromUrl, slugCandidates } from '../src/discovery.js';
+import { hashPageText } from '../src/sources/pagewatch.js';
 import { classifyCategory, classifyCycle, classifyGraduation, classifySponsorship } from '../src/classification.js';
 import { loadCompanyAliases, loadSponsorshipPatterns } from '../src/config.js';
 import { buildAliasMap, canonicalizeUrl, canonicalKey, normalizeCompany } from '../src/normalization.js';
@@ -188,5 +189,14 @@ describe('board harvesting from observed apply URLs', () => {
   it('ignores non-board URLs and greenhouse embed paths', () => {
     expect(boardFromUrl('https://careers.google.com/jobs/results/123')).toBeNull();
     expect(boardFromUrl('https://boards.greenhouse.io/embed/job_board?for=acme')).toBeNull();
+  });
+});
+
+describe('program page watching', () => {
+  // A first sighting must establish a baseline, never fire. Otherwise every
+  // newly added page emails on the run that introduces it.
+  it('hashes identical text identically and different text differently', () => {
+    expect(hashPageText('applications open in July')).toBe(hashPageText('applications open in July'));
+    expect(hashPageText('applications open in July')).not.toBe(hashPageText('applications are now open'));
   });
 });

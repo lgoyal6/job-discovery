@@ -12,10 +12,11 @@ import { loadCommunitySources } from './sources/community.js';
 import { ApifySource } from './sources/apify.js';
 import { loadAtsSources } from './sources/ats.js';
 import { loadLinkedInSources } from './sources/linkedin.js';
+import { checkWatchedPages, loadWatchPages, type PageChange } from './sources/pagewatch.js';
 import { skippedSource } from './sources/base.js';
 import { readAppliedExclusions, isApplied, type AppliedExclusion } from './notion.js';
-import { buildDigest } from './digest.js';
-import { closeStaleJobs, getEnrichment, getUnsentJobIds, isSourceDue, saveEnrichment, loadCachedAppliedExclusions, loadCompanyAliasRows, loadSponsorshipOverrides, prepareEmailBatch, recordSourceRuns, syncAppliedExclusions, upsertJob, withPipelineLock, type SponsorshipOverrideRow } from './db.js';
+import { buildDigest, type ProgramChange } from './digest.js';
+import { getPageWatchState, savePageWatch, closeStaleJobs, getEnrichment, getUnsentJobIds, isSourceDue, saveEnrichment, loadCachedAppliedExclusions, loadCompanyAliasRows, loadSponsorshipOverrides, prepareEmailBatch, recordSourceRuns, syncAppliedExclusions, upsertJob, withPipelineLock, type SponsorshipOverrideRow } from './db.js';
 import { log } from './logger.js';
 
 interface RunOptions { fixtures?: boolean; liveFree?: boolean; persistent?: boolean }
@@ -191,6 +192,39 @@ async function execute(options: RunOptions): Promise<PipelineReport> {
   const watchlistCohort = rotateWatchlist(watchlist, slot, config.WATCHLIST_COMPANIES_PER_RUN);
   const sourceRuns = await collectSources(options, watchlistCohort);
   const now = new Date().toISOString();
+
+  // Program pages announce a cycle before any requisition exists, which is the
+  // one thing the rest of the pipeline structurally cannot see.
+  const programChanges: ProgramChange[] = [];
+  const watchPages = await loadWatchPages();
+  if (watchPages.length) {
+    const due = !options.persistent || await isSourceDue('page-watch', config.PAGEWATCH_MIN_INTERVAL_HOURS);
+    if (!due) {
+      sourceRuns.push({ ...skippedSource('page-watch', `not due: runs every ${config.PAGEWATCH_MIN_INTERVAL_HOURS}h`), metrics: { skippedDueToCadence: true, minimumIntervalHours: config.PAGEWATCH_MIN_INTERVAL_HOURS } });
+    } else {
+      const startedAt = new Date().toISOString();
+      const results = await checkWatchedPages(watchPages);
+      const known = options.persistent ? await getPageWatchState() : new Map();
+      const changes: PageChange[] = [];
+      for (const result of results) {
+        const previous = known.get(result.url);
+        // Only a readable page with a previously recorded hash can register a
+        // change; a first sighting establishes the baseline instead of firing.
+        const changed = Boolean(result.hash && previous?.contentHash && previous.contentHash !== result.hash);
+        if (changed) changes.push({ url: result.url, company: result.company, label: result.label, previousLength: previous?.textLength ?? 0, textLength: result.textLength });
+        if (options.persistent) await savePageWatch(result, changed);
+      }
+      for (const change of changes) programChanges.push({ company: change.company, label: change.label, url: change.url });
+      if (changes.length) log('warn', 'program_pages_changed', { runId, changed: changes.map(change => change.company) });
+      const unreadable = results.filter(result => !result.hash);
+      sourceRuns.push({
+        sourceName: 'page-watch', status: unreadable.length === results.length && results.length > 0 ? 'FAILED' : 'SUCCESS',
+        jobs: [], startedAt, finishedAt: new Date().toISOString(), durationMs: 0, costUnits: 0,
+        error: unreadable.length ? `${unreadable.length} of ${results.length} pages unreadable` : undefined,
+        metrics: { watched: results.length, readable: results.length - unreadable.length, changed: changes.length }
+      });
+    }
+  }
   // Coverage is reported every run because its absence is what hid the gap:
   // 288 of 338 target companies produced nothing for weeks and no number said so.
   const watchlistNames = new Set(watchlist.map(company => normalizeText(company.parent)));
@@ -282,16 +316,19 @@ async function execute(options: RunOptions): Promise<PipelineReport> {
   if (digestCandidates > digestJobs.length) {
     log('info', 'digest_capped', { runId, sending: digestJobs.length, deferred: digestCandidates - digestJobs.length - enrichmentDropped, droppedUnsupported: enrichmentDropped });
   }
-  const digest = buildDigest(digestJobs, sourceRuns);
-  if (digestJobs.length > 0 && options.persistent && config.SEND_EMAIL_ENABLED) {
-    const batch = await prepareEmailBatch(runId, digestJobs, digest.subject);
+  const digest = buildDigest(digestJobs, sourceRuns, new Date(), programChanges);
+  if ((digestJobs.length > 0 || programChanges.length > 0) && options.persistent && config.SEND_EMAIL_ENABLED) {
+    // Program-change URLs join the batch key so a change is emailed once, the
+    // same way a role is, instead of re-sending every run while the page stays
+    // changed or being swallowed when there are no new roles to key on.
+    const batch = await prepareEmailBatch(runId, digestJobs, digest.subject, programChanges.map(change => `page:${change.url}`));
     batchKey = batch.batchKey;
     shouldSend = batch.claimed;
     // A recovered batch means a previous send never confirmed. Say so loudly:
     // the silent version of this failure is what blocks a digest indefinitely.
     if (batch.reclaimed) log('warn', 'email_batch_reclaimed', { runId, batchKey, staleMinutes: config.EMAIL_BATCH_STALE_MINUTES });
     if (!shouldSend) log('warn', 'email_batch_not_claimed', { runId, batchKey, digest: digestJobs.length });
-  } else if (digestJobs.length > 0 && options.persistent && !config.SEND_EMAIL_ENABLED) {
+  } else if ((digestJobs.length > 0 || programChanges.length > 0) && options.persistent && !config.SEND_EMAIL_ENABLED) {
     // Suppressing a real digest is indistinguishable from having nothing to send
     // unless it is recorded; an unset flag defaults to off and reads as healthy.
     log('warn', 'email_send_disabled', { runId, digest: digestJobs.length });

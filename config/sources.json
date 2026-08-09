@@ -43,6 +43,12 @@
       "url": "https://raw.githubusercontent.com/sndsh404/summer-2027-internships/main/README.md",
       "format": "markdown",
       "cycle": "Summer 2027"
+    },
+    {
+      "name": "speedyapply-ai",
+      "url": "https://raw.githubusercontent.com/speedyapply/2027-AI-College-Jobs/main/README.md",
+      "format": "markdown",
+      "cycle": "Summer 2027"
     }
   ],
   "ats": [
@@ -807,6 +813,23 @@
       "name": "linkedin:backend-internship",
       "keywords": "backend engineering internship",
       "location": "United States"
+    }
+  ],
+  "watchPages": [
+    {
+      "url": "https://careers.blackrock.com/early-careers/students",
+      "company": "BlackRock",
+      "label": "Students and early careers"
+    },
+    {
+      "url": "https://www.janestreet.com/join-jane-street/internships/",
+      "company": "Jane Street",
+      "label": "Internships"
+    },
+    {
+      "url": "https://optiver.com/working-at-optiver/early-careers/",
+      "company": "Optiver",
+      "label": "Early careers"
     }
   ]
 }

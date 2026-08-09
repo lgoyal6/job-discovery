@@ -66,6 +66,13 @@ const envSchema = z.object({
   ENRICHMENT_MAX_JOBS: z.coerce.number().int().min(0).max(400).default(90),
   ENRICHMENT_CONCURRENCY: z.coerce.number().int().min(1).max(16).default(6),
   ENRICHMENT_TIMEOUT_MS: z.coerce.number().int().min(1000).max(30000).default(10000),
+  // Watch program and early-careers pages for change. Daily by default: these
+  // announce a cycle weeks ahead, so the signal is measured in days, and a
+  // marketing page does not need polling every two hours.
+  PAGEWATCH_ENABLED: z.enum(['true', 'false']).default('true').transform(v => v === 'true'),
+  PAGEWATCH_MIN_INTERVAL_HOURS: z.coerce.number().int().min(1).max(168).default(24),
+  PAGEWATCH_CONCURRENCY: z.coerce.number().int().min(1).max(16).default(4),
+  PAGEWATCH_TIMEOUT_MS: z.coerce.number().int().min(1000).max(60000).default(15000),
   // Board discovery probes public ATS endpoints; keep it polite since it runs
   // against a few hundred companies at once.
   DISCOVERY_CONCURRENCY: z.coerce.number().int().min(1).max(32).default(10),

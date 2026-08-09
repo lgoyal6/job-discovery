@@ -151,10 +151,16 @@ export async function upsertJob(job: ClassifiedJob): Promise<UpsertResult> {
   } catch (error) { await client.query('ROLLBACK'); throw error; } finally { client.release(); }
 }
 
-export async function prepareEmailBatch(runId: string, jobs: DigestJob[], subject: string): Promise<{ batchKey: string; claimed: boolean; reclaimed: boolean }> {
-  const ids = jobs.map(job => job.id).filter((id): id is string => Boolean(id)).sort();
-  const digestHash = makeDigestHash(ids);
-  const batchKey = makeBatchKey(ids, new Date());
+export async function prepareEmailBatch(runId: string, jobs: DigestJob[], subject: string, extraKeys: string[] = []): Promise<{ batchKey: string; claimed: boolean; reclaimed: boolean }> {
+  // extraKeys carries non-job contents of the digest (currently changed program
+  // pages) so they participate in dedupe exactly like roles: emailed once, and
+  // able to justify a send on their own when no new role exists to key on.
+  // job_ids is uuid[] and markBatchSent stamps sent_at through it, so only real
+  // job ids may go in the column. The extra keys shape identity only.
+  const jobIds = jobs.map(job => job.id).filter((id): id is string => Boolean(id)).sort();
+  const identity = [...jobIds, ...extraKeys].sort();
+  const digestHash = makeDigestHash(identity);
+  const batchKey = makeBatchKey(identity, new Date());
   // A SENT batch is never re-claimable. An ABANDONED one is, and so is a claim
   // left stale by a send that died before confirming — otherwise that digest is
   // blocked forever while the pipeline keeps reporting success every run.
@@ -165,7 +171,7 @@ export async function prepareEmailBatch(runId: string, jobs: DigestJob[], subjec
           OR (email_batches.status='CLAIMED'
               AND email_batches.claimed_at < now() - make_interval(mins => $6::int))
      RETURNING batch_key, (xmax <> 0) AS reclaimed`,
-    [batchKey, runId, ids, subject, digestHash, config.EMAIL_BATCH_STALE_MINUTES]);
+    [batchKey, runId, jobIds, subject, digestHash, config.EMAIL_BATCH_STALE_MINUTES]);
   const row = inserted.rows[0];
   // Re-claiming keeps the row's original batch_key, which is hour-stamped and so
   // differs from the one computed above. Return the stored key or batch-sent
@@ -243,6 +249,29 @@ export async function getSeenApplyUrls(): Promise<Array<{ url: string; company: 
        FROM job_sources s JOIN jobs j ON j.id = s.job_id
       WHERE coalesce(s.direct_apply_url, s.source_url) IS NOT NULL`);
   return rows.rows;
+}
+
+export interface PageWatchRow { url: string; contentHash: string; textLength: number }
+
+export async function getPageWatchState(): Promise<Map<string, PageWatchRow>> {
+  const rows = await pool.query<{ url: string; content_hash: string; text_length: number }>(
+    'SELECT url, content_hash, text_length FROM page_watches');
+  return new Map(rows.rows.map(row => [row.url, { url: row.url, contentHash: row.content_hash, textLength: row.text_length }]));
+}
+
+export async function savePageWatch(result: { url: string; company: string; label: string; hash: string; textLength: number; httpOk: boolean; error?: string }, changed: boolean): Promise<void> {
+  await pool.query(
+    `INSERT INTO page_watches(url,company,label,content_hash,text_length,http_ok,last_error,last_checked_at,last_changed_at)
+     VALUES($1,$2,$3,$4,$5,$6,$7,now(),CASE WHEN $8 THEN now() ELSE NULL END)
+     ON CONFLICT(url) DO UPDATE SET
+       company=EXCLUDED.company, label=EXCLUDED.label,
+       -- Keep the last good hash when a fetch fails, so recovering from a 403
+       -- does not read as a content change.
+       content_hash=CASE WHEN EXCLUDED.content_hash <> '' THEN EXCLUDED.content_hash ELSE page_watches.content_hash END,
+       text_length=CASE WHEN EXCLUDED.content_hash <> '' THEN EXCLUDED.text_length ELSE page_watches.text_length END,
+       http_ok=EXCLUDED.http_ok, last_error=EXCLUDED.last_error, last_checked_at=now(),
+       last_changed_at=CASE WHEN $8 THEN now() ELSE page_watches.last_changed_at END`,
+    [result.url, result.company, result.label, result.hash, result.textLength, result.httpOk, result.error ?? null, changed]);
 }
 
 export function newRunId(): string { return randomUUID(); }
