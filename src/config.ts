@@ -30,7 +30,12 @@ const envSchema = z.object({
   APIFY_MAX_COMPUTE_UNITS_PER_RUN: z.coerce.number().min(0).max(10).default(1),
   APIFY_MAX_TOTAL_CHARGE_USD: z.coerce.number().min(0).max(10).default(0.5),
   COMMUNITY_MAX_RESULTS_PER_SOURCE: z.coerce.number().int().positive().max(2000).default(300),
+  // Applies to boards fetched page by page (Lever, SmartRecruiters, Workday),
+  // where it genuinely limits how many requests are made.
   ATS_MAX_RESULTS_PER_SOURCE: z.coerce.number().int().positive().max(1000).default(250),
+  // Applies to boards returned whole in one response (Greenhouse, Ashby), where
+  // a low cap only discards postings that were already downloaded.
+  ATS_MAX_RESULTS_PER_BOARD: z.coerce.number().int().positive().max(20000).default(5000),
   SOURCE_TIMEOUT_MS: z.coerce.number().int().min(1000).max(120000).default(20000),
   SOURCE_RETRIES: z.coerce.number().int().min(0).max(5).default(3),
   WATCHLIST_COMPANIES_PER_RUN: z.coerce.number().int().positive().max(500).default(30),
