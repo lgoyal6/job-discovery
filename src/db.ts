@@ -236,4 +236,13 @@ export async function saveEnrichment(verdicts: Array<{ jobId: string; status: st
   } catch (error) { await client.query('ROLLBACK'); throw error; } finally { client.release(); }
 }
 
+/** Apply URLs already observed, used to harvest ATS board slugs. */
+export async function getSeenApplyUrls(): Promise<Array<{ url: string; company: string }>> {
+  const rows = await pool.query<{ url: string; company: string }>(
+    `SELECT DISTINCT coalesce(s.direct_apply_url, s.source_url) AS url, j.company
+       FROM job_sources s JOIN jobs j ON j.id = s.job_id
+      WHERE coalesce(s.direct_apply_url, s.source_url) IS NOT NULL`);
+  return rows.rows;
+}
+
 export function newRunId(): string { return randomUUID(); }

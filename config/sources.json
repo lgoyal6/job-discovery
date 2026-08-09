@@ -665,6 +665,131 @@
       "type": "greenhouse",
       "company": "Zscaler",
       "board": "zscaler"
+    },
+    {
+      "type": "ashby",
+      "board": "apex-technology-inc",
+      "company": "Apex Technology, Inc."
+    },
+    {
+      "type": "greenhouse",
+      "board": "aquaticcapitalmanagement",
+      "company": "Aquatic"
+    },
+    {
+      "type": "greenhouse",
+      "board": "ctccampusboard",
+      "company": "Chicago Trading Company"
+    },
+    {
+      "type": "greenhouse",
+      "board": "chicagotradingcampus",
+      "company": "Chicago Trading Company"
+    },
+    {
+      "type": "ashby",
+      "board": "netic",
+      "company": "Cybernetic Labs"
+    },
+    {
+      "type": "greenhouse",
+      "board": "dvtrading",
+      "company": "DV Group"
+    },
+    {
+      "type": "ashby",
+      "board": "ellipsislabs",
+      "company": "Ellipsis Labs"
+    },
+    {
+      "type": "ashby",
+      "board": "etched",
+      "company": "Etched"
+    },
+    {
+      "type": "ashby",
+      "board": "fab2",
+      "company": "Fab2"
+    },
+    {
+      "type": "greenhouse",
+      "board": "flowtraders",
+      "company": "Flow Traders"
+    },
+    {
+      "type": "ashby",
+      "board": "homebase",
+      "company": "Homebase"
+    },
+    {
+      "type": "ashby",
+      "board": "melius",
+      "company": "Melius"
+    },
+    {
+      "type": "greenhouse",
+      "board": "neuralink",
+      "company": "Neuralink"
+    },
+    {
+      "type": "greenhouse",
+      "board": "oldmissioncapital",
+      "company": "Old Mission"
+    },
+    {
+      "type": "ashby",
+      "board": "quadrillion-labs",
+      "company": "Quadrillion Labs"
+    },
+    {
+      "type": "greenhouse",
+      "board": "axontalentcommunity",
+      "company": "RenderATL"
+    },
+    {
+      "type": "ashby",
+      "board": "skydio",
+      "company": "Skydio"
+    },
+    {
+      "type": "greenhouse",
+      "board": "scm",
+      "company": "Stevens Capital Management"
+    },
+    {
+      "type": "greenhouse",
+      "board": "thenuclearcompany",
+      "company": "The Nuclear Company"
+    },
+    {
+      "type": "greenhouse",
+      "board": "thetradedesk",
+      "company": "The Trade Desk"
+    },
+    {
+      "type": "greenhouse",
+      "board": "towerresearchcapital",
+      "company": "Tower Research Capital"
+    },
+    {
+      "type": "ashby",
+      "board": "valstad",
+      "company": "Valstad"
+    },
+    {
+      "type": "greenhouse",
+      "board": "voloridgeinvestmentmanagement",
+      "company": "Voloridge Investment Management"
+    },
+    {
+      "type": "greenhouse",
+      "board": "walleyecapital-external-students",
+      "company": "Walleye Capital"
+    },
+    {
+      "type": "lever",
+      "site": "xsolla",
+      "company": "Xsolla"
     }
   ],
   "linkedin": [

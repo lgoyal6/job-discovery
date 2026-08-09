@@ -76,6 +76,55 @@ export async function unconfiguredWatchlistCompanies(): Promise<string[]> {
   return [...names];
 }
 
+// Guessing a slug from a company name only finds boards whose slug looks like
+// the company. It will never produce "embed" for Cubist Systematic Strategies or
+// "scm" for Stevens Capital Management. Those arrive on their own, inside the
+// apply URLs of roles the community lists and LinkedIn already surface, so the
+// pipeline can grow its own source list from what it has already seen.
+const BOARD_URL_PATTERNS: Array<[RegExp, BoardHit['ats']]> = [
+  [/(?:job-)?boards\.greenhouse\.io\/([a-z0-9_-]+)/i, 'greenhouse'],
+  [/jobs\.lever\.co\/([a-z0-9_-]+)/i, 'lever'],
+  [/jobs\.ashbyhq\.com\/([a-z0-9_-]+)/i, 'ashby']
+];
+
+export function boardFromUrl(url: string): { ats: BoardHit['ats']; board: string } | null {
+  for (const [pattern, ats] of BOARD_URL_PATTERNS) {
+    const match = url.match(pattern);
+    // Greenhouse serves /embed/job_board style paths too; those are not slugs.
+    if (match?.[1] && match[1].toLowerCase() !== 'embed') return { ats, board: match[1].toLowerCase() };
+  }
+  return null;
+}
+
+/** Board slugs seen in apply URLs that are not configured as sources yet. */
+export async function harvestBoardsFromSeenUrls(
+  urls: Array<{ url: string; company: string }>,
+  configured: Set<string>
+): Promise<BoardHit[]> {
+  const found = new Map<string, BoardHit>();
+  for (const { url, company } of urls) {
+    const hit = url ? boardFromUrl(url) : null;
+    if (!hit) continue;
+    const key = `${hit.ats}:${hit.board}`;
+    if (configured.has(key) || found.has(key)) continue;
+    found.set(key, { company, ats: hit.ats, board: hit.board, jobs: 0 });
+  }
+  // Confirm each is a live board before proposing it, so a dead or renamed slug
+  // never becomes a permanently failing source.
+  const confirmed: BoardHit[] = [];
+  const queue = [...found.values()];
+  const worker = async (): Promise<void> => {
+    for (let candidate = queue.shift(); candidate; candidate = queue.shift()) {
+      const spec = PROBES.find(p => p.ats === candidate.ats);
+      if (!spec) continue;
+      const hit = await probe(candidate.company, candidate.board, spec);
+      if (hit) confirmed.push(hit);
+    }
+  };
+  await Promise.all(Array.from({ length: config.DISCOVERY_CONCURRENCY }, worker));
+  return confirmed.sort((a, b) => a.company.localeCompare(b.company));
+}
+
 export async function runDiscovery(): Promise<{ hits: BoardHit[]; probed: number }> {
   const companies = await unconfiguredWatchlistCompanies();
   log('info', 'board_discovery_start', { companies: companies.length, concurrency: config.DISCOVERY_CONCURRENCY });

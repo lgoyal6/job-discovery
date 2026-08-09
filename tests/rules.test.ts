@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { diversifiedTop, localDedupe } from '../src/pipeline.js';
-import { slugCandidates } from '../src/discovery.js';
+import { boardFromUrl, slugCandidates } from '../src/discovery.js';
 import { classifyCategory, classifyCycle, classifyGraduation, classifySponsorship } from '../src/classification.js';
 import { loadCompanyAliases, loadSponsorshipPatterns } from '../src/config.js';
 import { buildAliasMap, canonicalizeUrl, canonicalKey, normalizeCompany } from '../src/normalization.js';
@@ -174,5 +174,19 @@ describe('board discovery', () => {
 
   it('drops slugs too short to be real boards', () => {
     expect(slugCandidates('X')).toHaveLength(0);
+  });
+});
+
+describe('board harvesting from observed apply URLs', () => {
+  it('extracts slugs a company name could never produce', () => {
+    expect(boardFromUrl('https://boards.greenhouse.io/embedxyz/jobs/123')).toEqual({ ats: 'greenhouse', board: 'embedxyz' });
+    expect(boardFromUrl('https://job-boards.greenhouse.io/towerresearchcapital/jobs/9')).toEqual({ ats: 'greenhouse', board: 'towerresearchcapital' });
+    expect(boardFromUrl('https://jobs.lever.co/belvederetrading/abc')).toEqual({ ats: 'lever', board: 'belvederetrading' });
+    expect(boardFromUrl('https://jobs.ashbyhq.com/rivianvw/xyz')).toEqual({ ats: 'ashby', board: 'rivianvw' });
+  });
+
+  it('ignores non-board URLs and greenhouse embed paths', () => {
+    expect(boardFromUrl('https://careers.google.com/jobs/results/123')).toBeNull();
+    expect(boardFromUrl('https://boards.greenhouse.io/embed/job_board?for=acme')).toBeNull();
   });
 });

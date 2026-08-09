@@ -1,6 +1,6 @@
 #!/usr/bin/env node
-import { markBatchSent, migrate, pool } from './db.js';
-import { runDiscovery } from './discovery.js';
+import { getSeenApplyUrls, markBatchSent, migrate, pool } from './db.js';
+import { harvestBoardsFromSeenUrls, runDiscovery } from './discovery.js';
 import { runPipeline } from './pipeline.js';
 import { log } from './logger.js';
 
@@ -37,6 +37,21 @@ async function main(): Promise<void> {
     process.stdout.write(`${JSON.stringify({ probed, resolved: hits.length, entries }, null, 2)}\n`);
     return;
   }
+  if (command === 'harvest-boards') {
+    // Slugs cannot be guessed from company names, but they appear verbatim in
+    // the apply URLs of roles already collected. This turns those into sources.
+    const { readFile } = await import('node:fs/promises');
+    const { resolve } = await import('node:path');
+    const { projectRoot } = await import('./config.js');
+    const cfg = JSON.parse(await readFile(resolve(projectRoot, 'config/sources.json'), 'utf8')) as { ats?: Array<{ type: string; board?: string; site?: string }> };
+    const configured = new Set((cfg.ats ?? []).map(a => `${a.type}:${(a.board ?? a.site ?? '').toLowerCase()}`));
+    const hits = await harvestBoardsFromSeenUrls(await getSeenApplyUrls(), configured);
+    const entries = hits.map(h => h.ats === 'lever'
+      ? { type: h.ats, site: h.board, company: h.company }
+      : { type: h.ats, board: h.board, company: h.company });
+    process.stdout.write(`${JSON.stringify({ newBoards: hits.length, entries }, null, 2)}\n`);
+    return;
+  }
   if (command === 'batch-sent') {
     const batchKey = flag('--batch-key');
     if (!batchKey) throw new Error('--batch-key is required');
@@ -44,7 +59,7 @@ async function main(): Promise<void> {
     process.stdout.write(`${JSON.stringify({ ok: marked, batchKey })}\n`);
     return;
   }
-  throw new Error('Usage: cli.ts migrate | dry-run [--fixtures|--live-free] | pipeline | discover-boards | batch-sent --batch-key KEY [--message-id ID]');
+  throw new Error('Usage: cli.ts migrate | dry-run [--fixtures|--live-free] | pipeline | discover-boards | harvest-boards | batch-sent --batch-key KEY [--message-id ID]');
 }
 
 main().catch(error => { log('error', 'cli_failed', { error: error instanceof Error ? error.message : String(error) }); process.exitCode = 1; }).finally(() => pool.end());
