@@ -18,14 +18,22 @@ function cleanCell(cell: string): string {
   return cell.replace(/\[([^\]]+)\]\(https?:\/\/[^)]+\)/g, '$1').replace(/<[^>]*>/g, ' ').replace(/&nbsp;|&#x200B;/g, ' ').replace(/\*\*/g, '').replace(/\s+/g, ' ').trim();
 }
 
+// Simplify's apply cells are image buttons (<a href="…"><img alt="Apply"></a>);
+// cleanCell strips the tag together with its alt text, which left every label
+// empty and made the apply-link selector below fall back to the row's first
+// link, the simplify.jobs/c/ company profile. Surface the alt text as label.
+function linkLabel(content: string): string {
+  return cleanCell(content.replace(/<img[^>]*\balt=["']([^"']*)["'][^>]*>/gi, ' $1 '));
+}
+
 // These READMEs mix link syntaxes and change without warning: vanshb03 and
 // speedyapply both moved their table cells from [label](url) to raw <a> tags,
 // which silently produced zero jobs for over a day. Accept both forms.
 function links(cell: string): Array<{ label: string; url: string }> {
   const markdown = [...cell.matchAll(/\[([^\]]*)\]\((https?:\/\/[^)\s]+)[^)]*\)/g)]
-    .map(match => ({ label: cleanCell(match[1] ?? ''), url: match[2] ?? '' }));
+    .map(match => ({ label: linkLabel(match[1] ?? ''), url: match[2] ?? '' }));
   const html = [...cell.matchAll(/<a[^>]+href=["'](https?:\/\/[^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi)]
-    .map(match => ({ label: cleanCell(match[2] ?? ''), url: match[1] ?? '' }));
+    .map(match => ({ label: linkLabel(match[2] ?? ''), url: match[1] ?? '' }));
   const all = [...markdown, ...html].filter(link => link.url);
   const seen = new Set<string>();
   return all.filter(link => !seen.has(link.url) && seen.add(link.url));
@@ -63,7 +71,13 @@ export function parseMarkdownJobs(markdown: string, source: Pick<CommunityConfig
     const title = cleanCell(cells[1] ?? '');
     const allLinks = cells.flatMap(links);
     if (!company || !title || allLinks.length === 0 || /closed/i.test(line) || /🔒/.test(line)) continue;
-    const applyLink = allLinks.find(link => /apply|application/i.test(link.label)) ?? allLinks[0];
+    // A simplify.jobs/c/ company profile is never an application, and those
+    // URLs are identical per company, so shipping one as directApplyUrl also
+    // collapsed distinct roles into a single canonical key. Keep it out of the
+    // fallback while the row offers anything else.
+    const applyLink = allLinks.find(link => /apply|application/i.test(link.label))
+      ?? allLinks.find(link => !/simplify\.jobs\/c\//i.test(link.url))
+      ?? allLinks[0];
     if (!applyLink) continue;
     const location = cleanCell(cells[2] ?? 'Unspecified') || 'Unspecified';
     const sourceJobId = extractSourceJobId(applyLink.url);

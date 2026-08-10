@@ -30,6 +30,39 @@ describe('source parsers', () => {
     expect(jobs[0]?.directApplyUrl).toContain('lifeattiktok.com');
   });
 
+  // Simplify's apply buttons are <img alt="Apply"> anchors. Stripping the tag
+  // erased the label, so the selector fell back to the row's first link — the
+  // company profile — for every top-level row (155/284 live rows on 2026-08-10).
+  it('reads the apply label from image-button anchors instead of shipping the company profile', () => {
+    const html = [
+      '<table><tbody><tr>',
+      '<td>🔥 <strong><a href="https://simplify.jobs/c/TikTok?utm_source=GHList&utm_medium=company">TikTok</a></strong></td>',
+      '<td>Software Engineer Intern - Global E-commerce-Search</td><td>San Jose, CA</td>',
+      '<td><div align="center"><a href="https://lifeattiktok.com/search/7670839727059339525?utm_source=Simplify&ref=Simplify"><img src="https://i.imgur.com/fbjwDvo.png" width="50" alt="Apply"></a> ',
+      '<a href="https://simplify.jobs/p/d1768aee-f240-4353-b609-278b04785c95?utm_source=GHList"><img src="https://i.imgur.com/aVnQdox.png" width="26" alt="Simplify"></a></div></td>',
+      '</tr></tbody></table>'
+    ].join('');
+    const jobs = parseMarkdownJobs(html, { name: 'fixture', url: 'https://example.com/feed' }, '2026-08-10T00:00:00Z');
+    expect(jobs).toHaveLength(1);
+    expect(jobs[0]?.company).toBe('TikTok');
+    expect(jobs[0]?.directApplyUrl).toContain('lifeattiktok.com/search/7670839727059339525');
+  });
+
+  it('never falls back to a simplify.jobs/c/ company profile while the row has another link', () => {
+    const html = [
+      '<table><tbody><tr>',
+      '<td><a href="https://simplify.jobs/c/Acme">Acme</a></td>',
+      '<td>SWE Intern</td><td>NYC</td>',
+      // No recognizable apply label at all: the posting link must still win.
+      '<td><a href="https://boards.greenhouse.io/acme/jobs/4400"><img src="https://i.imgur.com/x.png"></a></td>',
+      '</tr></tbody></table>'
+    ].join('');
+    const jobs = parseMarkdownJobs(html, { name: 'fixture', url: 'https://example.com/feed' }, '2026-08-10T00:00:00Z');
+    expect(jobs).toHaveLength(1);
+    expect(jobs[0]?.directApplyUrl).toBe('https://boards.greenhouse.io/acme/jobs/4400');
+    expect(jobs[0]?.sourceJobId).toBe('4400');
+  });
+
   it('falls back to <tr>/<td> rows when the pipe table is gone, and drops marker emoji', () => {
     const html = [
       '<table><thead><tr><th>Company</th><th>Role</th><th>Location</th></tr></thead><tbody>',
