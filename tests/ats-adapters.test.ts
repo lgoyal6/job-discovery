@@ -11,6 +11,16 @@ const smartJob = (id: number) => ({ id: `smart-${id}`, name: `Data Intern ${id}`
 const workdayJob = (id: number) => ({ id: `workday-${id}`, title: `Platform Intern ${id}`, externalPath: `/job/${id}`, bulletFields: [`R-${id}`], locationsText: 'California', postedOn: '2026-08-01' });
 
 describe('ATS adapters', () => {
+  it('dates a Greenhouse posting from first publication, not the last board edit', async () => {
+    // IMC's July 1 internships carried updated_at of two days ago, so a
+    // six-week-old listing was reported to the digest as posted this week.
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      jobs: [{ id: 1, title: 'Software Engineer Intern - Summer 2027', absolute_url: 'https://boards.greenhouse.io/imc/jobs/1', location: { name: 'Chicago, United States' }, first_published: '2026-07-01T13:11:54-04:00', updated_at: '2026-08-10T02:34:58-04:00' }]
+    }), { status: 200 })));
+    const result = await new AtsSource({ type: 'greenhouse', board: 'imc', company: 'IMC' }).fetch();
+    expect(result.jobs[0]?.postedAt).toBe('2026-07-01T13:11:54-04:00');
+  });
+
   it('paginates Lever until the first short page', async () => {
     const mockedFetch = vi.fn()
       .mockResolvedValueOnce(new Response(JSON.stringify(Array.from({ length: 100 }, (_, index) => leverJob(index))), { status: 200 }))

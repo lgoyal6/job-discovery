@@ -15,13 +15,16 @@ export type AtsConfig =
   | { type: 'workday'; host: string; tenant: string; site: string; company: string }
   | { type: 'icims' | 'oracle' | 'successfactors' | 'eightfold' | 'career-page'; company: string; endpoint: string; method?: 'GET' | 'POST'; body?: unknown };
 
-const greenhouseSchema = z.object({ jobs: z.array(z.object({ id: z.union([z.string(), z.number()]), title: z.string(), absolute_url: z.string().url(), updated_at: z.string().optional(), location: z.object({ name: z.string() }), content: z.string().optional() })) });
+const greenhouseSchema = z.object({ jobs: z.array(z.object({ id: z.union([z.string(), z.number()]), title: z.string(), absolute_url: z.string().url(), updated_at: z.string().optional(), first_published: z.string().optional(), location: z.object({ name: z.string() }), content: z.string().optional() })) });
 const leverSchema = z.array(z.object({ id: z.string(), text: z.string(), hostedUrl: z.string().url(), applyUrl: z.string().url().optional(), createdAt: z.number().optional(), categories: z.object({ location: z.string().optional(), commitment: z.string().optional() }).passthrough(), descriptionPlain: z.string().optional() }));
 const ashbySchema = z.object({ jobs: z.array(z.object({ id: z.string().optional(), title: z.string(), location: z.string().optional(), publishedAt: z.string().optional(), jobUrl: z.string().url(), applyUrl: z.string().url().optional(), descriptionPlain: z.string().optional(), employmentType: z.string().optional() })) });
 const smartSchema = z.object({ content: z.array(z.object({ id: z.string(), name: z.string(), ref: z.string().url(), releasedDate: z.string().optional(), location: z.object({ city: z.string().optional(), region: z.string().optional(), country: z.string().optional() }).optional() })), totalFound: z.number().optional() });
 
+// first_published, not updated_at. Greenhouse touches updated_at on any board
+// edit, so IMC's July 1 internships were reported as posted two days ago and a
+// six-week-old listing read as fresh. Fall back only when the field is absent.
 export function normalizeGreenhouse(payload: unknown, cfg: Extract<AtsConfig, { type: 'greenhouse' }>, now: string): RawJob[] {
-  return greenhouseSchema.parse(payload).jobs.map(job => ({ sourceName: `greenhouse:${cfg.board}`, sourceJobId: String(job.id), company: cfg.company, title: job.title, location: job.location.name, postedAt: job.updated_at, description: job.content, sourceUrl: job.absolute_url, directApplyUrl: job.absolute_url, scrapedAt: now, employmentType: 'Internship' }));
+  return greenhouseSchema.parse(payload).jobs.map(job => ({ sourceName: `greenhouse:${cfg.board}`, sourceJobId: String(job.id), company: cfg.company, title: job.title, location: job.location.name, postedAt: job.first_published ?? job.updated_at, description: job.content, sourceUrl: job.absolute_url, directApplyUrl: job.absolute_url, scrapedAt: now, employmentType: 'Internship' }));
 }
 
 export function normalizeLever(payload: unknown, cfg: Extract<AtsConfig, { type: 'lever' }>, now: string): RawJob[] {
