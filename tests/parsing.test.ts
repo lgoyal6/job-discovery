@@ -1,11 +1,55 @@
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { parseHtmlJobs, parseMarkdownJobs } from '../src/sources/community.js';
+import { parseHtmlJobs, parseMarkdownJobs, parsePostedAt } from '../src/sources/community.js';
 import { normalizeAshby, normalizeGreenhouse, normalizeLever, normalizeSmartRecruiters } from '../src/sources/ats.js';
 import { normalizeApifyItems } from '../src/sources/apify.js';
 
 const fixture = (name: string) => readFile(resolve(process.cwd(), 'fixtures', name), 'utf8').then(JSON.parse);
+
+describe('community list posting dates', () => {
+  const now = '2026-08-12T20:00:00Z';
+
+  it('reads both the absolute and the relative form each list uses', () => {
+    // vanshb03 writes "Jul 31"; Simplify and speedyapply write "9d" and "1mo".
+    expect(parsePostedAt('Jul 31', now)?.slice(0, 10)).toBe('2026-07-31');
+    expect(parsePostedAt('Aug 04', now)?.slice(0, 10)).toBe('2026-08-04');
+    expect(parsePostedAt('9d', now)?.slice(0, 10)).toBe('2026-08-03');
+    expect(parsePostedAt('0d', now)?.slice(0, 10)).toBe('2026-08-12');
+    expect(parsePostedAt('1mo', now)?.slice(0, 10)).toBe('2026-07-13');
+  });
+
+  it('reads a bare month and day as the most recent one, not a future date', () => {
+    expect(parsePostedAt('Dec 18', '2027-01-05T00:00:00Z')?.slice(0, 10)).toBe('2026-12-18');
+  });
+
+  it('leaves anything that is not a date alone', () => {
+    for (const cell of ['', '$72/hr', 'Apply', 'Closed', 'Xyz 40']) {
+      expect(parsePostedAt(cell, now)).toBeUndefined();
+    }
+  });
+
+  it('dates a row from its last column without eating the salary column', () => {
+    // Castleton's full-stack internship reached the digest reading "First seen
+    // today" while its Simplify row had said 23d all along.
+    const speedyapply = ['| Company | Position | Location | Salary | Posting | Age |',
+      '| ---- | ---- | ---- | ---- | ---- | ---- |',
+      '| [Figma](https://figma.com) | Software Engineer Intern | SF, CA | $60/hr | [Apply](https://boards.greenhouse.io/figma/jobs/6131089004) | 9d |'].join('\n');
+    const [job] = parseMarkdownJobs(speedyapply, { name: 'speedyapply', url: 'https://example.com/feed' }, now);
+    expect(job?.postedAt?.slice(0, 10)).toBe('2026-08-03');
+    expect(job?.description).toContain('$60/hr');
+    expect(job?.description).not.toContain('9d');
+  });
+
+  it('keeps the last column in the description when it is not a date', () => {
+    const markdown = ['| Company | Role | Location | Link | Notes |',
+      '| ---- | ---- | ---- | ---- | ---- |',
+      '| Acme | Software Engineer Intern | Remote | [Apply](https://boards.greenhouse.io/acme/jobs/1) | Requires C++ |'].join('\n');
+    const [job] = parseMarkdownJobs(markdown, { name: 'list', url: 'https://example.com/feed' }, now);
+    expect(job?.postedAt).toBeUndefined();
+    expect(job?.description).toContain('Requires C++');
+  });
+});
 
 describe('source parsers', () => {
   it('parses Markdown tables, inherited companies, direct URLs, and skips closed rows', async () => {

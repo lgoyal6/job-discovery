@@ -39,6 +39,30 @@ function links(cell: string): Array<{ label: string; url: string }> {
   return all.filter(link => !seen.has(link.url) && seen.add(link.url));
 }
 
+// Every list dates its rows in its last column and the pipeline dropped it into
+// the description, so a role that had been public for three weeks reached the
+// digest reading "First seen today" and drew none of the score's age penalty.
+// vanshb03 writes "Jul 31", Simplify and speedyapply write "9d" and "1mo".
+const MONTHS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
+export function parsePostedAt(cell: string, now: string): string | undefined {
+  const value = cell.trim().toLowerCase();
+  const reference = new Date(now);
+  if (Number.isNaN(reference.getTime())) return undefined;
+  const relative = value.match(/^(\d+)\s*(d|mo|y)$/);
+  if (relative) {
+    const amount = Number(relative[1]);
+    const days = relative[2] === 'd' ? amount : relative[2] === 'mo' ? amount * 30 : amount * 365;
+    return new Date(reference.getTime() - days * 86_400_000).toISOString();
+  }
+  const absolute = value.match(/^([a-z]{3})[a-z]*\.?\s+(\d{1,2})$/);
+  const month = absolute ? MONTHS.indexOf(absolute[1] ?? '') : -1;
+  if (!absolute || month < 0) return undefined;
+  const posted = new Date(Date.UTC(reference.getUTCFullYear(), month, Number(absolute[2])));
+  // A bare "Dec 18" read in January is last December, not eleven months out.
+  if (posted.getTime() > reference.getTime()) posted.setUTCFullYear(posted.getUTCFullYear() - 1);
+  return posted.toISOString();
+}
+
 // Simplify replaced its pipe table with a real <table>. Rows are <tr> with <td>
 // cells in the same column order, so reuse the cell logic rather than the
 // link-scraping HTML parser, which cannot recover the company name.
@@ -81,10 +105,14 @@ export function parseMarkdownJobs(markdown: string, source: Pick<CommunityConfig
     if (!applyLink) continue;
     const location = cleanCell(cells[2] ?? 'Unspecified') || 'Unspecified';
     const sourceJobId = extractSourceJobId(applyLink.url);
+    const postedAt = parsePostedAt(cleanCell(cells[cells.length - 1] ?? ''), now);
+    // Only drop the last cell from the description once it has been read as a
+    // date; speedyapply's other trailing column is the salary, worth keeping.
+    const details = postedAt ? cells.slice(3, -1) : cells.slice(3);
     jobs.push({
-      sourceName: source.name, sourceJobId, title, company, location,
+      sourceName: source.name, sourceJobId, title, company, location, postedAt,
       sourceUrl: source.url, directApplyUrl: applyLink.url, scrapedAt: now, cycleHint: source.cycle,
-      description: cleanCell(cells.slice(3).join(' ')), raw: { row: line }
+      description: cleanCell(details.join(' ')), raw: { row: line }
     });
   }
   return jobs;
