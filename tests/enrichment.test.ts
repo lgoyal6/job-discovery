@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { enrichSponsorship, extractText } from '../src/enrichment.js';
+import { enrichSponsorship, extractText, workdayJsonUrl } from '../src/enrichment.js';
 import { loadSponsorshipPatterns } from '../src/config.js';
 import type { DigestJob } from '../src/types.js';
 
@@ -15,6 +15,34 @@ const page = (body: string) => new Response(`<html><body>${body}</body></html>`,
 const padding = 'We are hiring engineers to build delightful products for our customers. '.repeat(12);
 
 afterEach(() => vi.unstubAllGlobals());
+
+describe('Workday postings', () => {
+  it('maps a Workday job page to the CXS endpoint that actually carries text', () => {
+    expect(workdayJsonUrl('https://globalhr.wd5.myworkdayjobs.com/fr-CA/Private_Posting_No_TMP/job/US-AL-HUNTSVILLE/Summer-2027--Software-Intern_01865160?utm_source=GHList'))
+      .toBe('https://globalhr.wd5.myworkdayjobs.com/wday/cxs/globalhr/Private_Posting_No_TMP/job/US-AL-HUNTSVILLE/Summer-2027--Software-Intern_01865160');
+    expect(workdayJsonUrl('https://osv-cci.wd1.myworkdayjobs.com/en-US/CCICareers/job/Stamford-CT/Full-Stack-Software-Engineer-Internship--Summer-2027-_R1350'))
+      .toBe('https://osv-cci.wd1.myworkdayjobs.com/wday/cxs/osv-cci/CCICareers/job/Stamford-CT/Full-Stack-Software-Engineer-Internship--Summer-2027-_R1350');
+  });
+
+  it('leaves every other board, and a Workday URL with no posting, alone', () => {
+    expect(workdayJsonUrl('https://boards.greenhouse.io/imc/jobs/1')).toBeUndefined();
+    expect(workdayJsonUrl('https://jobs.lever.co/belvederetrading/abc')).toBeUndefined();
+    expect(workdayJsonUrl('https://globalhr.wd5.myworkdayjobs.com/en-US/site')).toBeUndefined();
+    expect(workdayJsonUrl('not a url')).toBeUndefined();
+  });
+
+  it('classifies a defence posting from the CXS description the HTML never carries', async () => {
+    // RTX's page renders client-side and extracts to zero characters, so every
+    // one of its roles reached the digest as "Sponsorship unclear".
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      jobPostingInfo: { jobDescription: `<p>${padding}</p><p>Citizen, U.S. Person, or Immigration Status Requirements: U.S. citizenship is required, as only U.S. citizens are authorized to access information under this program.</p>` }
+    }), { status: 200 })));
+    const [verdict] = await enrichSponsorship([job({ directApplyUrl: 'https://globalhr.wd5.myworkdayjobs.com/en-US/Careers/job/US-AL/Software-Intern_01865160' })], await loadSponsorshipPatterns());
+    expect(verdict?.httpOk).toBe(true);
+    expect(verdict?.status).toBe('UNSUPPORTED');
+    expect(String((vi.mocked(fetch).mock.calls[0]?.[0]))).toContain('/wday/cxs/globalhr/Careers/job/');
+  });
+});
 
 describe('posting text extraction', () => {
   it('drops scripts and styles rather than classifying their contents', () => {

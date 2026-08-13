@@ -31,22 +31,47 @@ export function extractText(html: string): string {
     .trim();
 }
 
+/**
+ * A Workday posting is a client-rendered shell: fetching it returns zero
+ * characters of job text, which is why RTX's "U.S. citizenship is required"
+ * never reached rules that already match that wording. Every tenant serves the
+ * same posting as JSON from its CXS endpoint, description included.
+ */
+export function workdayJsonUrl(input: string): string | undefined {
+  let url: URL;
+  try { url = new URL(input); } catch { return undefined; }
+  if (!/\.myworkdayjobs\.com$|\.myworkdaysite\.com$/i.test(url.hostname)) return undefined;
+  if (url.pathname.startsWith('/wday/cxs/')) return undefined;
+  const segments = url.pathname.split('/').filter(Boolean);
+  const jobIndex = segments.indexOf('job');
+  // Needs a site segment before /job/ and a posting path after it.
+  if (jobIndex < 1 || jobIndex === segments.length - 1) return undefined;
+  const tenant = url.hostname.split('.')[0];
+  return `${url.origin}/wday/cxs/${tenant}/${segments[jobIndex - 1]}/${segments.slice(jobIndex).join('/')}`;
+}
+
+function workdayDescription(payload: unknown): string {
+  const posting = (payload as { jobPostingInfo?: { jobDescription?: unknown } })?.jobPostingInfo;
+  return typeof posting?.jobDescription === 'string' ? posting.jobDescription : '';
+}
+
 async function fetchOne(job: DigestJob, patterns: SponsorshipPatterns): Promise<EnrichmentVerdict> {
   const url = job.directApplyUrl || job.canonicalUrl || '';
   const base: EnrichmentVerdict = { jobId: job.id ?? '', status: 'UNKNOWN', evidence: '', sourceUrl: url, httpOk: false };
   if (!url.startsWith('http')) return { ...base, evidence: 'No fetchable application URL.' };
+  const jsonUrl = workdayJsonUrl(url);
   try {
     // No retries: this is best-effort enrichment behind a digest, and a slow
     // careers site must never extend the pipeline run.
-    const response = await fetch(url, {
+    const response = await fetch(jsonUrl ?? url, {
       signal: AbortSignal.timeout(config.ENRICHMENT_TIMEOUT_MS),
       redirect: 'follow',
-      headers: { 'user-agent': 'laksh-job-discovery/1.0 (+personal job search)', accept: 'text/html,*/*' }
+      headers: { 'user-agent': 'laksh-job-discovery/1.0 (+personal job search)', accept: jsonUrl ? 'application/json' : 'text/html,*/*' }
     });
     if (!response.ok) return { ...base, evidence: `HTTP ${response.status}` };
-    const text = extractText(await response.text());
-    // Workday and similar render client-side, so a 200 can still carry no job
-    // text. Treat that as "asked and learned nothing", not as a verdict.
+    const text = jsonUrl ? extractText(workdayDescription(await response.json())) : extractText(await response.text());
+    // Some boards still render client-side, so a 200 can carry no job text.
+    // Treat that as "asked and learned nothing", not as a verdict.
     if (text.length < 400) return { ...base, httpOk: true, evidence: `Page returned ${text.length} characters of text; nothing to classify.` };
     const verdict = classifySponsorship(`${job.title}\n${text}`, patterns);
     return { jobId: job.id ?? '', status: verdict.status, evidence: verdict.evidence, sourceUrl: url, httpOk: true };
