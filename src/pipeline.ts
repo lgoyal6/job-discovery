@@ -4,7 +4,7 @@ import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import { config, loadCompanyAliases, loadSponsorshipPatterns, projectRoot } from './config.js';
 import { buildAliasMap, canonicalizeUrl, canonicalKey, extractSourceJobId, normalizeCompany, normalizeText } from './normalization.js';
-import { classifyCategory, classifyCycle, classifyGraduation, classifySponsorship, extractSkills, scoreJob } from './classification.js';
+import { classifyCategory, classifyCycle, classifyGraduation, classifyLocation, classifySponsorship, extractSkills, scoreJob } from './classification.js';
 import { parseWatchlist, rotateWatchlist, type WatchlistCompany } from './watchlist.js';
 import type { ClassifiedJob, DigestJob, PipelineReport, RawJob, SourceAdapter, SourceResult } from './types.js';
 import { enrichSponsorship } from './enrichment.js';
@@ -80,6 +80,7 @@ export async function classifyRawJob(raw: RawJob, context: { aliases: Map<string
   const location = raw.location?.trim() || 'Unspecified';
   const description = raw.description ?? '';
   const role = classifyCategory(title, description);
+  const place = classifyLocation(location);
   const cycle = classifyCycle(title, description, raw.cycleHint ?? '');
   const graduation = classifyGraduation(title, description);
   let sponsorship = classifySponsorship(`${title}\n${description}`, context.patterns);
@@ -90,6 +91,7 @@ export async function classifyRawJob(raw: RawJob, context: { aliases: Map<string
   let rejectionReason: string | undefined;
   if (raw.status === 'CLOSED') rejectionReason = 'closed_or_expired';
   else if (!/\b(intern(?:ship)?|co-?op|student|early career|new grad(?:uate)?)\b/i.test(`${title} ${description}`)) rejectionReason = 'not_student_role';
+  else if (!place.eligible) rejectionReason = 'outside_us';
   else if (!cycle) rejectionReason = 'outside_target_cycles';
   else if (!role.eligible) rejectionReason = role.reason ?? 'not_technical';
   else if (!graduation.eligible) rejectionReason = 'graduation_incompatible';
@@ -173,6 +175,12 @@ export function localDedupe(jobs: ClassifiedJob[]): { unique: ClassifiedJob[]; c
     const keys = [
       `key:${job.canonicalKey}`,
       job.canonicalUrl.startsWith('http') ? `url:${job.canonicalUrl}` : '',
+      // The requisition id without the source name. canonicalKey prefixes the
+      // source, so one Lever posting reached the digest four times: twice from
+      // the board and twice from lists that link to that same Lever URL. The id
+      // is what makes them the same job; who found it is not. Company-scoped
+      // because a Workday R-number is only unique within its tenant.
+      job.sourceJobId ? `req:${job.normalizedCompany}|${job.sourceJobId}` : '',
       `tuple:${job.normalizedCompany}|${job.normalizedTitle}|${job.normalizedLocation}|${job.cycle}`,
       // Same company, same cycle, same role in different words.
       signature ? `sig:${job.normalizedCompany}|${job.cycle}|${locationBucket(job.location ?? '', job.normalizedLocation)}|${signature}` : ''

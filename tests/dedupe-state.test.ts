@@ -20,7 +20,26 @@ describe('deduplication and state', () => {
   });
 
   it('keeps different locations as separate roles', () => {
-    const result = localDedupe([job(), job({ canonicalKey: 'b', canonicalUrl: 'https://acme.test/jobs/2', directApplyUrl: 'https://acme.test/jobs/2', normalizedLocation: 'new york', location: 'New York' })]);
+    // A genuinely separate requisition carries its own id; the fixture used to
+    // leave it at '1', which now reads as the same posting seen twice.
+    const result = localDedupe([job(), job({ sourceJobId: '2', canonicalKey: 'b', canonicalUrl: 'https://acme.test/jobs/2', directApplyUrl: 'https://acme.test/jobs/2', normalizedLocation: 'new york', location: 'New York' })]);
+    expect(result.unique).toHaveLength(2);
+  });
+
+  it('collapses one requisition that two different sources link to', () => {
+    // The Lever board and the speedyapply list both carried Belvedere's
+    // "Quantitative Trading Intern - Winter Quarter 2027": same posting id,
+    // different apply URL (/apply suffix), different spelling of Chicago, and
+    // no shared canonical key because the source name is part of that key.
+    const board = job({ sourceName: 'lever:belvederetrading', sourceJobId: '8f06f221-8777-4a4d-b035-40882db5f4a0', company: 'Belvedere Trading', normalizedCompany: 'belvedere trading', location: 'Chicago, Illinois', normalizedLocation: 'chicago illinois', canonicalKey: 'a', canonicalUrl: 'https://jobs.lever.co/belvederetrading/8f06f221-8777-4a4d-b035-40882db5f4a0/apply', score: 82 });
+    const list = job({ sourceName: 'speedyapply-ai', sourceJobId: '8f06f221-8777-4a4d-b035-40882db5f4a0', company: 'Belvedere Trading', normalizedCompany: 'belvedere trading', location: 'Chicago, IL', normalizedLocation: 'chicago il', canonicalKey: 'b', canonicalUrl: 'https://jobs.lever.co/belvederetrading/8f06f221-8777-4a4d-b035-40882db5f4a0', score: 49 });
+    const result = localDedupe([board, list]);
+    expect(result.unique).toHaveLength(1);
+    expect(result.unique[0]?.sourceName).toBe('lever:belvederetrading');
+  });
+
+  it('does not collapse two companies that happen to share a requisition id', () => {
+    const result = localDedupe([job(), job({ company: 'Globex', normalizedCompany: 'globex', canonicalKey: 'b', canonicalUrl: 'https://globex.test/jobs/1', directApplyUrl: 'https://globex.test/jobs/1' })]);
     expect(result.unique).toHaveLength(2);
   });
 

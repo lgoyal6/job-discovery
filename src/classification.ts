@@ -42,23 +42,52 @@ export function classifyCategory(title: string, description = ''): { category: C
   return { category: 'Other', eligible: false, reason: 'no_technical_signal' };
 }
 
+// Employers name the same cycle as "Winter 2027", "Winter Quarter 2027" and
+// "Winter Term 2027". Requiring the year to follow the season immediately meant
+// "Quantitative Trading Intern - Winter Quarter 2027" matched no season at all,
+// so it fell through to the source list's own Summer hint and was mailed as a
+// Summer role.
+const TERM = String.raw`\s*(?:quarter|term|semester|session|co-?op|internship|intern|program)?\s*(?:of\s*)?`;
+const season = (names: string, year: string) => new RegExp(String.raw`\b(?:${names})${TERM}${year}\b|\b${year}\s*(?:${names})\b`, 'i');
+const seasons: Array<[Cycle, RegExp]> = [
+  ['Fall 2026', season('fall|autumn', '2026')],
+  ['Winter 2027', season('winter', '2027')],
+  ['Spring 2027', season('spring', '2027')],
+  ['Summer 2027', season('summer|may|june|july|august', '2027')]
+];
+
 export function classifyCycle(title: string, description = '', hint = ''): Cycle | null {
-  const explicit = `${title} ${description}`;
-  const classify = (text: string): Cycle | null => {
-    if (/\b(fall|autumn)\s*(?:of\s*)?2026\b|\b2026\s*(fall|autumn)\b/i.test(text)) return 'Fall 2026';
-    if (/\bwinter\s*(?:of\s*)?2027\b|\b2027\s*winter\b/i.test(text)) return 'Winter 2027';
-    if (/\bspring\s*(?:of\s*)?2027\b|\b2027\s*spring\b/i.test(text)) return 'Spring 2027';
-    if (/\b(summer|may|june|july|august)\s*(?:of\s*)?2027\b|\b2027\s*summer\b/i.test(text)) return 'Summer 2027';
-    return null;
-  };
-  const explicitCycle = classify(explicit);
+  const classify = (text: string): Cycle | null => seasons.find(([, pattern]) => pattern.test(text))?.[0] ?? null;
+  // Title before description: a Winter posting whose body advertises the whole
+  // summer program must stay Winter, and the title is the part that is about
+  // this requisition.
+  const explicitCycle = classify(title) ?? classify(description);
   if (explicitCycle) return explicitCycle;
   const hintedCycle = classify(hint);
   if (hintedCycle) return hintedCycle;
-  const text = `${hint} ${explicit}`;
+  const text = `${hint} ${title} ${description}`;
   if (/\b2027\b/i.test(text) && /\b(intern|co-?op|student)\b/i.test(text)) return 'Later compatible';
   if (/\b(2028|2029)\b/i.test(text) && /\b(intern|co-?op|student)\b/i.test(text)) return 'Later compatible';
   return null;
+}
+
+// Location only ever moved the score, so an internship in Hong Kong or
+// Amsterdam was a perfectly valid digest row. It is not a role an F-1 student
+// in San Diego can take, and every one of them costs a slot under the cap.
+const US_STATES = 'alabama|alaska|arizona|arkansas|california|colorado|connecticut|delaware|florida|hawaii|idaho|illinois|indiana|iowa|kansas|kentucky|louisiana|maine|maryland|massachusetts|michigan|minnesota|mississippi|missouri|montana|nebraska|nevada|new hampshire|new jersey|new mexico|new york|north carolina|north dakota|ohio|oklahoma|oregon|pennsylvania|rhode island|south carolina|south dakota|tennessee|texas|utah|vermont|virginia|washington|west virginia|wisconsin|wyoming|district of columbia|puerto rico';
+const US_LOCATION = new RegExp(String.raw`\b(?:united states|usa|u\.s\.a?\.?|${US_STATES}|remote|nationwide|multiple us)\b|,\s*(?:A[KLRZ]|C[AOT]|D[CE]|FL|GA|HI|I[ADLN]|K[SY]|LA|M[ADEINOST]|N[CDEHJMVY]|O[HKR]|P[AR]|RI|S[CD]|T[NX]|UT|V[AT]|W[AIVY])\b`, 'i');
+// Countries and territories, not cities: "Ontario, CA" is in California and
+// "London, KY" is in Kentucky, so a city list would throw away US roles. A
+// posting that names no country at all is kept rather than guessed at.
+// Georgia is deliberately absent: as a location string it is the US state far
+// more often than the country.
+const NON_US_LOCATION = /\b(?:afghanistan|albania|algeria|andorra|angola|argentina|armenia|australia|austria|azerbaijan|bahamas|bahrain|bangladesh|barbados|belarus|belgium|belize|benin|bermuda|bhutan|bolivia|bosnia|botswana|brazil|brunei|bulgaria|burkina faso|burundi|cambodia|cameroon|canada|cape verde|cayman islands|chad|chile|china|colombia|congo|costa rica|croatia|cuba|cyprus|czechia|czech republic|denmark|dominican republic|ecuador|egypt|el salvador|estonia|eswatini|ethiopia|fiji|finland|france|gabon|gambia|germany|ghana|gibraltar|greece|greenland|guatemala|guinea|guyana|haiti|honduras|hong kong|hungary|iceland|india|indonesia|iran|iraq|ireland|isle of man|israel|italy|ivory coast|jamaica|japan|jordan|kazakhstan|kenya|kosovo|kuwait|kyrgyzstan|laos|latvia|lebanon|lesotho|liberia|libya|liechtenstein|lithuania|luxembourg|macau|madagascar|malawi|malaysia|maldives|mali|malta|mauritania|mauritius|mexico|moldova|monaco|mongolia|montenegro|morocco|mozambique|myanmar|namibia|nepal|netherlands|new zealand|nicaragua|niger|nigeria|north macedonia|norway|oman|pakistan|palestine|panama|papua new guinea|paraguay|peru|philippines|poland|portugal|qatar|romania|russia|rwanda|saudi arabia|senegal|serbia|singapore|slovakia|slovenia|somalia|south africa|south korea|korea|spain|sri lanka|sudan|suriname|sweden|switzerland|syria|taiwan|tajikistan|tanzania|thailand|togo|trinidad|tunisia|turkey|türkiye|turkmenistan|uganda|ukraine|united arab emirates|uae|united kingdom|uk|england|scotland|wales|northern ireland|great britain|uruguay|uzbekistan|venezuela|vietnam|yemen|zambia|zimbabwe)\b/i;
+
+export function classifyLocation(location: string): { eligible: boolean; evidence: string } {
+  if (US_LOCATION.test(location)) return { eligible: true, evidence: 'Location names a US state, territory, or the United States.' };
+  const match = location.match(NON_US_LOCATION);
+  if (match) return { eligible: false, evidence: `Location is outside the United States: ${match[0]}.` };
+  return { eligible: true, evidence: 'Location names no country, so it is not treated as foreign.' };
 }
 
 export function classifyGraduation(title: string, description = ''): { eligible: boolean; evidence: string } {

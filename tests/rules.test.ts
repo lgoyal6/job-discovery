@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { diversifiedTop, localDedupe } from '../src/pipeline.js';
 import { boardFromUrl, slugCandidates } from '../src/discovery.js';
 import { hashPageText } from '../src/sources/pagewatch.js';
-import { classifyCategory, classifyCycle, classifyGraduation, classifySponsorship } from '../src/classification.js';
+import { classifyCategory, classifyCycle, classifyGraduation, classifyLocation, classifySponsorship } from '../src/classification.js';
 import { loadCompanyAliases, loadSponsorshipPatterns } from '../src/config.js';
 import { buildAliasMap, canonicalizeUrl, canonicalKey, normalizeCompany } from '../src/normalization.js';
 
@@ -147,6 +147,38 @@ describe('deterministic role rules', () => {
     expect(classifyCycle('ML Intern Winter 2027')).toBe('Winter 2027');
     expect(classifyCycle('Intern', 'Spring 2027 program')).toBe('Spring 2027');
     expect(classifyCycle('Software Intern Winter 2027', '', 'Summer 2027')).toBe('Winter 2027');
+  });
+
+  it('reads a season that is separated from its year by a term word', () => {
+    // Belvedere's "Winter Quarter 2027" matched no season, so the role took the
+    // Summer hint of the list that carried it and shipped as a Summer role.
+    expect(classifyCycle('Quantitative Trading Intern - Winter Quarter 2027', '', 'Summer 2027')).toBe('Winter 2027');
+    expect(classifyCycle('Software Engineer Intern, Fall Term 2026')).toBe('Fall 2026');
+    expect(classifyCycle('SWE Intern - Spring Semester 2027')).toBe('Spring 2027');
+    expect(classifyCycle('Summer Internship 2027')).toBe('Summer 2027');
+  });
+
+  it('lets the title outrank a description that advertises the whole program', () => {
+    expect(classifyCycle('Quantitative Trading Intern - Winter Quarter 2027', 'We run Summer 2027 and off-cycle internships.')).toBe('Winter 2027');
+  });
+
+  it('keeps a role outside the United States out of the digest', () => {
+    // IMC's Hong Kong postings reached the digest because location only ever
+    // moved the score.
+    expect(classifyLocation('Hong Kong, Hong Kong').eligible).toBe(false);
+    expect(classifyLocation('Amsterdam, Netherlands').eligible).toBe(false);
+    expect(classifyLocation('London, United Kingdom').eligible).toBe(false);
+    expect(classifyLocation('Chicago, United States').eligible).toBe(true);
+    expect(classifyLocation('Chicago, IL').eligible).toBe(true);
+    expect(classifyLocation('Chicago, Illinois').eligible).toBe(true);
+    expect(classifyLocation('San Diego, CA').eligible).toBe(true);
+    expect(classifyLocation('Remote').eligible).toBe(true);
+    // Ontario is in California and London is in Kentucky, so a US state beats a
+    // country name; an unqualified city is kept rather than guessed at.
+    expect(classifyLocation('Ontario, CA').eligible).toBe(true);
+    expect(classifyLocation('London, KY').eligible).toBe(true);
+    expect(classifyLocation('Albuquerque, New Mexico').eligible).toBe(true);
+    expect(classifyLocation('Unspecified').eligible).toBe(true);
   });
 
   it('rejects incompatible 2027 new-grad/graduation windows and accepts explicit 2028', () => {
