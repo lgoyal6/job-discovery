@@ -32,7 +32,9 @@ describe('Apify free-plan actors', () => {
     }
 
     const bodies = mockedFetch.mock.calls.map(call => JSON.parse(String((call[1] as RequestInit).body)));
-    expect(bodies[0]).toMatchObject({ count: 35, scrapeCompany: false });
+    // limitPerSource is the cap the LinkedIn actor actually reads; it has no
+    // "count" field, so the 35-result ceiling was never being applied.
+    expect(bodies[0]).toMatchObject({ limitPerSource: 35, scrapeCompany: false });
     expect(bodies[0].urls[0]).toContain('f_TPR=r86400');
     expect(bodies[1]).toMatchObject({ maxItems: 15, includeFullDescription: true });
     expect(bodies[1].searches.every((search: any) => search.postedWithinDays === 1)).toBe(true);

@@ -57,7 +57,7 @@ export class ApifySource extends SafeSource {
     const companyQueries = Array.from({ length: Math.ceil(this.watchlistCompanies.length / 5) }, (_, index) => this.watchlistCompanies.slice(index * 5, index * 5 + 5).join(' OR ')).filter(Boolean);
     const input = this.board === 'linkedin' ? {
       urls: [query, ...companyQueries].slice(0, 8).map(keywords => `https://www.linkedin.com/jobs/search/?keywords=${encodeURIComponent(`${keywords} intern 2027`)}&location=United%20States&f_E=1&f_TPR=r86400`),
-      count: this.maxResults,
+      limitPerSource: this.maxResults,
       scrapeCompany: false
     } : this.board === 'indeed' ? {
       searches: [
