@@ -24,7 +24,19 @@ const envSchema = z.object({
   APIFY_MAX_RESULTS_PER_SOURCE: z.coerce.number().int().positive().max(1000).default(100),
   APIFY_LINKEDIN_MAX_RESULTS: z.coerce.number().int().min(10).max(1000).default(35),
   APIFY_INDEED_MAX_RESULTS: z.coerce.number().int().min(1).max(1000).default(15),
-  APIFY_MONSTER_MAX_RESULTS: z.coerce.number().int().min(1).max(500).default(35),
+  // Monster is the best-value source in the set and the only paid one that
+  // works: $0.001 per result, and it returns a description, so its roles carry
+  // extracted skills and can be enriched for sponsorship. LPL Financial arrived
+  // at score 116 this way, the highest of any role so far, while every LinkedIn
+  // guest card reads "Required skills: Not stated".
+  //
+  // Sized against the Apify free plan, which grants $5 a month, does not roll
+  // it over, and blocks the account for the rest of the cycle once it is spent.
+  // Overshooting would take Monster down with it, so this stays under:
+  //
+  //   150 results  $0.15005 per run   $4.65 over 31 daily runs
+  //   166 results  $0.16605 per run   $5.15  exceeds, account blocked
+  APIFY_MONSTER_MAX_RESULTS: z.coerce.number().int().min(1).max(500).default(150),
   APIFY_MIN_INTERVAL_HOURS: z.coerce.number().int().min(2).max(168).default(24),
   APIFY_MAX_ACTOR_RUNS_PER_PIPELINE: z.coerce.number().int().min(0).max(3).default(3),
   APIFY_MAX_COMPUTE_UNITS_PER_RUN: z.coerce.number().min(0).max(10).default(1),

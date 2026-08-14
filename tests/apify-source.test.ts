@@ -41,6 +41,21 @@ describe('Apify free-plan actors', () => {
     expect(bodies[2]).toMatchObject({ pageSize: 35, maxPages: 1, scrapeAllPages: false });
   });
 
+  it('pages Monster past the 50-per-page ceiling at the configured default', async () => {
+    // 35 fits one page, so the paging arithmetic was never exercised. The
+    // default is now 150, which is three pages, and the charge has to stay
+    // inside the cap or the run is cut off mid-way.
+    process.env.APIFY_TOKEN = 'test-apify-token';
+    process.env.APIFY_ENABLED = 'true';
+    const mockedFetch = vi.fn().mockResolvedValue(new Response('[]', { status: 200, headers: { 'content-type': 'application/json' } }));
+    vi.stubGlobal('fetch', mockedFetch);
+    const { ApifySource } = await import('../src/sources/apify.js');
+    await new ApifySource('monster', 'owner/monster', 150).fetch();
+    const body = JSON.parse(String((mockedFetch.mock.calls[0]?.[1] as RequestInit).body));
+    expect(body).toMatchObject({ pageSize: 50, maxPages: 3 });
+    expect(150 * 0.001).toBeLessThan(0.5);
+  });
+
   it('cannot run without both the explicit enable gate and token', async () => {
     const mockedFetch = vi.fn();
     vi.stubGlobal('fetch', mockedFetch);
