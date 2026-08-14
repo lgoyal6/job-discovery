@@ -89,12 +89,22 @@ const envSchema = z.object({
   PAID_SOURCES_ENABLED: z.enum(['true', 'false']).default('false').transform(v => v === 'true'),
   REZZY_API_KEY: z.string().optional(),
   REZZY_PROFILE_ID: z.string().optional(),
+  // The deployed layout puts the watchlist beside the project, not inside it:
+  // Dockerfile.n8n copies it to /opt/automation while the code runs from
+  // /opt/job-pipeline. A checkout has it at automation/ instead, so the default
+  // path resolves to nothing locally and every entry point that reads the
+  // watchlist dies before doing any work. Override to point at a checkout.
+  WATCHLIST_PATH: z.string().default(''),
   REZZY_WEBHOOK_SECRET: z.string().optional(),
   REZZY_API_BASE_URL: z.string().url().default('https://api.rezzy.dev/v1')
 });
 
 export type AppConfig = z.infer<typeof envSchema>;
 export const config: AppConfig = envSchema.parse(process.env);
+
+export const watchlistPath = config.WATCHLIST_PATH
+  ? resolve(config.WATCHLIST_PATH)
+  : resolve(projectRoot, '../automation/job-company-watchlist.md');
 
 export interface SponsorshipPatterns { supported: string[]; unsupported: string[]; ambiguous: string[] }
 

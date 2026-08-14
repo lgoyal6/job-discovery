@@ -2,7 +2,7 @@ import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
-import { config, loadCompanyAliases, loadSponsorshipPatterns, projectRoot } from './config.js';
+import { config, loadCompanyAliases, loadSponsorshipPatterns, projectRoot, watchlistPath } from './config.js';
 import { buildAliasMap, canonicalizeUrl, canonicalKey, extractSourceJobId, normalizeCompany, normalizeText } from './normalization.js';
 import { classifyCategory, classifyCycle, classifyGraduation, classifyLocation, classifySponsorship, extractSkills, scoreJob } from './classification.js';
 import { parseWatchlist, rotateWatchlist, type WatchlistCompany } from './watchlist.js';
@@ -194,7 +194,7 @@ export function localDedupe(jobs: ClassifiedJob[]): { unique: ClassifiedJob[]; c
 async function execute(options: RunOptions): Promise<PipelineReport> {
   const runId = randomUUID();
   const [aliasesConfig, patterns, watchlist] = await Promise.all([
-    loadCompanyAliases(), loadSponsorshipPatterns(), parseWatchlist(resolve(projectRoot, '../automation/job-company-watchlist.md'))
+    loadCompanyAliases(), loadSponsorshipPatterns(), parseWatchlist(watchlistPath)
   ]);
   const slot = Math.floor(Date.now() / 7_200_000);
   const watchlistCohort = rotateWatchlist(watchlist, slot, config.WATCHLIST_COMPANIES_PER_RUN);

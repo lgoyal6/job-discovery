@@ -1,4 +1,4 @@
-import { config, projectRoot } from './config.js';
+import { config, projectRoot, watchlistPath } from './config.js';
 import { log } from './logger.js';
 import { parseWatchlist } from './watchlist.js';
 import { readFile } from 'node:fs/promises';
@@ -65,7 +65,7 @@ export async function configuredCompanies(): Promise<Set<string>> {
 
 /** Watchlist companies with no board configured yet. */
 export async function unconfiguredWatchlistCompanies(): Promise<string[]> {
-  const watchlist = await parseWatchlist(resolve(projectRoot, '../automation/job-company-watchlist.md'));
+  const watchlist = await parseWatchlist(watchlistPath);
   const configured = await configuredCompanies();
   const names = new Set<string>();
   for (const entry of watchlist) {
