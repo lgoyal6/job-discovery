@@ -144,6 +144,39 @@ function titleSignature(normalizedTitle: string): string {
   return [...new Set(tokens)].sort().join('.');
 }
 
+// One requisition posted to six cities is six postings, and the database is
+// right to keep them apart: each has its own apply link and its own city. The
+// digest is a different question. IBM's ServiceNow internship filled six of
+// thirteen rows in one email, so a row is now a requisition and the cities are
+// listed on it. titleSignature already sorts its tokens, which is what makes
+// "2027-ServiceNow" and "ServiceNow 2027" the same requisition and keeps the
+// AWS posting separate.
+export interface RequisitionGroup { display: DigestJob; members: DigestJob[] }
+
+function mergedLocation(members: DigestJob[]): string {
+  const places = [...new Set(members.map(job => job.location ?? 'Unspecified'))];
+  if (places.length === 1) return places[0]!;
+  // Three, then a count. The whole list of a dozen cities buries the role.
+  return places.length <= 3 ? places.join(' · ') : `${places.slice(0, 3).join(' · ')} +${places.length - 3} more`;
+}
+
+export function collapseByRequisition(jobs: DigestJob[]): RequisitionGroup[] {
+  const groups = new Map<string, DigestJob[]>();
+  jobs.forEach((job, index) => {
+    const signature = titleSignature(job.normalizedTitle);
+    // No signature means nothing to group on, so it stands alone.
+    const key = signature ? `${job.normalizedCompany}|${job.cycle}|${signature}` : `alone:${index}`;
+    const members = groups.get(key);
+    if (members) members.push(job); else groups.set(key, [job]);
+  });
+  return [...groups.values()].map(members => {
+    const ranked = [...members].sort((a, b) => b.score - a.score);
+    const best = ranked[0]!;
+    const location = mergedLocation(ranked);
+    return { display: location === best.location ? best : { ...best, location }, members: ranked };
+  });
+}
+
 // A flat score sort hands the whole cap to whoever posts the most: dozens of
 // roles tie on score, the tiebreak is alphabetical, and one high-volume employer
 // takes 40% of the digest. Deal one role per company per pass instead, companies
@@ -322,13 +355,21 @@ async function execute(options: RunOptions): Promise<PipelineReport> {
     });
     if (enrichmentDropped) log('warn', 'enrichment_dropped_roles', { runId, dropped: enrichmentDropped });
   }
-  if (digestJobs.length > config.DIGEST_MAX_ROLES) {
-    digestJobs = diversifiedTop(digestJobs, config.DIGEST_MAX_ROLES);
+  // Group first, then cap, so the cap counts requisitions rather than spending
+  // itself on one employer's six cities.
+  let groups = collapseByRequisition(digestJobs);
+  if (groups.length > config.DIGEST_MAX_ROLES) {
+    const keep = new Set(diversifiedTop(groups.map(group => group.display), config.DIGEST_MAX_ROLES).map(job => job.canonicalKey));
+    groups = groups.filter(group => keep.has(group.display.canonicalKey));
   }
+  // Every member goes into the batch even though one row represents them, so
+  // each city still gets sent_at stamped. Dropping them here would leave them
+  // unsent and mail the whole family again on the next tick.
+  digestJobs = groups.flatMap(group => group.members);
   if (digestCandidates > digestJobs.length) {
-    log('info', 'digest_capped', { runId, sending: digestJobs.length, deferred: digestCandidates - digestJobs.length - enrichmentDropped, droppedUnsupported: enrichmentDropped });
+    log('info', 'digest_capped', { runId, sending: digestJobs.length, rows: groups.length, deferred: digestCandidates - digestJobs.length - enrichmentDropped, droppedUnsupported: enrichmentDropped });
   }
-  const digest = buildDigest(digestJobs, sourceRuns, new Date(), programChanges);
+  const digest = buildDigest(groups.map(group => group.display), sourceRuns, new Date(), programChanges);
   if ((digestJobs.length > 0 || programChanges.length > 0) && options.persistent && config.SEND_EMAIL_ENABLED) {
     // Program-change URLs join the batch key so a change is emailed once, the
     // same way a role is, instead of re-sending every run while the page stays

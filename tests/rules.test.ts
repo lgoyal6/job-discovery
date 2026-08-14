@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { classifyRawJob, diversifiedTop, localDedupe } from '../src/pipeline.js';
+import { classifyRawJob, collapseByRequisition, diversifiedTop, localDedupe } from '../src/pipeline.js';
 import { boardFromUrl, slugCandidates } from '../src/discovery.js';
 import { hashPageText } from '../src/sources/pagewatch.js';
 import { classifyCategory, classifyCycle, classifyGraduation, classifyLocation, classifySponsorship } from '../src/classification.js';
@@ -98,6 +98,50 @@ describe('digest shaping', () => {
       job({ normalizedTitle: 'software engineer intern frontend' })
     ]);
     expect(unique).toHaveLength(2);
+  });
+
+  it('shows one requisition once, however many cities it was posted to', () => {
+    // IBM's ServiceNow internship filled six of thirteen rows in one email.
+    // titleSignature sorts its tokens, so the word-order and dash variants are
+    // one requisition, and the AWS posting stays its own.
+    const ibm = (title: string, location: string, score: number) =>
+      job({ company: 'IBM', normalizedCompany: 'ibm', normalizedTitle: title, location, cycle: 'Later compatible', score });
+    const groups = collapseByRequisition([
+      ibm('intern application developer 2027 servicenow', 'New York, NY', 78),
+      ibm('intern application developer servicenow 2027', 'Dallas, TX', 70),
+      ibm('intern application developer 2027 servicenow', 'Chicago, IL', 70),
+      ibm('intern application developer aws 2027', 'Baton Rouge, LA', 73)
+    ]);
+    expect(groups).toHaveLength(2);
+    const servicenow = groups.find(group => group.members.length === 3)!;
+    expect(servicenow.display.score).toBe(78);
+    expect(servicenow.display.location).toBe('New York, NY · Dallas, TX · Chicago, IL');
+    expect(groups.find(group => group.members.length === 1)?.display.location).toBe('Baton Rouge, LA');
+  });
+
+  it('keeps every posting in the group so each one is still marked sent', () => {
+    // Dropping the members would leave them with sent_at NULL, and the whole
+    // family would arrive again on the next tick.
+    const groups = collapseByRequisition([
+      job({ company: 'IBM', normalizedCompany: 'ibm', normalizedTitle: 'data engineer intern', location: 'Austin, TX', score: 80 }),
+      job({ company: 'IBM', normalizedCompany: 'ibm', normalizedTitle: 'data engineer intern', location: 'Boston, MA', score: 70 })
+    ]);
+    expect(groups).toHaveLength(1);
+    expect(groups[0]?.members).toHaveLength(2);
+  });
+
+  it('does not merge the same title across different cycles', () => {
+    const groups = collapseByRequisition([
+      job({ company: 'IBM', normalizedCompany: 'ibm', normalizedTitle: 'data engineer intern', cycle: 'Summer 2027' }),
+      job({ company: 'IBM', normalizedCompany: 'ibm', normalizedTitle: 'data engineer intern', cycle: 'Fall 2026' })
+    ]);
+    expect(groups).toHaveLength(2);
+  });
+
+  it('names four or more cities by count rather than listing all of them', () => {
+    const groups = collapseByRequisition(['NY', 'TX', 'IL', 'MI', 'CA'].map(place =>
+      job({ company: 'IBM', normalizedCompany: 'ibm', normalizedTitle: 'servicenow developer intern', location: place, score: 70 })));
+    expect(groups[0]?.display.location).toBe('NY · TX · IL +2 more');
   });
 
   it('stops one high-volume employer from swallowing the cap', () => {
