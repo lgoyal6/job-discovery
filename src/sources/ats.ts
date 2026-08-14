@@ -21,9 +21,9 @@ export type AtsConfig =
 // row failed the whole-board parse, so 79 Tower Research postings disappeared
 // because two of them had no publication date.
 const greenhouseSchema = z.object({ jobs: z.array(z.object({ id: z.union([z.string(), z.number()]), title: z.string(), absolute_url: z.string().url(), updated_at: z.string().nullish(), first_published: z.string().nullish(), location: z.object({ name: z.string() }), content: z.string().nullish() })) });
-const leverSchema = z.array(z.object({ id: z.string(), text: z.string(), hostedUrl: z.string().url(), applyUrl: z.string().url().optional(), createdAt: z.number().optional(), categories: z.object({ location: z.string().optional(), commitment: z.string().optional() }).passthrough(), descriptionPlain: z.string().optional() }));
-const ashbySchema = z.object({ jobs: z.array(z.object({ id: z.string().optional(), title: z.string(), location: z.string().optional(), publishedAt: z.string().optional(), jobUrl: z.string().url(), applyUrl: z.string().url().optional(), descriptionPlain: z.string().optional(), employmentType: z.string().optional() })) });
-const smartSchema = z.object({ content: z.array(z.object({ id: z.string(), name: z.string(), ref: z.string().url(), releasedDate: z.string().optional(), location: z.object({ city: z.string().optional(), region: z.string().optional(), country: z.string().optional() }).optional() })), totalFound: z.number().optional() });
+const leverSchema = z.array(z.object({ id: z.string(), text: z.string(), hostedUrl: z.string().url(), applyUrl: z.string().url().nullish(), createdAt: z.number().nullish(), categories: z.object({ location: z.string().nullish(), commitment: z.string().nullish() }).passthrough(), descriptionPlain: z.string().nullish() }));
+const ashbySchema = z.object({ jobs: z.array(z.object({ id: z.string().nullish(), title: z.string(), location: z.string().nullish(), publishedAt: z.string().nullish(), jobUrl: z.string().url(), applyUrl: z.string().url().nullish(), descriptionPlain: z.string().nullish(), employmentType: z.string().nullish() })) });
+const smartSchema = z.object({ content: z.array(z.object({ id: z.string(), name: z.string(), ref: z.string().url(), releasedDate: z.string().nullish(), location: z.object({ city: z.string().nullish(), region: z.string().nullish(), country: z.string().nullish() }).nullish() })), totalFound: z.number().nullish() });
 
 // first_published, not updated_at. Greenhouse touches updated_at on any board
 // edit, so IMC's July 1 internships were reported as posted two days ago and a
@@ -33,15 +33,15 @@ export function normalizeGreenhouse(payload: unknown, cfg: Extract<AtsConfig, { 
 }
 
 export function normalizeLever(payload: unknown, cfg: Extract<AtsConfig, { type: 'lever' }>, now: string): RawJob[] {
-  return leverSchema.parse(payload).map(job => ({ sourceName: `lever:${cfg.site}`, sourceJobId: job.id, company: cfg.company, title: job.text, location: job.categories.location, postedAt: job.createdAt ? new Date(job.createdAt).toISOString() : undefined, description: job.descriptionPlain, employmentType: job.categories.commitment, sourceUrl: job.hostedUrl, directApplyUrl: job.applyUrl ?? job.hostedUrl, scrapedAt: now }));
+  return leverSchema.parse(payload).map(job => ({ sourceName: `lever:${cfg.site}`, sourceJobId: job.id, company: cfg.company, title: job.text, location: job.categories.location ?? undefined, postedAt: job.createdAt ? new Date(job.createdAt).toISOString() : undefined, description: job.descriptionPlain ?? undefined, employmentType: job.categories.commitment ?? undefined, sourceUrl: job.hostedUrl, directApplyUrl: job.applyUrl ?? job.hostedUrl, scrapedAt: now }));
 }
 
 export function normalizeAshby(payload: unknown, cfg: Extract<AtsConfig, { type: 'ashby' }>, now: string): RawJob[] {
-  return ashbySchema.parse(payload).jobs.map(job => ({ sourceName: `ashby:${cfg.board}`, sourceJobId: job.id, company: cfg.company, title: job.title, location: job.location, postedAt: job.publishedAt, description: job.descriptionPlain, employmentType: job.employmentType, sourceUrl: job.jobUrl, directApplyUrl: job.applyUrl ?? job.jobUrl, scrapedAt: now }));
+  return ashbySchema.parse(payload).jobs.map(job => ({ sourceName: `ashby:${cfg.board}`, sourceJobId: job.id ?? undefined, company: cfg.company, title: job.title, location: job.location ?? undefined, postedAt: job.publishedAt ?? undefined, description: job.descriptionPlain ?? undefined, employmentType: job.employmentType ?? undefined, sourceUrl: job.jobUrl, directApplyUrl: job.applyUrl ?? job.jobUrl, scrapedAt: now }));
 }
 
 export function normalizeSmartRecruiters(payload: unknown, cfg: Extract<AtsConfig, { type: 'smartrecruiters' }>, now: string): RawJob[] {
-  return smartSchema.parse(payload).content.map(job => ({ sourceName: `smartrecruiters:${cfg.companyId}`, sourceJobId: job.id, company: cfg.company, title: job.name, location: [job.location?.city, job.location?.region, job.location?.country].filter(Boolean).join(', ') || 'Unspecified', postedAt: job.releasedDate, sourceUrl: job.ref, directApplyUrl: job.ref, scrapedAt: now }));
+  return smartSchema.parse(payload).content.map(job => ({ sourceName: `smartrecruiters:${cfg.companyId}`, sourceJobId: job.id, company: cfg.company, title: job.name, location: [job.location?.city, job.location?.region, job.location?.country].filter(Boolean).join(', ') || 'Unspecified', postedAt: job.releasedDate ?? undefined, sourceUrl: job.ref, directApplyUrl: job.ref, scrapedAt: now }));
 }
 
 function genericItems(payload: unknown): any[] {
