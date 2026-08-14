@@ -105,7 +105,9 @@ export class AtsSource extends SafeSource {
       return jobs;
     }
     if (this.source.type === 'greenhouse') url = `https://boards-api.greenhouse.io/v1/boards/${encodeURIComponent(this.source.board)}/jobs?content=false`;
-    else if (this.source.type === 'ashby') url = `https://api.ashbyhq.com/posting-api/job-board/${encodeURIComponent(this.source.board)}?includeCompensation=true`;
+    // No includeCompensation: nothing here reads a compensation field, and on
+    // OpenAI's board asking for it costs 600 KB and about 1.5 seconds per run.
+    else if (this.source.type === 'ashby') url = `https://api.ashbyhq.com/posting-api/job-board/${encodeURIComponent(this.source.board)}`;
     else { url = this.source.endpoint; init = { method: this.source.method ?? 'GET', headers: { 'content-type': 'application/json' }, body: this.source.body === undefined ? undefined : JSON.stringify(this.source.body) }; }
     const response = await fetchWithPolicy(url, { ...init, sourceName: this.name, timeoutMs: config.SOURCE_TIMEOUT_MS, retries: config.SOURCE_RETRIES });
     const payload: unknown = await response.json();

@@ -36,7 +36,10 @@ const envSchema = z.object({
   // Applies to boards returned whole in one response (Greenhouse, Ashby), where
   // a low cap only discards postings that were already downloaded.
   ATS_MAX_RESULTS_PER_BOARD: z.coerce.number().int().positive().max(20000).default(5000),
-  SOURCE_TIMEOUT_MS: z.coerce.number().int().min(1000).max(120000).default(20000),
+  // OpenAI's Ashby board answers with 12 MB and takes 11 to 15 seconds on its
+  // own, so a 20 second budget expired under the concurrency of a full run and
+  // the board was reported as degraded on every pass.
+  SOURCE_TIMEOUT_MS: z.coerce.number().int().min(1000).max(120000).default(30000),
   SOURCE_RETRIES: z.coerce.number().int().min(0).max(5).default(3),
   WATCHLIST_COMPANIES_PER_RUN: z.coerce.number().int().positive().max(500).default(30),
   // A batch claimed but never confirmed sent blocks its digest forever, because
