@@ -813,6 +813,16 @@
       "name": "linkedin:backend-internship",
       "keywords": "backend engineering internship",
       "location": "United States"
+    },
+    {
+      "name": "linkedin:quant-internship",
+      "keywords": "quantitative analyst internship",
+      "location": "United States"
+    },
+    {
+      "name": "linkedin:software-developer-internship",
+      "keywords": "software developer internship",
+      "location": "United States"
     }
   ],
   "watchPages": [
@@ -854,6 +864,11 @@
     {
       "url": "https://www.jumptrading.com/careers/",
       "company": "Jump Trading",
+      "label": "Careers"
+    },
+    {
+      "url": "https://www.interactivebrokers.com/en/general/about/careers.php",
+      "company": "Interactive Brokers",
       "label": "Careers"
     }
   ]

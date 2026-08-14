@@ -28,7 +28,7 @@ Figma, Notion, Airtable, Asana, Monday.com, Smartsheet, Linear, Retool, Canva, M
 
 ## Quantitative trading and market infrastructure
 
-Jane Street, Hudson River Trading, Citadel, Citadel Securities, Jump Trading, Two Sigma, D. E. Shaw, IMC, Optiver, SIG, Five Rings, Point72, PDT Partners, Virtu, Akuna, Tower Research, DRW, Chicago Trading Company, Old Mission, Wolverine Trading, Belvedere Trading, Radix Trading, Aquatic Capital, Headlands Technologies, XTX Markets, Millennium, Schonfeld, AQR, Nasdaq, Cboe, CME Group, Intercontinental Exchange.
+Jane Street, Hudson River Trading, Citadel, Citadel Securities, Jump Trading, Two Sigma, D. E. Shaw, IMC, Optiver, SIG, Five Rings, Point72, PDT Partners, Virtu, Akuna, Tower Research, DRW, Chicago Trading Company, Old Mission, Wolverine Trading, Belvedere Trading, Radix Trading, Aquatic Capital, Headlands Technologies, XTX Markets, Millennium, Schonfeld, AQR, Nasdaq, Cboe, CME Group, Intercontinental Exchange, Interactive Brokers.
 
 ## Gaming, entertainment, and media technology
 
