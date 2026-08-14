@@ -1,13 +1,20 @@
 import type { Category, Cycle, RawJob, SponsorshipStatus } from './types.js';
 import type { SponsorshipPatterns } from './config.js';
 
+// A category pattern is tested before nonTechnical, so anything matched here
+// bypasses that filter. That is why the additions below name a discipline or a
+// role noun and never a bare "AI" or "ML": "AI Safety Governance Product
+// Manager Intern" and "Global Merchant & Network Services" are the titles a
+// looser pattern lets through, and neither is an engineering role.
 const categories: Array<[Category, RegExp]> = [
-  ['ML/AI', /\b(machine learning|ml engineer|artificial intelligence|ai engineer|computer vision|applied scientist|research engineer|deep learning|nlp)\b/i],
+  ['ML/AI', /\b(machine learning|ml engineer|artificial intelligence|ai engineer|computer vision|applied scientist|research engineer|deep learning|nlp|llms?|large language models?|generative a\.?i|gen ?ai|ml ?ops|foundation models?|reinforcement learning|rlhf|diffusion models?|prompt engineer|ai infrastructure|ai platform|ai research|applied ai|ai ?\/ ?ml|ml ?\/ ?ai|data scien(?:ces?|tists?))\b/i],
   // Quant titles rarely say "developer": "Quantitative Risk Intern" and
   // "Quantitative Trader" are the roles worth catching here.
   ['Quant', /\b(quantitative|quant)\s+(developer|research(?:er)?|trading|trader|analyst|risk|strategist|engineer)\b|\balgorithmic trading\b|\btrading intern(?:ship)?\b/i],
   ['GTM Eng', /\b(forward deployed|solutions? engineer|gtm engineer|sales engineer)\b/i],
-  ['SWE', /\b(software|firmware|embedded|developer|frontend|front-end|backend|back-end|full[ -]?stack|mobile|ios|android|infrastructure|platform|cloud|systems?|security|devops|site reliability|sre|data engineer|developer tool)\b/i]
+  // cyber ?security, not security: \bsecurity\b cannot match inside
+  // "Cybersecurity", so that title read as non-technical and was dropped.
+  ['SWE', /\b(software|firmware|embedded|developer|frontend|front-end|backend|back-end|full[ -]?stack|mobile|ios|android|infrastructure|platform|cloud|systems?|security|cyber ?security|infosec|devops|site reliability|sre|data engineer|developer tool|distributed systems?|compilers?|kernel|databases?|observability|reliability engineer(?:ing)?|analytics engineer|data analytics|data analyst|(?:qa|test|quality|automation|release|build) engineer|network(?:ing)? (?:engineer|operations|infrastructure|systems?)|computer networks?|information technology|it (?:support|infrastructure|operations|systems?|services|security|help ?desk))\b/i]
 ];
 
 const nonTechnical = /\b(marketing|accounting|human resources|recruiter|sales intern|business development|communications|legal|finance intern|operations intern|product marketing|governance,? risk,? and compliance|\bgrc\b|compliance|paralegal|talent acquisition|people operations)\b/i;

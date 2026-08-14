@@ -138,7 +138,38 @@ describe('deterministic role rules', () => {
     expect(classifyCategory('Embedded Hardware Intern', 'C++ firmware').eligible).toBe(true);
     expect(classifyCategory('Summer Internship Program, all tracks').eligible).toBe(false);
     expect(classifyCategory('Engineering Intern').eligible).toBe(false);
-    expect(classifyCategory('Information Technology Intern').eligible).toBe(false);
+  });
+
+  // Reverses an earlier call. "Information Technology Intern" was grouped with
+  // "Engineering Intern" as a title carrying no track, and is now eligible,
+  // because the digest is meant to surface anything technical and let the score
+  // order it rather than the category gate decide for me. The generic program
+  // titles above stay out: they name no discipline at all.
+  it('counts an information technology title as technical', () => {
+    expect(classifyCategory('Information Technology Intern').eligible).toBe(true);
+    expect(classifyCategory('IT Support Intern').eligible).toBe(true);
+  });
+
+  it('reads the disciplines the category list used to miss', () => {
+    // \bsecurity\b cannot match inside "Cybersecurity", so this read as
+    // non-technical, the same word-boundary failure as the cycle and
+    // student-role rules.
+    expect(classifyCategory('Cybersecurity Internship').category).toBe('SWE');
+    expect(classifyCategory('Data Scientist Intern').category).toBe('ML/AI');
+    expect(classifyCategory('LLM Post-training Engineer Intern').category).toBe('ML/AI');
+    expect(classifyCategory('MLOps Engineer Intern').category).toBe('ML/AI');
+    expect(classifyCategory('AI/ML Intern').category).toBe('ML/AI');
+    expect(classifyCategory('Reliability Engineering Intern').category).toBe('SWE');
+    expect(classifyCategory('Network Engineer Intern').category).toBe('SWE');
+  });
+
+  // A category match is tested before the nonTechnical filter, so a pattern
+  // naming a bare "AI" or "network" would smuggle these past it.
+  it('does not let a product role in through an AI or network keyword', () => {
+    expect(classifyCategory('AI Safety Evaluation & Governance Product Manager Intern').eligible).toBe(false);
+    expect(classifyCategory('AI Product Manager Intern - Content Ecosystem').eligible).toBe(false);
+    expect(classifyCategory('Product Management Intern - Global Merchant & Network Services').eligible).toBe(false);
+    expect(classifyCategory('Make it Happen Intern').eligible).toBe(false);
   });
 
   it('classifies target cycles in priority-compatible form', () => {
