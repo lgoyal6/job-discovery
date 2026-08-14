@@ -30,6 +30,20 @@ describe('HTTP reliability policy', () => {
     expect(mockedFetch).toHaveBeenCalledOnce();
   });
 
+  it('reports why a request failed, not just the status code', async () => {
+    // The digest showed "apify:linkedin: HTTP 400" and nothing else, so the
+    // reason Apify rejected the run was unreadable from the email.
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('{\n  "error": {\n    "message": "Input is not valid: field count is not allowed"\n  }\n}', { status: 400 })));
+    await expect(fetchWithPolicy('https://api.apify.test/run', { sourceName: 'apify:linkedin', timeoutMs: 1_000, retries: 0 }))
+      .rejects.toThrow('HTTP 400: { "error": { "message": "Input is not valid: field count is not allowed" } }');
+  });
+
+  it('truncates a long error body so one failure cannot flood the digest', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('x'.repeat(5_000), { status: 400 })));
+    const error = await fetchWithPolicy('https://source.test/jobs', { sourceName: 'test', timeoutMs: 1_000, retries: 0 }).catch((caught: Error) => caught);
+    expect((error as Error).message).toHaveLength('HTTP 400: '.length + 300);
+  });
+
   it('converts adapter exceptions into an isolated failed source result', async () => {
     class BrokenSource extends SafeSource {
       readonly name = 'broken-source';

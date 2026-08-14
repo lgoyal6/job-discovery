@@ -15,8 +15,13 @@ export async function fetchWithPolicy(url: string, options: FetchOptions): Promi
     try {
       const response = await fetch(url, { ...init, signal: AbortSignal.timeout(timeoutMs) });
       if (response.ok) return response;
-      if (response.status < 500 && response.status !== 429) throw new NonRetryableHttpError(`HTTP ${response.status}`);
-      throw new Error(`retryable HTTP ${response.status}`);
+      // Carry the body into the message. A bare "HTTP 400" is undiagnosable:
+      // Apify names the offending input field in the body and we were dropping
+      // it, so two dead sources reported nothing but their status code.
+      const detail = await response.text().then(body => body.replace(/\s+/g, ' ').trim().slice(0, 300)).catch(() => '');
+      const status = `HTTP ${response.status}${detail ? `: ${detail}` : ''}`;
+      if (response.status < 500 && response.status !== 429) throw new NonRetryableHttpError(status);
+      throw new Error(`retryable ${status}`);
     } catch (error) {
       lastError = error;
       if (error instanceof NonRetryableHttpError) throw error;
