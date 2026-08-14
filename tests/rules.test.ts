@@ -4,7 +4,7 @@ import { boardFromUrl, slugCandidates } from '../src/discovery.js';
 import { hashPageText } from '../src/sources/pagewatch.js';
 import { classifyCategory, classifyCycle, classifyGraduation, classifyLocation, classifySponsorship } from '../src/classification.js';
 import { loadCompanyAliases, loadSponsorshipPatterns } from '../src/config.js';
-import { buildAliasMap, canonicalizeUrl, canonicalKey, normalizeCompany } from '../src/normalization.js';
+import { buildAliasMap, canonicalizeUrl, canonicalKey, materialFingerprint, normalizeCompany } from '../src/normalization.js';
 
 const noPatterns = { supported: [], unsupported: [], ambiguous: [] };
 const job = (over: Record<string, unknown>) => ({
@@ -303,6 +303,26 @@ describe('the student-role gate', () => {
   it('still refuses a title that only begins with intern', async () => {
     expect(await reasonFor('Internal Auditor 2027')).toBe('not_student_role');
     expect(await reasonFor('International Tax Manager 2027')).toBe('not_student_role');
+  });
+});
+
+describe('what counts as a material change', () => {
+  const chicago = { title: 'Software Engineer Intern (Summer 2027 - Chicago)', location: 'Chicago, IL', cycle: 'Summer 2027' };
+
+  // A changed fingerprint clears sent_at, so the role is mailed again. Optiver's
+  // Chicago internship arrived twice two hours apart, once via LinkedIn and once
+  // via speedyapply, because the apply URL was part of the fingerprint and the
+  // two lists link to the same requisition differently.
+  it('ignores which source found the role', () => {
+    expect(materialFingerprint(chicago)).toBe(materialFingerprint({
+      title: 'Software Engineer Intern - Summer 2027 - Chicago', location: 'Chicago, IL', cycle: 'Summer 2027'
+    }));
+  });
+
+  it('still notices a change an applicant needs to know about', () => {
+    expect(materialFingerprint({ ...chicago, location: 'Austin, TX' })).not.toBe(materialFingerprint(chicago));
+    expect(materialFingerprint({ ...chicago, cycle: 'Winter 2027' })).not.toBe(materialFingerprint(chicago));
+    expect(materialFingerprint({ ...chicago, title: 'Quantitative Trader Intern' })).not.toBe(materialFingerprint(chicago));
   });
 });
 

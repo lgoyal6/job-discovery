@@ -107,7 +107,7 @@ export async function upsertJob(job: ClassifiedJob): Promise<UpsertResult> {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
-    const fingerprint = materialFingerprint({ title: job.title, location: job.location ?? 'Unspecified', cycle: job.cycle, directApplyUrl: job.directApplyUrl });
+    const fingerprint = materialFingerprint({ title: job.title, location: job.location ?? 'Unspecified', cycle: job.cycle });
     const existing = await client.query<any>(
       `SELECT j.* FROM jobs j
        WHERE j.canonical_key=$1 OR ($2 <> '' AND EXISTS (SELECT 1 FROM job_sources s WHERE s.job_id=j.id AND (s.direct_apply_url=$2 OR s.source_url=$2)))

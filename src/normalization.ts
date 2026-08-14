@@ -61,10 +61,15 @@ export function canonicalKey(input: {
   return createHash('sha256').update(basis).digest('hex');
 }
 
-export function materialFingerprint(input: { title: string; location: string; cycle: string; directApplyUrl?: string }): string {
+// Title, location and cycle. Not the apply URL: a changed fingerprint clears
+// sent_at and mails the role again, and the URL changes for reasons that are
+// nothing to do with the role. Optiver's Chicago internship arrived twice two
+// hours apart, once through LinkedIn and once through speedyapply, because the
+// two lists link to it differently. Same requisition, same city, same cycle.
+// A title, location or cycle change is what an applicant needs telling about.
+export function materialFingerprint(input: { title: string; location: string; cycle: string }): string {
   return createHash('sha256').update([
-    normalizeText(input.title), normalizeText(input.location), input.cycle,
-    input.directApplyUrl ? canonicalizeUrl(input.directApplyUrl) : ''
+    normalizeText(input.title), normalizeText(input.location), input.cycle
   ].join('|')).digest('hex');
 }
 
