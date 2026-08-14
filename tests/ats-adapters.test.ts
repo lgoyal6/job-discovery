@@ -21,6 +21,23 @@ describe('ATS adapters', () => {
     expect(result.jobs[0]?.postedAt).toBe('2026-07-01T13:11:54-04:00');
   });
 
+  it('keeps a Greenhouse board whose posting has a null first_published', async () => {
+    // Two null rows on towerresearchcapital failed the array parse and took all
+    // 79 postings with them. The dated rows must survive, and the undated one
+    // must fall back to updated_at rather than killing its board.
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      jobs: [
+        { id: 1, title: 'Quant Intern', absolute_url: 'https://boards.greenhouse.io/trc/jobs/1', location: { name: 'New York' }, first_published: '2026-07-01T13:11:54-04:00', updated_at: '2026-08-10T02:34:58-04:00' },
+        { id: 2, title: 'Software Intern', absolute_url: 'https://boards.greenhouse.io/trc/jobs/2', location: { name: 'New York' }, first_published: null, updated_at: '2026-07-24T15:05:09-04:00' }
+      ]
+    }), { status: 200 })));
+    const result = await new AtsSource({ type: 'greenhouse', board: 'trc', company: 'Tower Research' }).fetch();
+    expect(result.status).toBe('SUCCESS');
+    expect(result.jobs).toHaveLength(2);
+    expect(result.jobs[0]?.postedAt).toBe('2026-07-01T13:11:54-04:00');
+    expect(result.jobs[1]?.postedAt).toBe('2026-07-24T15:05:09-04:00');
+  });
+
   it('paginates Lever until the first short page', async () => {
     const mockedFetch = vi.fn()
       .mockResolvedValueOnce(new Response(JSON.stringify(Array.from({ length: 100 }, (_, index) => leverJob(index))), { status: 200 }))
