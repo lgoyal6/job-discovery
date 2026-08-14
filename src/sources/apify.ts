@@ -71,9 +71,18 @@ export class ApifySource extends SafeSource {
       maxPages: Math.max(1, Math.ceil(this.maxResults / 50)), pageSize: Math.min(50, this.maxResults), scrapeAllPages: false
     };
     const actor = this.actorId.replace('/', '~');
-    const endpoint = `https://api.apify.com/v2/acts/${encodeURIComponent(actor)}/run-sync-get-dataset-items?token=${encodeURIComponent(config.APIFY_TOKEN)}&timeout=${Math.ceil(config.SOURCE_TIMEOUT_MS / 1000)}&memory=512&maxTotalChargeUsd=${config.APIFY_MAX_TOTAL_CHARGE_USD}`;
-    const response = await fetchWithPolicy(endpoint, { sourceName: this.name, timeoutMs: config.SOURCE_TIMEOUT_MS + 5000, retries: 1, method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(input) });
+    const endpoint = `https://api.apify.com/v2/acts/${encodeURIComponent(actor)}/run-sync-get-dataset-items?token=${encodeURIComponent(config.APIFY_TOKEN)}&timeout=${config.APIFY_ACTOR_TIMEOUT_SECONDS}&memory=512&maxTotalChargeUsd=${config.APIFY_MAX_TOTAL_CHARGE_USD}`;
+    // run-sync blocks until the actor finishes, so the socket has to outlive the
+    // actor's own budget or we abort a run that was about to succeed and pay for
+    // it anyway. No retry: a re-run of a paid actor charges again for whatever
+    // events it emits, and this runs once a day, so tomorrow is soon enough.
+    const response = await fetchWithPolicy(endpoint, { sourceName: this.name, timeoutMs: (config.APIFY_ACTOR_TIMEOUT_SECONDS + 30) * 1000, retries: 0, method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(input) });
     const payload = z.array(z.unknown()).parse(await response.json());
-    return normalizeApifyItems(payload.slice(0, this.maxResults), this.board, new Date().toISOString());
+    // this.name, not this.board. Every other adapter stamps a job with the same
+    // name its run reports under, and the pipeline attributes per-source counts
+    // by matching the two. "monster" against a run called "apify:monster" never
+    // matched, so all three Apify boards reported 0 accepted and 0 rejected even
+    // on the run that delivered LPL Financial at the top of the digest.
+    return normalizeApifyItems(payload.slice(0, this.maxResults), this.name, new Date().toISOString());
   }
 }

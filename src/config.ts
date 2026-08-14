@@ -41,6 +41,15 @@ const envSchema = z.object({
   APIFY_MAX_ACTOR_RUNS_PER_PIPELINE: z.coerce.number().int().min(0).max(3).default(3),
   APIFY_MAX_COMPUTE_UNITS_PER_RUN: z.coerce.number().min(0).max(10).default(1),
   APIFY_MAX_TOTAL_CHARGE_USD: z.coerce.number().min(0).max(10).default(0.5),
+  // How long the actor may run, which is not how long we wait for a socket.
+  // These were the same number, so a LinkedIn scraper was given 30 seconds to
+  // crawl eight search pages and answered "status: TIMED-OUT" every time. Monster
+  // asking for 150 results is three pages where it used to be one, so the old
+  // budget put the one paid source that works at the same risk.
+  //
+  // Cost is bounded by APIFY_MAX_TOTAL_CHARGE_USD, not by this, so time here
+  // buys completed runs rather than a larger bill.
+  APIFY_ACTOR_TIMEOUT_SECONDS: z.coerce.number().int().min(30).max(900).default(240),
   COMMUNITY_MAX_RESULTS_PER_SOURCE: z.coerce.number().int().positive().max(2000).default(300),
   // Applies to boards fetched page by page (Lever, SmartRecruiters, Workday),
   // where it genuinely limits how many requests are made.

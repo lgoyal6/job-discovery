@@ -6,7 +6,12 @@ import { normalizeGreenhouse, normalizeLever, normalizeAshby, normalizeSmartRecr
 import { loadCompanyAliases, loadSponsorshipPatterns } from '../src/config.js';
 import { fetchWithPolicy } from '../src/http.js';
 
-afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals(); });
+afterEach(() => {
+  vi.restoreAllMocks();
+  vi.unstubAllGlobals();
+  for (const key of ['APIFY_TOKEN', 'APIFY_ENABLED']) delete process.env[key];
+  vi.resetModules();
+});
 
 // These guard classes of failure this pipeline has actually suffered, not the
 // shape of the current code. Each one is written to die under a specific
@@ -307,6 +312,86 @@ describe('collapsing rows must never lose a posting', () => {
     const rows = diversifiedTop(groups.map(group => group.display), 10);
     expect(rows).toHaveLength(4);
     expect(new Set(rows.map(row => row.normalizedCompany)).size).toBe(4);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Two things about the paid sources that were wrong for different reasons.
+//
+// The actor's run budget was derived from an HTTP read timeout, so a LinkedIn
+// scraper was given 30 seconds to crawl eight search pages and reported
+// "status: TIMED-OUT" on every run. Monster asking for 150 results is three
+// pages where it was one, so the same budget threatened the only paid source
+// that works.
+//
+// And an Apify job was stamped with the bare board name while its run reported
+// as "apify:<board>", so the per-source counts matched nothing.
+//
+// Dies if the two timeouts are tied together again, if the socket stops
+// outliving the actor, or if the job and its run disagree on a name.
+// ---------------------------------------------------------------------------
+describe('the paid sources must be given time and a consistent name', () => {
+  const runMonster = async (results: number) => {
+    process.env.APIFY_TOKEN = 'test-token';
+    process.env.APIFY_ENABLED = 'true';
+    const seen: { url: string; init: RequestInit }[] = [];
+    vi.stubGlobal('fetch', vi.fn(async (url: string, init: RequestInit) => {
+      seen.push({ url: String(url), init });
+      return new Response(JSON.stringify([
+        { id: '1', title: 'Software Engineer Intern 2027', company: 'LPL Financial', location: 'Charlotte, NC', url: 'https://x.test/1', descriptionText: 'Python' }
+      ]), { status: 200, headers: { 'content-type': 'application/json' } });
+    }));
+    vi.resetModules();
+    const { ApifySource } = await import('../src/sources/apify.js');
+    const { config } = await import('../src/config.js');
+    const run = await new ApifySource('monster', 'owner/monster', results).fetch();
+    return { run, seen, config };
+  };
+
+  it('gives the actor a budget of its own, not the socket read timeout', async () => {
+    const { seen, config } = await runMonster(150);
+    const actorSeconds = Number(new URL(seen[0]!.url).searchParams.get('timeout'));
+    expect(actorSeconds).toBe(config.APIFY_ACTOR_TIMEOUT_SECONDS);
+    // The whole point: minutes for a scraper, not the seconds a socket gets.
+    expect(actorSeconds).toBeGreaterThanOrEqual(120);
+    expect(actorSeconds).toBeGreaterThan(config.SOURCE_TIMEOUT_MS / 1000);
+  });
+
+  // Asserting the actor's number is not enough: the socket has to outlast it, or
+  // we abort a run that was about to answer and pay for it anyway. The deadline
+  // is read off AbortSignal.timeout, because that is where fetchWithPolicy puts
+  // it and it cannot be seen from the request otherwise. Fake timers are no help
+  // here: AbortSignal.timeout is a platform timer that vitest does not patch, so
+  // the abort never fires under them and the mutation would go unnoticed.
+  it('lets the socket outlive the actor, so a finished run is not thrown away', async () => {
+    process.env.APIFY_TOKEN = 'test-token';
+    process.env.APIFY_ENABLED = 'true';
+    const deadlines: number[] = [];
+    const real = AbortSignal.timeout.bind(AbortSignal);
+    vi.spyOn(AbortSignal, 'timeout').mockImplementation((ms: number) => { deadlines.push(ms); return real(ms); });
+    vi.stubGlobal('fetch', vi.fn(async () => new Response('[]', { status: 200, headers: { 'content-type': 'application/json' } })));
+    vi.resetModules();
+    const { ApifySource } = await import('../src/sources/apify.js');
+    const { config } = await import('../src/config.js');
+    await new ApifySource('monster', 'owner/monster', 150).fetch();
+    expect(deadlines).not.toHaveLength(0);
+    expect(deadlines[0]).toBeGreaterThan(config.APIFY_ACTOR_TIMEOUT_SECONDS * 1000);
+  });
+
+  it('keeps the charge cap as the thing that bounds cost, not the clock', async () => {
+    const { seen, config } = await runMonster(150);
+    expect(new URL(seen[0]!.url).searchParams.get('maxTotalChargeUsd')).toBe(String(config.APIFY_MAX_TOTAL_CHARGE_USD));
+    // 150 results at $0.001 must stay inside the cap or the run is cut short.
+    expect(150 * 0.001).toBeLessThan(config.APIFY_MAX_TOTAL_CHARGE_USD);
+  });
+
+  it('names a job the same thing its run reports under', async () => {
+    const { run } = await runMonster(150);
+    expect(run.sourceName).toBe('apify:monster');
+    expect(run.jobs).not.toHaveLength(0);
+    for (const job of run.jobs) expect(job.sourceName).toBe(run.sourceName);
+    // This is the comparison the pipeline uses to attribute per-source counts.
+    expect(run.jobs.filter(job => job.sourceName === run.sourceName)).toHaveLength(run.jobs.length);
   });
 });
 
