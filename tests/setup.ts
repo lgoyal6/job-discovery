@@ -11,6 +11,12 @@ const testEnv: Record<string, string> = {
   // one the deployed layout has. Without this both pipeline tests fail on a
   // developer machine for a reason that has nothing to do with the test.
   WATCHLIST_PATH: fileURLToPath(new URL('../automation/job-company-watchlist.md', import.meta.url)),
+  // The fixture dry run fetched nine real program pages, so the suite depended
+  // on nine third-party sites answering inside vitest's 5s default. It timed out
+  // at 5025ms once, which reads as a broken assertion rather than a slow site.
+  // Page hashing is covered directly in rules.test.ts; set this to run the live
+  // check deliberately instead of by accident.
+  PAGEWATCH_ENABLED: 'false',
 };
 
 for (const [key, value] of Object.entries(testEnv)) {
