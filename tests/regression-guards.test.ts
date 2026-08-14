@@ -88,6 +88,51 @@ describe('a role word must survive its plural and compound forms', () => {
 });
 
 // ---------------------------------------------------------------------------
+// A community list carries a cycle hint describing the list, and it was allowed
+// to answer for a posting whose title named a different year. Five roles reached
+// one digest labelled Summer 2027 with 2026 in their own titles, including an
+// "Internship - Summer 2026" whose cycle had already finished.
+//
+// Dies if the hint is consulted again without checking the title's years, or if
+// a contradicted hint is let back into the Later-compatible fallback.
+// ---------------------------------------------------------------------------
+describe('a list hint must not overrule the year in the title', () => {
+  const summerList = 'Summer 2027';
+
+  it('drops a posting whose own title names a different year', () => {
+    for (const title of [
+      'AI Engineer - Internship - Summer 2026 - Applications Open',
+      '2026 Intern Conversion - Software Development Engineer I',
+      'PhD Research Intern - Generative AI - 2026',
+      '2026 Machine Learning Intern - Autonomy'
+    ]) {
+      expect(classifyCycle(title, '', summerList), title).toBeNull();
+    }
+  });
+
+  // The hint is the only evidence for most postings, so contradiction has to be
+  // the narrow case, not the default.
+  it('still trusts the hint when the title does not contradict it', () => {
+    expect(classifyCycle('Software Engineer Intern', '', summerList)).toBe('Summer 2027');
+    expect(classifyCycle('Data Co-op', '', 'Fall 2026')).toBe('Fall 2026');
+    // Spans both years, so the hint picks the half that matters.
+    expect(classifyCycle('Software Engineer (Agent Platform) - Intern - 2026-2027', '', summerList)).toBe('Summer 2027');
+    expect(classifyCycle('Software Engineer Intern 2027', '', summerList)).toBe('Summer 2027');
+  });
+
+  it('lets a title name its own cycle over any hint', () => {
+    expect(classifyCycle('Software Intern Winter 2027', '', summerList)).toBe('Winter 2027');
+    expect(classifyCycle('Quantitative Trading Intern - Winter Quarter 2027', '', summerList)).toBe('Winter 2027');
+  });
+
+  // The hint's year must not qualify the posting through the back door.
+  it('keeps a contradicted hint out of the later-compatible fallback', () => {
+    expect(classifyCycle('2026 Machine Learning Intern', '', 'Summer 2027')).toBeNull();
+    expect(classifyCycle('Machine Learning Intern', '', 'Summer 2027')).toBe('Summer 2027');
+  });
+});
+
+// ---------------------------------------------------------------------------
 // z.string().optional() accepts a missing key and rejects an explicit null.
 // Greenhouse sends first_published: null, the whole jobs array is parsed in one
 // call, and 16 null rows destroyed 171 postings across four boards.

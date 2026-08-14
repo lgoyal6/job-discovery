@@ -74,9 +74,25 @@ export function classifyCycle(title: string, description = '', hint = ''): Cycle
   // this requisition.
   const explicitCycle = classify(title) ?? classify(description);
   if (explicitCycle) return explicitCycle;
-  const hintedCycle = classify(hint);
-  if (hintedCycle) return hintedCycle;
-  const text = `${hint} ${title} ${description}`;
+  // A hint describes the list a posting was found on, not the requisition, and
+  // the same reasoning that puts the title above the description puts it above
+  // the hint. "AI Engineer - Internship - Summer 2026" came off a Summer 2027
+  // list and was mailed as Summer 2027: a cycle that had not started, for a role
+  // whose own cycle was already over. Summer pairs only with 2027 here, so the
+  // title matched no season and the hint was left to answer for it.
+  //
+  // Only a contradiction disqualifies the hint. A title naming no year still
+  // needs it, and "Intern - 2026-2027" spans both so the hint still applies.
+  const titleYears = new Set(`${title} ${description}`.match(/\b20\d\d\b/g) ?? []);
+  const hintYears = hint.match(/\b20\d\d\b/g) ?? [];
+  const hintContradicted = titleYears.size > 0 && hintYears.length > 0 && !hintYears.some(year => titleYears.has(year));
+  if (!hintContradicted) {
+    const hintedCycle = classify(hint);
+    if (hintedCycle) return hintedCycle;
+  }
+  // A contradicted hint is kept out of the fallback too, or its year would
+  // qualify the posting as "Later compatible" by the back door.
+  const text = hintContradicted ? `${title} ${description}` : `${hint} ${title} ${description}`;
   // \bintern\b does not match "Internship": the word boundary fails on the "s"
   // that follows. "Quant Analyst Internships 2027" names no season, so this
   // fallback was its only route to a cycle and it was dropped as off-cycle.
