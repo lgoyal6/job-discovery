@@ -59,7 +59,12 @@ const envSchema = z.object({
   LINKEDIN_MIN_INTERVAL_HOURS: z.coerce.number().int().min(1).max(168).default(12),
   // Relevance decays sharply with depth (measured 5, 4, 2, 1, 1 intern-titled
   // per page), so deep paging buys noise and request budget, not coverage.
-  LINKEDIN_PAGES_PER_QUERY: z.coerce.number().int().min(1).max(40).default(3),
+  // That still holds, and it is not the whole story: LinkedIn reorders a result
+  // set between calls, so depth also buys insurance for a role that is already
+  // relevant. Interactive Brokers' Quant Analyst Internships 2027 sat at
+  // position 12 of about 60 in one call and outside the first 30 in the next.
+  // Five pages keeps a role like that reachable when it drifts.
+  LINKEDIN_PAGES_PER_QUERY: z.coerce.number().int().min(1).max(40).default(5),
   LINKEDIN_REQUEST_DELAY_MS: z.coerce.number().int().min(0).max(30000).default(1500),
   LINKEDIN_RECENCY_SECONDS: z.coerce.number().int().min(3600).max(2592000).default(86400),
   // Fetch each candidate posting to recover sponsorship wording the source
