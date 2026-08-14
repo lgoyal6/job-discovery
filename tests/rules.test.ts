@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { diversifiedTop, localDedupe } from '../src/pipeline.js';
+import { classifyRawJob, diversifiedTop, localDedupe } from '../src/pipeline.js';
 import { boardFromUrl, slugCandidates } from '../src/discovery.js';
 import { hashPageText } from '../src/sources/pagewatch.js';
 import { classifyCategory, classifyCycle, classifyGraduation, classifyLocation, classifySponsorship } from '../src/classification.js';
@@ -240,6 +240,38 @@ describe('board harvesting from observed apply URLs', () => {
   it('ignores non-board URLs and greenhouse embed paths', () => {
     expect(boardFromUrl('https://careers.google.com/jobs/results/123')).toBeNull();
     expect(boardFromUrl('https://boards.greenhouse.io/embed/job_board?for=acme')).toBeNull();
+  });
+});
+
+describe('the student-role gate', () => {
+  const raw = (title: string) => ({
+    sourceName: 'linkedin:test', sourceJobId: title, company: 'Interactive Brokers', title,
+    location: 'Greenwich, CT', postedAt: '2026-08-13T00:00:00.000Z',
+    sourceUrl: 'https://example.test/1', directApplyUrl: 'https://example.test/1',
+    scrapedAt: '2026-08-13T00:00:00.000Z'
+  });
+  const reasonFor = async (title: string) => {
+    const context = { aliases: buildAliasMap(await loadCompanyAliases()), patterns: await loadSponsorshipPatterns(), priorities: new Map<string, number>() };
+    return (await classifyRawJob(raw(title), context)).rejectionReason;
+  };
+
+  // "Internships" ends on a word character, so \b failed and Interactive
+  // Brokers' Quant Analyst Internships 2027 was filed as not a student role.
+  it('accepts the plural forms employers actually post', async () => {
+    expect(await reasonFor('Quant Analyst Internships 2027')).toBeUndefined();
+    expect(await reasonFor('Software Developer Internship - 2027')).toBeUndefined();
+    // Only the student gate is under test here. A title with no technical
+    // signal is still rejected, one gate later, and that is correct.
+    expect(await reasonFor('Summer Interns 2027')).not.toBe('not_student_role');
+    expect(await reasonFor('Data Co-ops 2027')).not.toBe('not_student_role');
+    expect(await reasonFor('Students Program 2027')).not.toBe('not_student_role');
+  });
+
+  // The boundary is what keeps these out, so widening the plurals must not
+  // start matching a word that merely begins with "intern".
+  it('still refuses a title that only begins with intern', async () => {
+    expect(await reasonFor('Internal Auditor 2027')).toBe('not_student_role');
+    expect(await reasonFor('International Tax Manager 2027')).toBe('not_student_role');
   });
 });
 

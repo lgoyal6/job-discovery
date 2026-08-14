@@ -90,7 +90,11 @@ export async function classifyRawJob(raw: RawJob, context: { aliases: Map<string
   const normalizedLocation = normalizeText(location);
   let rejectionReason: string | undefined;
   if (raw.status === 'CLOSED') rejectionReason = 'closed_or_expired';
-  else if (!/\b(intern(?:ship)?|co-?op|student|early career|new grad(?:uate)?)\b/i.test(`${title} ${description}`)) rejectionReason = 'not_student_role';
+  // Plurals: "Internships" ends the match on a word character, so \b fails and
+  // "Quant Analyst Internships 2027" read as not a student role at all. The
+  // same held for "Interns" and "Students". "Internal" and "International"
+  // still do not match, because \b fails on the letter after "intern".
+  else if (!/\b(interns?(?:hips?)?|co-?ops?|students?|early career|new grad(?:uate)?s?)\b/i.test(`${title} ${description}`)) rejectionReason = 'not_student_role';
   else if (!place.eligible) rejectionReason = 'outside_us';
   else if (!cycle) rejectionReason = 'outside_target_cycles';
   else if (!role.eligible) rejectionReason = role.reason ?? 'not_technical';
