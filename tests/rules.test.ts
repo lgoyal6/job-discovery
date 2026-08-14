@@ -158,6 +158,25 @@ describe('deterministic role rules', () => {
     expect(classifyCycle('Summer Internship 2027')).toBe('Summer 2027');
   });
 
+  it('reads a season whose year is held off by a dash', () => {
+    // Interactive Brokers posted "Software Developer Summer Internship - 2027".
+    // The term word was allowed, the dash after it was not, so the title
+    // matched no season and the posting was rejected as off-cycle.
+    expect(classifyCycle('Software Developer Summer Internship - 2027')).toBe('Summer 2027');
+    expect(classifyCycle('Summer Internship - 2027')).toBe('Summer 2027');
+    expect(classifyCycle('Fall Internship - 2026')).toBe('Fall 2026');
+  });
+
+  it('treats "internship" as an internship when no season is named', () => {
+    // \bintern\b does not match "Internship": the boundary fails on the "s".
+    // "Quant Analyst Internships 2027" names no season, so this fallback was
+    // its only route to a cycle.
+    expect(classifyCycle('Quant Analyst Internships 2027')).toBe('Later compatible');
+    expect(classifyCycle('Software Engineer Internship 2027')).toBe('Later compatible');
+    expect(classifyCycle('Research Internship 2028')).toBe('Later compatible');
+    expect(classifyCycle('Senior Software Engineer 2027')).toBeNull();
+  });
+
   it('lets the title outrank a description that advertises the whole program', () => {
     expect(classifyCycle('Quantitative Trading Intern - Winter Quarter 2027', 'We run Summer 2027 and off-cycle internships.')).toBe('Winter 2027');
   });

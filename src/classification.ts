@@ -47,7 +47,11 @@ export function classifyCategory(title: string, description = ''): { category: C
 // "Quantitative Trading Intern - Winter Quarter 2027" matched no season at all,
 // so it fell through to the source list's own Summer hint and was mailed as a
 // Summer role.
-const TERM = String.raw`\s*(?:quarter|term|semester|session|co-?op|internship|intern|program)?\s*(?:of\s*)?`;
+// The separator is not always a space. "Software Developer Summer Internship -
+// 2027" puts a dash between the term word and the year, which matched no season
+// and left the posting with no cycle at all.
+const SEP = String.raw`[\s\-–—:,]*`;
+const TERM = String.raw`${SEP}(?:quarter|term|semester|session|co-?op|internship|intern|program)?${SEP}(?:of\s*)?`;
 const season = (names: string, year: string) => new RegExp(String.raw`\b(?:${names})${TERM}${year}\b|\b${year}\s*(?:${names})\b`, 'i');
 const seasons: Array<[Cycle, RegExp]> = [
   ['Fall 2026', season('fall|autumn', '2026')],
@@ -66,8 +70,12 @@ export function classifyCycle(title: string, description = '', hint = ''): Cycle
   const hintedCycle = classify(hint);
   if (hintedCycle) return hintedCycle;
   const text = `${hint} ${title} ${description}`;
-  if (/\b2027\b/i.test(text) && /\b(intern|co-?op|student)\b/i.test(text)) return 'Later compatible';
-  if (/\b(2028|2029)\b/i.test(text) && /\b(intern|co-?op|student)\b/i.test(text)) return 'Later compatible';
+  // \bintern\b does not match "Internship": the word boundary fails on the "s"
+  // that follows. "Quant Analyst Internships 2027" names no season, so this
+  // fallback was its only route to a cycle and it was dropped as off-cycle.
+  const INTERN = /\b(?:interns?(?:hips?)?|co-?ops?|students?)\b/i;
+  if (/\b2027\b/i.test(text) && INTERN.test(text)) return 'Later compatible';
+  if (/\b(2028|2029)\b/i.test(text) && INTERN.test(text)) return 'Later compatible';
   return null;
 }
 
