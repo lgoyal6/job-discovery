@@ -177,6 +177,39 @@ export function collapseByRequisition(jobs: DigestJob[]): RequisitionGroup[] {
   });
 }
 
+/**
+ * Folds what reading a posting's page taught us back into the role.
+ *
+ * Separate from the pipeline that calls it because the rescore is the half that
+ * is easy to lose: the score is fixed at classification, before any page has
+ * been fetched, so skills recovered here and a sponsorship promoted here were
+ * both invisible to it. The same LPL requisition scored 116 arriving from a
+ * source that carried a description and 91 from one that did not, and that gap
+ * decided the order of the digest and which roles the cap reached at all.
+ */
+export function applyEnrichment(
+  job: DigestJob,
+  verdict: { status?: string; evidence?: string; skills?: string[]; summary?: string } | undefined,
+  priorities: Map<string, number>
+): DigestJob {
+  // Promote a confirmed yes so the digest's "Strong matches" section can
+  // finally distinguish it from everything merely unstated.
+  if (verdict?.status === 'SUPPORTED') {
+    job.sponsorshipStatus = 'SUPPORTED';
+    job.sponsorshipEvidence = verdict.evidence ?? job.sponsorshipEvidence;
+  }
+  // Only fill what the source left empty. A list that supplied prose of its own
+  // is describing the requisition; the page is the fallback, not an improvement.
+  if (verdict?.skills?.length && !job.requiredSkills.length) job.requiredSkills = verdict.skills;
+  if (verdict?.summary && job.summary.startsWith('The source did not provide')) job.summary = verdict.summary;
+  job.score = scoreJob({
+    cycle: job.cycle, category: job.category, sponsorshipStatus: job.sponsorshipStatus,
+    skills: job.requiredSkills, postedAt: job.postedAt, location: job.location,
+    watchlistPriority: priorities.get(job.normalizedCompany) ?? 0
+  });
+  return job;
+}
+
 // A flat score sort hands the whole cap to whoever posts the most: dozens of
 // roles tie on score, the tiebreak is alphabetical, and one high-volume employer
 // takes 40% of the digest. Deal one role per company per pass instead, companies
@@ -343,14 +376,12 @@ async function execute(options: RunOptions): Promise<PipelineReport> {
     if (pending.length) {
       const verdicts = await enrichSponsorship(pending, patterns);
       await saveEnrichment(verdicts);
-      for (const verdict of verdicts) known.set(verdict.jobId, { status: verdict.status, evidence: verdict.evidence, httpOk: verdict.httpOk });
+      for (const verdict of verdicts) known.set(verdict.jobId, { status: verdict.status, evidence: verdict.evidence, httpOk: verdict.httpOk, skills: verdict.skills, summary: verdict.summary });
     }
     digestJobs = digestJobs.filter(job => {
       const verdict = job.id ? known.get(job.id) : undefined;
       if (verdict?.status === 'UNSUPPORTED') { enrichmentDropped += 1; return false; }
-      // Promote a confirmed yes so the digest's "Strong matches" section can
-      // finally distinguish it from everything merely unstated.
-      if (verdict?.status === 'SUPPORTED') { job.sponsorshipStatus = 'SUPPORTED'; job.sponsorshipEvidence = verdict.evidence; }
+      applyEnrichment(job, verdict, priorities);
       return true;
     });
     if (enrichmentDropped) log('warn', 'enrichment_dropped_roles', { runId, dropped: enrichmentDropped });

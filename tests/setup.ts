@@ -17,6 +17,12 @@ const testEnv: Record<string, string> = {
   // Page hashing is covered directly in rules.test.ts; set this to run the live
   // check deliberately instead of by accident.
   PAGEWATCH_ENABLED: 'false',
+  // Same reason. The e2e fixtures carry apply URLs that resolve to nothing, so
+  // enrichment spent 4407ms of a 4679ms test reaching for them and reported
+  // "reachable: 0" either way. That put the run within 300ms of the 5s default
+  // and it failed once already. Enrichment's own behaviour is covered by
+  // enrichment.test.ts and the guards, neither of which needs the network.
+  ENRICHMENT_ENABLED: 'false',
 };
 
 for (const [key, value] of Object.entries(testEnv)) {

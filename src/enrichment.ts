@@ -1,4 +1,4 @@
-import { classifySponsorship } from './classification.js';
+import { classifySponsorship, extractSkills } from './classification.js';
 import { config, type SponsorshipPatterns } from './config.js';
 import { log } from './logger.js';
 import type { DigestJob, SponsorshipStatus } from './types.js';
@@ -9,6 +9,11 @@ export interface EnrichmentVerdict {
   evidence: string;
   sourceUrl: string;
   httpOk: boolean;
+  // Harvested from the same text the verdict was read out of. Fetching the page
+  // is the expensive part and it has already happened; throwing the prose away
+  // afterwards is what left most of the digest saying "Not stated".
+  skills: string[];
+  summary: string;
 }
 
 // Community lists give a company, a title, a location and a link, no prose.
@@ -57,7 +62,7 @@ function workdayDescription(payload: unknown): string {
 
 async function fetchOne(job: DigestJob, patterns: SponsorshipPatterns): Promise<EnrichmentVerdict> {
   const url = job.directApplyUrl || job.canonicalUrl || '';
-  const base: EnrichmentVerdict = { jobId: job.id ?? '', status: 'UNKNOWN', evidence: '', sourceUrl: url, httpOk: false };
+  const base: EnrichmentVerdict = { jobId: job.id ?? '', status: 'UNKNOWN', evidence: '', sourceUrl: url, httpOk: false, skills: [], summary: '' };
   if (!url.startsWith('http')) return { ...base, evidence: 'No fetchable application URL.' };
   const jsonUrl = workdayJsonUrl(url);
   try {
@@ -74,7 +79,11 @@ async function fetchOne(job: DigestJob, patterns: SponsorshipPatterns): Promise<
     // Treat that as "asked and learned nothing", not as a verdict.
     if (text.length < 400) return { ...base, httpOk: true, evidence: `Page returned ${text.length} characters of text; nothing to classify.` };
     const verdict = classifySponsorship(`${job.title}\n${text}`, patterns);
-    return { jobId: job.id ?? '', status: verdict.status, evidence: verdict.evidence, sourceUrl: url, httpOk: true };
+    return {
+      jobId: job.id ?? '', status: verdict.status, evidence: verdict.evidence, sourceUrl: url, httpOk: true,
+      skills: extractSkills(`${job.title}\n${text}`),
+      summary: text.slice(0, 280)
+    };
   } catch (error) {
     return { ...base, evidence: error instanceof Error ? error.message : String(error) };
   }

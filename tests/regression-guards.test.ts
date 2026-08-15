@@ -1,6 +1,6 @@
 import { describe, expect, it, vi, afterEach } from 'vitest';
 import { classifyCategory, classifyCycle } from '../src/classification.js';
-import { classifyRawJob, collapseByRequisition, diversifiedTop } from '../src/pipeline.js';
+import { applyEnrichment, classifyRawJob, collapseByRequisition, diversifiedTop } from '../src/pipeline.js';
 import { materialFingerprint, buildAliasMap } from '../src/normalization.js';
 import { normalizeGreenhouse, normalizeLever, normalizeAshby, normalizeSmartRecruiters } from '../src/sources/ats.js';
 import { loadCompanyAliases, loadSponsorshipPatterns } from '../src/config.js';
@@ -312,6 +312,95 @@ describe('collapsing rows must never lose a posting', () => {
     const rows = diversifiedTop(groups.map(group => group.display), 10);
     expect(rows).toHaveLength(4);
     expect(new Set(rows.map(row => row.normalizedCompany)).size).toBe(4);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Enrichment fetched a posting's whole text, read a sponsorship verdict out of
+// it, and dropped the text. 92% of one digest read "Required skills: Not
+// stated" and 82% had no summary, every one from a page already downloaded.
+// Skills are worth 15 points, which is the entire gap between the same LPL
+// requisition scoring 116 with a description and 91 without one.
+//
+// Dies if the harvest is dropped, if it overwrites what a source supplied, or
+// if the score is left as it was before the page was read.
+// ---------------------------------------------------------------------------
+describe('a page that has been fetched must not be read and forgotten', () => {
+  const page = [
+    '<html><body><h1>Software Engineer Intern</h1>',
+    '<p>You will build services in Python and TypeScript, deploy on AWS, and work with React.</p>',
+    '<p>'.padEnd(500, 'x'), '</p></body></html>'
+  ].join('');
+
+  const enrich = async (job: Record<string, unknown>) => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(page, { status: 200, headers: { 'content-type': 'text/html' } })));
+    vi.resetModules();
+    const { enrichSponsorship } = await import('../src/enrichment.js');
+    const { loadSponsorshipPatterns: load } = await import('../src/config.js');
+    const [verdict] = await enrichSponsorship([{
+      id: '11111111-1111-1111-1111-111111111111', title: 'Software Engineer Intern',
+      directApplyUrl: 'https://boards.greenhouse.io/a/jobs/1', canonicalUrl: '', ...job
+    } as never], await load());
+    return verdict!;
+  };
+
+  it('keeps the skills and prose it just read', async () => {
+    const verdict = await enrich({});
+    expect(verdict.httpOk).toBe(true);
+    expect(verdict.skills).toEqual(expect.arrayContaining(['Python', 'TypeScript', 'AWS', 'React']));
+    expect(verdict.summary.length).toBeGreaterThan(0);
+  });
+
+  it('carries the harvest on every verdict shape, including the unreachable ones', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response('nope', { status: 404 })));
+    vi.resetModules();
+    const { enrichSponsorship } = await import('../src/enrichment.js');
+    const { loadSponsorshipPatterns: load } = await import('../src/config.js');
+    const [verdict] = await enrichSponsorship([{
+      id: '22222222-2222-2222-2222-222222222222', title: 'x', directApplyUrl: 'https://a.test/1', canonicalUrl: ''
+    } as never], await load());
+    // Absent, not undefined: the pipeline reads these without guarding.
+    expect(verdict!.skills).toEqual([]);
+    expect(verdict!.summary).toBe('');
+  });
+
+  // The rescore is the half that turns a harvest into a better-ordered digest,
+  // and the easiest half to lose, so it is asserted through the function the
+  // pipeline actually calls rather than through scoreJob on its own.
+  const role = (over: Record<string, unknown> = {}) => ({
+    company: 'LPL Financial', normalizedCompany: 'lpl financial', title: 'Software Engineer Intern',
+    cycle: 'Summer 2027', category: 'SWE', sponsorshipStatus: 'UNKNOWN', sponsorshipEvidence: '',
+    location: 'San Diego, CA', postedAt: '2026-08-13T00:00:00.000Z',
+    requiredSkills: [], summary: 'The source did not provide a verifiable description summary.',
+    // A stale non-zero score on purpose: starting from 0 lets a short-circuited
+    // rescore fall through and look correct. 91 is what LPL actually carried.
+    score: 91, ...over
+  }) as never;
+
+  it('rescores a role once the page has been read', () => {
+    const priorities = new Map([['lpl financial', 7]]);
+    const bare = applyEnrichment(role(), undefined, priorities);
+    const enriched = applyEnrichment(role(), { status: 'UNKNOWN', skills: ['Python', 'TypeScript', 'AWS', 'React'], summary: 'Build services in Python.' }, priorities);
+    expect(enriched.score).toBeGreaterThan(bare.score);
+    // Recomputed, not carried over from before the page was read.
+    expect(bare.score).not.toBe(91);
+    expect(enriched.score).not.toBe(91);
+    expect(enriched.requiredSkills).toEqual(['Python', 'TypeScript', 'AWS', 'React']);
+    expect(enriched.summary).toBe('Build services in Python.');
+    // A confirmed sponsorship is worth points too, and it was never rescored.
+    expect(applyEnrichment(role(), { status: 'SUPPORTED', evidence: 'sponsors' }, priorities).score)
+      .toBeGreaterThan(bare.score);
+  });
+
+  it('does not overwrite prose the source supplied itself', () => {
+    const priorities = new Map<string, number>();
+    const kept = applyEnrichment(
+      role({ requiredSkills: ['Rust'], summary: 'The list described this role itself.' }),
+      { status: 'UNKNOWN', skills: ['Python', 'AWS'], summary: 'Text scraped from the page.' },
+      priorities
+    );
+    expect(kept.requiredSkills).toEqual(['Rust']);
+    expect(kept.summary).toBe('The list described this role itself.');
   });
 });
 
