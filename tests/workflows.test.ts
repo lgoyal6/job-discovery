@@ -23,7 +23,12 @@ describe('exported n8n workflows', () => {
   // command node is fed the query string directly rather than the validated node.
   it('validates the signed link before any value reaches a shell', async () => {
     const value = await workflow('mark-applied-webhook.json');
+    // Exported inactive like the others; the entrypoint is what activates it,
+    // because a webhook that is not active answers 404 and every Mark applied
+    // link in every digest row is dead.
     expect(value.active).toBe(false);
+    const entrypoint = await readFile(resolve(process.cwd(), 'scripts/railway-entrypoint.sh'), 'utf8');
+    expect(entrypoint).toContain('mark-applied-webhook.json --activeState=true');
     const validator = value.nodes.find((node: any) => node.name === 'Validate Signed Link');
     expect(validator.parameters.jsCode).toContain('[0-9a-f]{32}');
     expect(validator.parameters.jsCode).toContain('MARK_APPLIED_SECRET');
