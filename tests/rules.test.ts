@@ -74,6 +74,18 @@ describe('sponsorship phrasings that never use the word sponsorship', () => {
     expect(await check('No visa sponsorship is offered for interns.')).toBe('UNSUPPORTED');
   });
 
+  // Defense employers state the bar as a status the candidate must hold, not as
+  // a policy on sponsorship. "U.S. Person status is required as this position
+  // needs to access export controlled data" matched neither the person rule,
+  // which wants "must be a U.S. person", nor the export rule, which wants "due
+  // to export control" ahead of the person - so every Anduril 2027 intern role
+  // classified UNKNOWN and one of them reached a digest.
+  it('catches a required status stated as a noun', async () => {
+    expect(await check('U.S. Person status is required as this position needs to access export controlled data.')).toBe('UNSUPPORTED');
+    expect(await check('U.S. Citizen or Greencard Holder status is required as this position needs to access export-controlled data.')).toBe('UNSUPPORTED');
+    expect(await check('Candidates must hold U.S. Person status, since this role requires access to export-controlled data.')).toBe('UNSUPPORTED');
+  });
+
   it('does not fire on equal-opportunity boilerplate', async () => {
     expect(await check('We consider all applicants regardless of citizenship status or national origin.')).not.toBe('UNSUPPORTED');
     expect(await check('Visa sponsorship is available for this role.')).toBe('SUPPORTED');

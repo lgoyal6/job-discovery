@@ -28,6 +28,14 @@ unsupported:
   - "(?:u\\.?s\\.?|united states) citizens? or (?:lawful )?permanent residents?"
   - "citizens? or (?:lawful )?permanent residents? only"
   - "(?:must be|be) (?:a |an )?u\\.?s\\.? person"
+  # Defense and aerospace employers state a status the role requires rather than
+  # a policy on sponsorship, and they state it as a noun. "U.S. Person status is
+  # required as this position needs to access export controlled data" matched
+  # none of the rules above - the person rule wants "must be a U.S. person", the
+  # export rule wants "due to export control" ahead of the person - so every
+  # Anduril intern requisition classified UNKNOWN and one reached the digest.
+  - "(?:u\\.?s\\.?|united states)[ -]person status"
+  - "(?:u\\.?s\\.?|united states)[ -](?:citizens?(?:hip)?|green\\s?card holders?|permanent residents?)\\b[^.]{0,40}status (?:is|are) required"
   - "\\bitar\\b"
   - "must be legally authoriz(?:ed|able) to work.{0,80}without (?:current or future |any )?sponsorship"
   - "not (?:be )?requir(?:e|ing) (?:visa |employment |work )?sponsorship (?:now or in the future)?"
