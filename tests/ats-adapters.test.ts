@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { AtsSource, type AtsConfig } from '../src/sources/ats.js';
+import { AtsSource, normalizeGreenhouse, type AtsConfig } from '../src/sources/ats.js';
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -69,7 +69,58 @@ describe('ATS adapters', () => {
     expect(secondBody).toMatchObject({ offset: 100, limit: 100, searchText: '' });
   });
 
-  it.each(['icims', 'oracle', 'successfactors', 'eightfold', 'career-page'] as const)('normalizes generic %s endpoints', async type => {
+  // 93 Greenhouse boards answered with no description at all, so a title with
+  // no year had no cycle and was dropped. Descriptions are back, but only for
+  // the postings a rule will read: Anduril's board is 38 MB and keeping all of
+  // it would put ~300 MB through a run to classify a few hundred student roles.
+  it('keeps a Greenhouse description for a student title and discards the rest', async () => {
+    const board = { jobs: [
+      { id: 1, title: 'Gameplay Programmer Intern', absolute_url: 'https://boards.greenhouse.io/epicgames/jobs/1', location: { name: 'Cary, NC' }, first_published: '2026-08-12T00:00:00Z', content: 'Summer 2027 gameplay work in C++' },
+      { id: 2, title: 'Senior Staff Engineer', absolute_url: 'https://boards.greenhouse.io/epicgames/jobs/2', location: { name: 'Cary, NC' }, first_published: '2026-08-12T00:00:00Z', content: 'x'.repeat(20_000) }
+    ] };
+    const jobs = normalizeGreenhouse(board, { type: 'greenhouse', board: 'epicgames', company: 'Epic Games' }, new Date().toISOString());
+    expect(jobs[0]?.description).toContain('Summer 2027');
+    expect(jobs[1]?.description).toBeUndefined();
+  });
+
+  // Oracle Recruiting nests its postings inside items[0].requisitionList, beside
+  // the search metadata that produced them. The generic reader takes `items`
+  // itself, finds one titleless object, and drops it, which is why American
+  // Express and its 56 student postings were invisible.
+  it('reads Oracle requisitions out of the search wrapper, and pages them', async () => {
+    const page = (ids: number[], count: number): Response => new Response(JSON.stringify({
+      items: [{ TotalJobsCount: count, requisitionList: ids.map(id => ({
+        Id: String(id), Title: 'Campus Undergraduate Summer Internship Program - 2027 Software Engineer',
+        PrimaryLocation: 'Charlotte, NC, United States', PostedDate: '2026-08-17',
+        ShortDescriptionStr: 'Join the team', ExternalQualificationsStr: 'Python and Java'
+      })) }]
+    }), { status: 200 });
+    const mockedFetch = vi.fn()
+      .mockResolvedValueOnce(page(Array.from({ length: 200 }, (_, index) => 26010000 + index), 250))
+      .mockResolvedValueOnce(page([26011679], 250));
+    vi.stubGlobal('fetch', mockedFetch);
+
+    const result = await new AtsSource({ type: 'oracle', host: 'https://egug.fa.us2.oraclecloud.com', site: 'CX_1', company: 'American Express' }).fetch();
+    expect(result.status).toBe('SUCCESS');
+    expect(result.jobs).toHaveLength(201);
+    // The name the run reports must equal the name stamped on its jobs, or the
+    // pipeline attributes every posting to no source and reports 0 accepted.
+    expect(result.sourceName).toBe('oracle:american-express');
+    expect(new Set(result.jobs.map(job => job.sourceName))).toEqual(new Set(['oracle:american-express']));
+    expect(result.jobs[200]).toMatchObject({
+      sourceJobId: '26011679', company: 'American Express',
+      directApplyUrl: 'https://egug.fa.us2.oraclecloud.com/hcmUI/CandidateExperience/en/sites/CX_1/job/26011679'
+    });
+    // Qualifications carry the citizenship sentence far more often than the
+    // summary does, so all three prose fields have to reach the classifier.
+    expect(result.jobs[0]?.description).toContain('Python and Java');
+    expect(result.jobs[0]?.postedAt).toBe('2026-08-17T00:00:00.000Z');
+    const [firstUrl] = mockedFetch.mock.calls[0] as [string];
+    expect(decodeURIComponent(firstUrl)).toContain('findReqs;siteNumber=CX_1');
+    expect(firstUrl).toContain('expand=requisitionList');
+  });
+
+  it.each(['icims', 'successfactors', 'eightfold', 'career-page'] as const)('normalizes generic %s endpoints', async type => {
     const mockedFetch = vi.fn().mockResolvedValue(new Response(JSON.stringify({ jobs: [{ id: `${type}-1`, title: 'Security Engineering Intern', location: 'Remote', datePosted: '2026-08-01', jobDescription: 'Python security engineering', externalUrl: `https://careers.test/${type}/1` }] }), { status: 200 }));
     vi.stubGlobal('fetch', mockedFetch);
     const cfg: AtsConfig = { type, company: 'Acme', endpoint: `https://api.test/${type}` };

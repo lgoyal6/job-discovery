@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { STUDENT_ROLE } from '../classification.js';
 import { config } from '../config.js';
 import { fetchWithPolicy } from '../http.js';
 import type { RawJob } from '../types.js';
@@ -13,7 +14,8 @@ export type AtsConfig =
   | { type: 'ashby'; board: string; company: string }
   | { type: 'smartrecruiters'; companyId: string; company: string }
   | { type: 'workday'; host: string; tenant: string; site: string; company: string }
-  | { type: 'icims' | 'oracle' | 'successfactors' | 'eightfold' | 'career-page'; company: string; endpoint: string; method?: 'GET' | 'POST'; body?: unknown };
+  | { type: 'oracle'; host: string; site: string; company: string }
+  | { type: 'icims' | 'successfactors' | 'eightfold' | 'career-page'; company: string; endpoint: string; method?: 'GET' | 'POST'; body?: unknown };
 
 // nullish, not optional: Greenhouse sends first_published as an explicit null
 // on a posting it has never published (a draft promoted in place, typically).
@@ -28,8 +30,20 @@ const smartSchema = z.object({ content: z.array(z.object({ id: z.string(), name:
 // first_published, not updated_at. Greenhouse touches updated_at on any board
 // edit, so IMC's July 1 internships were reported as posted two days ago and a
 // six-week-old listing read as fresh. Fall back only when the field is absent.
+/**
+ * Greenhouse was fetched without descriptions, and all 93 boards answered with
+ * none: 17,716 postings whose title was the only evidence there was. That is
+ * why Epic's "Gameplay Programmer Intern" was dropped for having no cycle, and
+ * with it 145 student roles a description would have dated.
+ *
+ * The board now answers with content, and the description is kept only where a
+ * rule will read it. Anduril's board alone is 38 MB, so keeping all of it would
+ * put roughly 300 MB through a run to classify about 500 student postings. A
+ * non-student title whose body merely mentions an internship programme is lost
+ * by this, which is no loss against a fetch that carried no body at all.
+ */
 export function normalizeGreenhouse(payload: unknown, cfg: Extract<AtsConfig, { type: 'greenhouse' }>, now: string): RawJob[] {
-  return greenhouseSchema.parse(payload).jobs.map(job => ({ sourceName: `greenhouse:${cfg.board}`, sourceJobId: String(job.id), company: cfg.company, title: job.title, location: job.location.name, postedAt: job.first_published ?? job.updated_at ?? undefined, description: job.content ?? undefined, sourceUrl: job.absolute_url, directApplyUrl: job.absolute_url, scrapedAt: now, employmentType: 'Internship' }));
+  return greenhouseSchema.parse(payload).jobs.map(job => ({ sourceName: `greenhouse:${cfg.board}`, sourceJobId: String(job.id), company: cfg.company, title: job.title, location: job.location.name, postedAt: job.first_published ?? job.updated_at ?? undefined, description: STUDENT_ROLE.test(job.title) ? job.content ?? undefined : undefined, sourceUrl: job.absolute_url, directApplyUrl: job.absolute_url, scrapedAt: now, employmentType: 'Internship' }));
 }
 
 export function normalizeLever(payload: unknown, cfg: Extract<AtsConfig, { type: 'lever' }>, now: string): RawJob[] {
@@ -44,6 +58,52 @@ export function normalizeSmartRecruiters(payload: unknown, cfg: Extract<AtsConfi
   return smartSchema.parse(payload).content.map(job => ({ sourceName: `smartrecruiters:${cfg.companyId}`, sourceJobId: job.id, company: cfg.company, title: job.name, location: [job.location?.city, job.location?.region, job.location?.country].filter(Boolean).join(', ') || 'Unspecified', postedAt: job.releasedDate ?? undefined, sourceUrl: job.ref, directApplyUrl: job.ref, scrapedAt: now }));
 }
 
+// Oracle Recruiting buries the postings one level down, in the first element of
+// items, beside the search metadata that produced them. The generic reader looks
+// for a top-level array and finds `items` itself: one object, no title, dropped.
+// American Express is an Oracle shop with 56 student postings, so this shape was
+// the whole of its absence.
+const oracleSchema = z.object({
+  items: z.array(z.object({
+    TotalJobsCount: z.number().nullish(),
+    requisitionList: z.array(z.object({
+      Id: z.union([z.string(), z.number()]),
+      Title: z.string(),
+      PrimaryLocation: z.string().nullish(),
+      PostedDate: z.string().nullish(),
+      ShortDescriptionStr: z.string().nullish(),
+      ExternalQualificationsStr: z.string().nullish(),
+      ExternalResponsibilitiesStr: z.string().nullish(),
+      JobSchedule: z.string().nullish()
+    }).loose()).nullish()
+  }).loose())
+});
+
+export function normalizeOracle(payload: unknown, cfg: Extract<AtsConfig, { type: 'oracle' }>, now: string): RawJob[] {
+  const host = cfg.host.replace(/\/$/, '');
+  return (oracleSchema.parse(payload).items[0]?.requisitionList ?? []).map(job => {
+    const url = `${host}/hcmUI/CandidateExperience/en/sites/${cfg.site}/job/${job.Id}`;
+    return {
+      // Must equal AtsSource.name: the pipeline attributes per-source counts by
+      // matching the two, and a mismatch reports every board as 0 accepted.
+      sourceName: `oracle:${normalizeSlug(cfg.company)}`, sourceJobId: String(job.Id), company: cfg.company,
+      title: job.Title, location: job.PrimaryLocation ?? undefined,
+      // Date only, no time, so it reads as midnight UTC rather than as invalid.
+      postedAt: job.PostedDate ? new Date(`${job.PostedDate}T00:00:00Z`).toISOString() : undefined,
+      // Three separate prose fields, and the sponsorship rules need all of them:
+      // the citizenship sentence lives in qualifications far more often than in
+      // the summary.
+      description: [job.ShortDescriptionStr, job.ExternalResponsibilitiesStr, job.ExternalQualificationsStr].filter(Boolean).join('\n') || undefined,
+      employmentType: job.JobSchedule ?? undefined,
+      sourceUrl: url, directApplyUrl: url, scrapedAt: now
+    };
+  }).filter(job => job.title);
+}
+
+function normalizeSlug(value: string): string {
+  return value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+}
+
 function genericItems(payload: unknown): any[] {
   if (Array.isArray(payload)) return payload;
   if (!payload || typeof payload !== 'object') return [];
@@ -56,7 +116,7 @@ export class AtsSource extends SafeSource {
   readonly name: string;
   constructor(private readonly source: AtsConfig) {
     super();
-    const identifier = source.type === 'greenhouse' ? source.board : source.type === 'lever' ? source.site : source.type === 'ashby' ? source.board : source.type === 'smartrecruiters' ? source.companyId : source.company;
+    const identifier = source.type === 'greenhouse' ? source.board : source.type === 'lever' ? source.site : source.type === 'ashby' ? source.board : source.type === 'smartrecruiters' ? source.companyId : source.type === 'oracle' ? normalizeSlug(source.company) : source.company;
     this.name = `${source.type}:${identifier}`;
   }
   protected async collect(): Promise<RawJob[]> {
@@ -104,7 +164,24 @@ export class AtsSource extends SafeSource {
       }
       return jobs;
     }
-    if (this.source.type === 'greenhouse') url = `https://boards-api.greenhouse.io/v1/boards/${encodeURIComponent(this.source.board)}/jobs?content=false`;
+    if (this.source.type === 'oracle') {
+      const oracle = this.source;
+      const jobs: RawJob[] = [];
+      for (let offset = 0; offset < config.ATS_MAX_RESULTS_PER_SOURCE; offset += 200) {
+        const limit = Math.min(200, config.ATS_MAX_RESULTS_PER_SOURCE - offset);
+        // The finder is one packed argument, so it has to be assembled rather
+        // than passed as query parameters. expand is what carries the postings:
+        // without it the response is the search metadata and no requisitions.
+        const finder = `findReqs;siteNumber=${oracle.site},limit=${limit},offset=${offset},sortBy=POSTING_DATES_DESC`;
+        const endpoint = `${oracle.host.replace(/\/$/, '')}/hcmRestApi/resources/latest/recruitingCEJobRequisitions?onlyData=true&expand=requisitionList&finder=${encodeURIComponent(finder)}`;
+        const response = await fetchWithPolicy(endpoint, { sourceName: this.name, timeoutMs: config.SOURCE_TIMEOUT_MS, retries: config.SOURCE_RETRIES });
+        const page = normalizeOracle(await response.json(), oracle, now);
+        jobs.push(...page);
+        if (page.length < limit) break;
+      }
+      return jobs;
+    }
+    if (this.source.type === 'greenhouse') url = `https://boards-api.greenhouse.io/v1/boards/${encodeURIComponent(this.source.board)}/jobs?content=${config.GREENHOUSE_CONTENT_ENABLED ? 'true' : 'false'}`;
     // No includeCompensation: nothing here reads a compensation field, and on
     // OpenAI's board asking for it costs 600 KB and about 1.5 seconds per run.
     else if (this.source.type === 'ashby') url = `https://api.ashbyhq.com/posting-api/job-board/${encodeURIComponent(this.source.board)}`;

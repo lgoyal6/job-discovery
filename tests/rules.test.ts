@@ -54,6 +54,38 @@ describe('category is judged on the title, not the description', () => {
   });
 });
 
+// The Greenhouse board is fetched without descriptions, so a title that carries
+// no recognised software word is judged on nothing. Game studios say Programmer
+// where everyone else says Engineer, which made a whole sector invisible.
+describe('titles a game studio writes', () => {
+  it('reads Programmer as a software title, from the title alone', () => {
+    for (const title of ['Gameplay Programmer Intern', 'Graphics Programmer Intern', 'Engine Programmer Intern', 'Tools Programmer Intern']) {
+      expect(classifyCategory(title, ''), title).toMatchObject({ category: 'SWE', eligible: true });
+    }
+  });
+
+  it('still refuses a title with no technical signal at all', () => {
+    expect(classifyCategory('Community Manager Intern', '').eligible).toBe(false);
+    expect(classifyCategory('Marketing Intern', '').eligible).toBe(false);
+  });
+});
+
+// American Express titles every campus role "Campus Undergraduate Summer
+// Internship Program - 2027 Software Engineer", putting two program words
+// between the season and the year. That matched no season, so ten 2027
+// internships were filed as "Later compatible" and scored 35 points low.
+describe('a season and a year separated by more than one program word', () => {
+  it('reads the cycle out of a campus programme title', () => {
+    expect(classifyCycle('Campus Undergraduate Summer Internship Program - 2027 Software Engineer')).toBe('Summer 2027');
+    expect(classifyCycle('Campus Graduate Masters Summer Internship Program - 2027 AI Engineer')).toBe('Summer 2027');
+    expect(classifyCycle('Winter Quarter 2027 Quantitative Trading Intern')).toBe('Winter 2027');
+  });
+
+  it('does not reach across a title to pair a season with someone else\'s year', () => {
+    expect(classifyCycle('Summer Analyst, Global Markets, applications close January 2027')).not.toBe('Summer 2027');
+  });
+});
+
 describe('sponsorship phrasings that never use the word sponsorship', () => {
   const check = async (text: string) => {
     const patterns = await loadSponsorshipPatterns();

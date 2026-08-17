@@ -7,12 +7,16 @@ describe('fixture dry run', () => {
     expect(report.dryRun).toBe(true);
     expect(report.shouldSend).toBe(false);
     expect(report.notionModified).toBe(false);
-    expect(report.counts).toMatchObject({ raw: 7, accepted: 3, deduplicated: 1 });
-    expect(report.jobs.map(job => job.sponsorshipStatus).sort()).toEqual(['SUPPORTED', 'SUPPORTED', 'UNKNOWN']);
-    expect(report.subject).toContain('3 roles');
+    // A posting that says it cannot sponsor is reported, not rejected: the
+    // wording is boilerplate that employers do depart from.
+    expect(report.counts).toMatchObject({ raw: 7, accepted: 4, deduplicated: 1 });
+    expect(report.jobs.map(job => job.sponsorshipStatus).sort()).toEqual(['SUPPORTED', 'SUPPORTED', 'UNKNOWN', 'UNSUPPORTED']);
+    expect(report.rejectionReasons.sponsorship_unsupported).toBeUndefined();
+    expect(report.subject).toContain('4 roles');
     expect(report.degradedSources).toEqual(expect.arrayContaining(['notion-applied', 'apify:linkedin', 'apify:indeed', 'apify:monster']));
-    expect(report.html!.indexOf('Strong Summer 2027 matches')).toBeLessThan(report.html!.indexOf('Other target-cycle matches'));
-    expect(report.html!.indexOf('Other target-cycle matches')).toBeLessThan(report.html!.indexOf('Sponsorship unclear'));
-    expect(report.html!.indexOf('Sponsorship unclear')).toBeLessThan(report.html!.indexOf('Source failures or degraded coverage'));
+    const order = ['Strong Summer 2027 matches', 'Other target-cycle matches', 'Sponsorship unclear', 'Says no sponsorship, decide for yourself', 'Source failures or degraded coverage']
+      .map(heading => report.html!.indexOf(heading));
+    expect(order.every(position => position >= 0)).toBe(true);
+    expect([...order].sort((a, b) => a - b)).toEqual(order);
   });
 });

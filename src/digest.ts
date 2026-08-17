@@ -39,7 +39,11 @@ export function buildDigest(jobs: DigestJob[], sourceRuns: SourceResult[], times
   const sections: Array<[string, DigestJob[]]> = [
     ['Strong Summer 2027 matches', sorted.filter(job => job.cycle === 'Summer 2027' && job.sponsorshipStatus === 'SUPPORTED')],
     ['Other target-cycle matches', sorted.filter(job => job.cycle !== 'Summer 2027' && job.sponsorshipStatus === 'SUPPORTED')],
-    ['Sponsorship unclear', sorted.filter(job => job.sponsorshipStatus === 'UNKNOWN')]
+    ['Sponsorship unclear', sorted.filter(job => job.sponsorshipStatus === 'UNKNOWN')],
+    // Last, and labelled for what it is. The posting says no; employers do
+    // depart from that boilerplate, and the evidence line on each row is there
+    // so the call can be made without opening the posting.
+    ['Says no sponsorship, decide for yourself', sorted.filter(job => job.sponsorshipStatus === 'UNSUPPORTED')]
   ];
   const degraded = sourceRuns.filter(run => run.status !== 'SUCCESS').map(run => `${run.sourceName}: ${run.error ?? run.status}`);
   const displayTime = timestamp.toLocaleString('en-US', { timeZone: 'America/Los_Angeles', dateStyle: 'medium', timeStyle: 'short' });

@@ -14,8 +14,19 @@ const categories: Array<[Category, RegExp]> = [
   ['GTM Eng', /\b(forward deployed|solutions? engineer|gtm engineer|sales engineer)\b/i],
   // cyber ?security, not security: \bsecurity\b cannot match inside
   // "Cybersecurity", so that title read as non-technical and was dropped.
-  ['SWE', /\b(software|firmware|embedded|developer|frontend|front-end|backend|back-end|full[ -]?stack|mobile|ios|android|infrastructure|platform|cloud|systems?|security|cyber ?security|infosec|devops|site reliability|sre|data engineer|developer tool|distributed systems?|compilers?|kernel|databases?|observability|reliability engineer(?:ing)?|analytics engineer|data analytics|data analyst|(?:qa|test|quality|automation|release|build) engineer|network(?:ing)? (?:engineer|operations|infrastructure|systems?)|computer networks?|information technology|it (?:support|infrastructure|operations|systems?|services|security|help ?desk))\b/i]
+  // programmer: every game studio titles software roles that way, and the
+  // Greenhouse board is fetched without descriptions, so the title is the only
+  // evidence there is. "Gameplay Programmer Intern" at Epic Games read as
+  // no_technical_signal, and with it every Programmer role at Riot, Bungie, EA
+  // and Rockstar.
+  ['SWE', /\b(software|firmware|embedded|developer|programmer|programming|frontend|front-end|backend|back-end|full[ -]?stack|mobile|ios|android|infrastructure|platform|cloud|systems?|security|cyber ?security|infosec|devops|site reliability|sre|data engineer|developer tool|distributed systems?|compilers?|kernel|databases?|observability|reliability engineer(?:ing)?|analytics engineer|data analytics|data analyst|(?:qa|test|quality|automation|release|build) engineer|network(?:ing)? (?:engineer|operations|infrastructure|systems?)|computer networks?|information technology|it (?:support|infrastructure|operations|systems?|services|security|help ?desk))\b/i]
 ];
+
+// Plurals: "Internships" ends the match on a word character, so \b fails and
+// "Quant Analyst Internships 2027" read as not a student role at all. The same
+// held for "Interns" and "Students". "Internal" and "International" still do
+// not match, because \b fails on the letter after "intern".
+export const STUDENT_ROLE = /\b(interns?(?:hips?)?|co-?ops?|students?|early career|new grad(?:uate)?s?)\b/i;
 
 const nonTechnical = /\b(marketing|accounting|human resources|recruiter|sales intern|business development|communications|legal|finance intern|operations intern|product marketing|governance,? risk,? and compliance|\bgrc\b|compliance|paralegal|talent acquisition|people operations)\b/i;
 
@@ -57,8 +68,12 @@ export function classifyCategory(title: string, description = ''): { category: C
 // The separator is not always a space. "Software Developer Summer Internship -
 // 2027" puts a dash between the term word and the year, which matched no season
 // and left the posting with no cycle at all.
+// One such word, not two. American Express titles every campus role "Campus
+// Undergraduate Summer Internship Program - 2027 Software Engineer", which puts
+// two of them between the season and the year, matched no season, and left ten
+// 2027 internships scoring 68 as "Later compatible" instead of 103.
 const SEP = String.raw`[\s\-–—:,]*`;
-const TERM = String.raw`${SEP}(?:quarter|term|semester|session|co-?op|internship|intern|program)?${SEP}(?:of\s*)?`;
+const TERM = String.raw`${SEP}(?:(?:quarter|term|semester|session|co-?op|internship|intern|program)${SEP}){0,3}(?:of\s*)?`;
 const season = (names: string, year: string) => new RegExp(String.raw`\b(?:${names})${TERM}${year}\b|\b${year}\s*(?:${names})\b`, 'i');
 const seasons: Array<[Cycle, RegExp]> = [
   ['Fall 2026', season('fall|autumn', '2026')],

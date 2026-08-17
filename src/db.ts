@@ -261,15 +261,13 @@ export async function markBatchSent(batchKey: string, providerMessageId?: string
 
 export async function getUnsentJobIds(ids: string[]): Promise<Set<string>> {
   if (!ids.length) return new Set();
-  // A role whose own posting says it cannot sponsor is never sendable, so it
-  // must not count as unsent. Without this it sits in the queue permanently:
-  // re-fetched, re-filtered and never resolved, making "unsent" mean "queued or
-  // quietly rejected" and hiding whether a digest is genuinely empty.
+  // A posting that says it cannot sponsor used to be held back here, which made
+  // "unsent" mean "queued or quietly rejected". Those roles are now reported in
+  // their own digest section, so they are sendable, they get sent_at stamped
+  // like anything else, and they leave the queue instead of sitting in it.
   const rows = await pool.query<{ id: string }>(
     `SELECT j.id FROM jobs j
-      LEFT JOIN job_enrichment e ON e.job_id = j.id
-     WHERE j.id = ANY($1::uuid[]) AND j.sent_at IS NULL AND j.status='OPEN'
-       AND (e.status IS NULL OR e.status <> 'UNSUPPORTED')`, [ids]);
+     WHERE j.id = ANY($1::uuid[]) AND j.sent_at IS NULL AND j.status='OPEN'`, [ids]);
   return new Set(rows.rows.map(row => row.id));
 }
 

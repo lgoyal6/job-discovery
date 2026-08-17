@@ -15,7 +15,11 @@ The existing Codex automation and both files in `../automation/` are untouched. 
 
 ## Architecture
 
-Every two hours, n8n invokes the compiled Node CLI. The CLI acquires a PostgreSQL advisory lock, fetches sources independently with bounded retries/timeouts, validates responses, applies deterministic rules, reads Notion applied exclusions, canonicalizes and merges jobs, persists state, and atomically claims a digest batch. n8n sends Gmail only when `shouldSend=true`, then confirms the batch so the included jobs receive `sent_at`.
+Every two hours, n8n invokes the compiled Node CLI. The CLI acquires a PostgreSQL advisory lock, fetches sources with bounded retries/timeouts and bounded concurrency, validates responses, applies deterministic rules, reads Notion applied exclusions, canonicalizes and merges jobs, persists state, and atomically claims a digest batch. n8n sends Gmail only when `shouldSend=true`, then confirms the batch so the included jobs receive `sent_at`.
+
+Not every source runs on every tick. LinkedIn runs twice a day, the Apify actors once, and the Greenhouse boards every six hours because they are the only ones that answer with full descriptions: about 300 MB a pass, against roughly 3 MB for the listings alone. That description is what gives a Greenhouse posting a cycle, a sponsorship verdict and a skills list, so without it a title lacking a year was simply dropped. Descriptions are kept only for student-titled postings, which is what keeps 17,716 of them from reaching memory.
+
+Sponsorship is not a rejection. A posting whose own text says it cannot sponsor is carried through and reported in a separate, separately capped digest section, because the sentence is boilerplate that employers do depart from and the judgement belongs to the reader. An ITAR or US-person requirement lands in the same section and is a legal bar rather than a policy; the evidence line on each row is what tells them apart.
 
 The Railway image uses `scripts/railway-entrypoint.sh` to apply the ordered, idempotent pipeline migrations before starting n8n. It emits a structured `job_pipeline_migrations_complete` marker, then Railway checks `/healthz` on `PORT=5678`. This avoids a separate pre-deploy container while preserving private-network database access and observable migration failure. After the n8n owner account exists, set `N8N_IMPORT_WORKFLOWS_ON_START=true` for one deployment to import both version-controlled workflows. Imports target the owner's personal project, upsert their stable IDs, and remain inactive. Set the switch back to `false` immediately after the two `n8n_workflow_import_complete` log markers appear.
 
@@ -98,6 +102,18 @@ The link carries the job id and an HMAC of it, so a guessed id files nothing. Th
 ### Gmail in n8n
 
 In n8n, create a Gmail OAuth2 credential and select it in `Send Gmail Digest`. The workflow intentionally exports without a credential ID. Use the Google OAuth redirect URL displayed by n8n and authorize the mailbox that will send to the address in `EMAIL_TO`. Leave the workflow inactive and `SEND_EMAIL_ENABLED=false` until the controlled live-send test is explicitly approved.
+
+### Adding a board
+
+`config/sources.json` is a whitelist, so the pipeline sees exactly what it is told to and nothing else. `npm run build && node dist/cli.js discover-boards` probes unconfigured watchlist companies, but only for Greenhouse, Lever and Ashby, because those are the only three whose slug can be guessed from a company name. It reported 0 new boards from 239 companies, and it was right: what remains is the Workday, Oracle, iCIMS and Taleo tier, which it does not probe.
+
+An Oracle Recruiting company needs its pod host and site number, both visible in any posting URL on its careers site:
+
+```json
+{ "type": "oracle", "host": "https://egug.fa.us2.oraclecloud.com", "site": "CX_1", "company": "American Express" }
+```
+
+American Express serves that pod behind `careers.americanexpress.com`, which proxies the posting pages but not the API, so the pod host is the one that works.
 
 ### Apify
 

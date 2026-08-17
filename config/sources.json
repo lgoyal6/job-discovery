@@ -796,6 +796,17 @@
       "type": "lever",
       "site": "xsolla",
       "company": "Xsolla"
+    },
+    {
+      "type": "ashby",
+      "board": "replit",
+      "company": "Replit"
+    },
+    {
+      "type": "oracle",
+      "host": "https://egug.fa.us2.oraclecloud.com",
+      "site": "CX_1",
+      "company": "American Express"
     }
   ],
   "linkedin": [

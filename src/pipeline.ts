@@ -4,7 +4,7 @@ import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import { config, loadCompanyAliases, loadSponsorshipPatterns, projectRoot, watchlistPath } from './config.js';
 import { buildAliasMap, canonicalizeUrl, canonicalKey, canonicalLocation, extractSourceJobId, locationBucket, normalizeCompany, normalizeText, requisitionSignature, titleSignature } from './normalization.js';
-import { classifyCategory, classifyCycle, classifyGraduation, classifyLocation, classifySponsorship, extractSkills, scoreJob } from './classification.js';
+import { classifyCategory, classifyCycle, classifyGraduation, classifyLocation, classifySponsorship, extractSkills, scoreJob, STUDENT_ROLE } from './classification.js';
 import { parseWatchlist, rotateWatchlist, type WatchlistCompany } from './watchlist.js';
 import type { ClassifiedJob, DigestJob, PipelineReport, RawJob, SourceAdapter, SourceResult } from './types.js';
 import { enrichSponsorship } from './enrichment.js';
@@ -37,8 +37,17 @@ async function fixtureRuns(): Promise<SourceResult[]> {
 async function collectSources(options: RunOptions, watchlistCohort: WatchlistCompany[]): Promise<SourceResult[]> {
   if (options.fixtures) return fixtureRuns();
   const [community, ats, linkedin] = await Promise.all([loadCommunitySources(), loadAtsSources(), loadLinkedInSources()]);
-  const sources: SourceAdapter[] = [...community, ...ats];
+  const greenhouse = config.GREENHOUSE_CONTENT_ENABLED ? ats.filter(source => source.name.startsWith('greenhouse:')) : [];
+  const sources: SourceAdapter[] = [...community, ...ats.filter(source => !greenhouse.includes(source))];
   const deferred: SourceResult[] = [];
+  // A Greenhouse board carrying descriptions is the most expensive fetch here,
+  // about 300 MB across the 93 of them, so it runs on its own cadence rather
+  // than every two hours. Same watermark machinery as LinkedIn and Apify.
+  for (const source of greenhouse) {
+    const due = !options.persistent || await isSourceDue(source.name, config.GREENHOUSE_MIN_INTERVAL_HOURS);
+    if (due) sources.push(source);
+    else deferred.push({ ...skippedSource(source.name, `not due: runs every ${config.GREENHOUSE_MIN_INTERVAL_HOURS}h`), metrics: { skippedDueToCadence: true, minimumIntervalHours: config.GREENHOUSE_MIN_INTERVAL_HOURS } });
+  }
   // Twice a day, gated on the same watermark the Apify actors use. A dry run is
   // always allowed through so the source can be exercised without waiting.
   for (const source of linkedin) {
@@ -65,7 +74,16 @@ async function collectSources(options: RunOptions, watchlistCohort: WatchlistCom
       }
     }
   }
-  const results = await Promise.all(sources.map(source => source.fetch()));
+  // Bounded, not Promise.all over every source at once. With descriptions on,
+  // an unbounded pool holds all 93 Greenhouse payloads in memory together, and
+  // it is also what made a 12 MB board expire against a timeout it met easily
+  // on its own.
+  const queue = [...sources];
+  const results: SourceResult[] = [];
+  const worker = async (): Promise<void> => {
+    for (let source = queue.shift(); source; source = queue.shift()) results.push(await source.fetch());
+  };
+  await Promise.all(Array.from({ length: Math.min(config.SOURCE_CONCURRENCY, sources.length) }, worker));
   if (options.liveFree) results.push(skippedSource('notion-applied', 'live-free mode: credentials are not used'), skippedSource('apify:linkedin', 'live-free mode: credentialed actors disabled'), skippedSource('apify:indeed', 'live-free mode: credentialed actors disabled'), skippedSource('apify:monster', 'live-free mode: credentialed actors disabled'));
   return [...results, ...deferred];
 }
@@ -94,24 +112,19 @@ export async function classifyRawJob(raw: RawJob, context: { aliases: Map<string
   const normalizedLocation = canonicalLocation(location);
   let rejectionReason: string | undefined;
   if (raw.status === 'CLOSED') rejectionReason = 'closed_or_expired';
-  // Plurals: "Internships" ends the match on a word character, so \b fails and
-  // "Quant Analyst Internships 2027" read as not a student role at all. The
-  // same held for "Interns" and "Students". "Internal" and "International"
-  // still do not match, because \b fails on the letter after "intern".
-  else if (!/\b(interns?(?:hips?)?|co-?ops?|students?|early career|new grad(?:uate)?s?)\b/i.test(`${title} ${description}`)) rejectionReason = 'not_student_role';
+  else if (!STUDENT_ROLE.test(`${title} ${description}`)) rejectionReason = 'not_student_role';
   else if (!place.eligible) rejectionReason = 'outside_us';
   else if (!cycle) rejectionReason = 'outside_target_cycles';
   else if (!role.eligible) rejectionReason = role.reason ?? 'not_technical';
   else if (!graduation.eligible) rejectionReason = 'graduation_incompatible';
-  else if (sponsorship.status === 'UNSUPPORTED') rejectionReason = 'sponsorship_unsupported';
+  // Sponsorship is deliberately not a rejection. A posting that says it cannot
+  // sponsor is carried through and reported in its own digest section, because
+  // the sentence is boilerplate an employer sometimes departs from and the call
+  // is the reader's to make.
   const resolvedCycle = cycle ?? 'Later compatible';
   const sourceJobId = raw.sourceJobId || extractSourceJobId(canonicalUrl);
   const sponsorshipOverride = context.sponsorshipOverrides?.find(override => override.companyNormalized === company.normalized && ((override.sourceJobId && override.sourceJobId === sourceJobId) || (override.canonicalUrl && canonicalizeUrl(override.canonicalUrl) === canonicalUrl)));
-  if (sponsorshipOverride) {
-    sponsorship = { status: sponsorshipOverride.status, evidence: sponsorshipOverride.evidence };
-    if (rejectionReason === 'sponsorship_unsupported' && sponsorship.status !== 'UNSUPPORTED') rejectionReason = undefined;
-  }
-  if (sponsorship.status === 'UNSUPPORTED') rejectionReason = 'sponsorship_unsupported';
+  if (sponsorshipOverride) sponsorship = { status: sponsorshipOverride.status, evidence: sponsorshipOverride.evidence };
   return {
     ...raw, sourceJobId, company: company.display, location, canonicalUrl, normalizedCompany: company.normalized, normalizedTitle, normalizedLocation,
     canonicalKey: canonicalKey({ sourceName: raw.sourceName, sourceJobId, canonicalUrl, normalizedCompany: company.normalized, normalizedTitle, normalizedLocation, cycle: resolvedCycle }),
@@ -171,9 +184,11 @@ export function applyEnrichment(
   priorities: Map<string, number>
 ): DigestJob {
   // Promote a confirmed yes so the digest's "Strong matches" section can
-  // finally distinguish it from everything merely unstated.
-  if (verdict?.status === 'SUPPORTED') {
-    job.sponsorshipStatus = 'SUPPORTED';
+  // finally distinguish it from everything merely unstated, and record a
+  // confirmed no so the sponsorship-unlikely section is built on what the
+  // posting actually says rather than on what the listing omitted.
+  if (verdict?.status === 'SUPPORTED' || verdict?.status === 'UNSUPPORTED') {
+    job.sponsorshipStatus = verdict.status;
     job.sponsorshipEvidence = verdict.evidence ?? job.sponsorshipEvidence;
   }
   // Only fill what the source left empty. A list that supplied prose of its own
@@ -378,10 +393,8 @@ async function execute(options: RunOptions): Promise<PipelineReport> {
   // picked up by the next tick, so a backlog drains over several readable
   // emails instead of one Gmail truncates while marking every role sent.
   const digestCandidates = digestJobs.length;
-  let enrichmentDropped = 0;
   if (options.persistent && config.ENRICHMENT_ENABLED && digestJobs.length) {
-    // Oversample: some candidates will be dropped once their page is read, and
-    // the digest should still fill. Enrich only what has never been resolved,
+    // Enrich only what has never been resolved,
     // so a drained backlog costs a handful of requests per run rather than 90.
     const shortlist = diversifiedTop(digestJobs, Math.min(config.ENRICHMENT_MAX_JOBS, digestJobs.length));
     const known = await getEnrichment(shortlist.map(job => job.id).filter((id): id is string => Boolean(id)));
@@ -393,27 +406,35 @@ async function execute(options: RunOptions): Promise<PipelineReport> {
     }
     digestJobs = digestJobs.filter(job => {
       const verdict = job.id ? known.get(job.id) : undefined;
-      if (verdict?.status === 'UNSUPPORTED') { enrichmentDropped += 1; return false; }
       applyEnrichment(job, verdict, priorities);
       return true;
     });
-    if (enrichmentDropped) log('warn', 'enrichment_dropped_roles', { runId, dropped: enrichmentDropped });
   }
+  // A posting that says it cannot sponsor is reported rather than discarded.
+  // The wording is the employer's boilerplate and not always the practice, and
+  // some of these companies do sponsor, so the judgement belongs to the reader.
+  // They ride in their own section under their own cap: 139 defense postings
+  // must never be able to crowd out the roles that are open.
+  const unlikely = digestJobs.filter(job => job.sponsorshipStatus === 'UNSUPPORTED');
+  const open = digestJobs.filter(job => job.sponsorshipStatus !== 'UNSUPPORTED');
   // Group first, then cap, so the cap counts requisitions rather than spending
   // itself on one employer's six cities.
-  let groups = collapseByRequisition(digestJobs);
-  if (groups.length > config.DIGEST_MAX_ROLES) {
-    const keep = new Set(diversifiedTop(groups.map(group => group.display), config.DIGEST_MAX_ROLES).map(job => job.canonicalKey));
-    groups = groups.filter(group => keep.has(group.display.canonicalKey));
-  }
+  const capGroups = (rows: RequisitionGroup[], limit: number): RequisitionGroup[] => {
+    if (rows.length <= limit) return rows;
+    const keep = new Set(diversifiedTop(rows.map(group => group.display), limit).map(job => job.canonicalKey));
+    return rows.filter(group => keep.has(group.display.canonicalKey));
+  };
+  const groups = capGroups(collapseByRequisition(open), config.DIGEST_MAX_ROLES);
+  const unlikelyGroups = capGroups(collapseByRequisition(unlikely), config.DIGEST_MAX_SPONSORSHIP_UNLIKELY);
+  const allGroups = [...groups, ...unlikelyGroups];
   // Every member goes into the batch even though one row represents them, so
   // each city still gets sent_at stamped. Dropping them here would leave them
   // unsent and mail the whole family again on the next tick.
-  digestJobs = groups.flatMap(group => group.members);
+  digestJobs = allGroups.flatMap(group => group.members);
   if (digestCandidates > digestJobs.length) {
-    log('info', 'digest_capped', { runId, sending: digestJobs.length, rows: groups.length, deferred: digestCandidates - digestJobs.length - enrichmentDropped, droppedUnsupported: enrichmentDropped });
+    log('info', 'digest_capped', { runId, sending: digestJobs.length, rows: allGroups.length, deferred: digestCandidates - digestJobs.length, sponsorshipUnlikely: unlikelyGroups.length });
   }
-  const digest = buildDigest(groups.map(group => group.display), sourceRuns, new Date(), programChanges);
+  const digest = buildDigest(allGroups.map(group => group.display), sourceRuns, new Date(), programChanges);
   if ((digestJobs.length > 0 || programChanges.length > 0) && options.persistent && config.SEND_EMAIL_ENABLED) {
     // Program-change URLs join the batch key so a change is emailed once, the
     // same way a role is, instead of re-sending every run while the page stays

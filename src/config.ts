@@ -50,6 +50,28 @@ const envSchema = z.object({
   // Cost is bounded by APIFY_MAX_TOTAL_CHARGE_USD, not by this, so time here
   // buys completed runs rather than a larger bill.
   APIFY_ACTOR_TIMEOUT_SECONDS: z.coerce.number().int().min(30).max(900).default(240),
+  // Greenhouse answered with no descriptions at all, on all 93 boards, so a
+  // title without a year had no cycle and was dropped: 145 student roles a
+  // run, Epic's "Gameplay Programmer Intern" among them. Asking for content
+  // costs about 300 MB a pass, Anduril's board being 38 MB of it, so the pass
+  // runs on its own slower cadence instead of every two hours. A posting is
+  // still found the same day; only the wait for it is longer.
+  GREENHOUSE_CONTENT_ENABLED: z.enum(['true', 'false']).default('true').transform(v => v === 'true'),
+  GREENHOUSE_MIN_INTERVAL_HOURS: z.coerce.number().int().min(1).max(168).default(6),
+  // Every source used to be fetched at once. That was survivable while the
+  // payloads were listings; with Greenhouse carrying descriptions it puts all
+  // 93 boards in memory together, so the pool is bounded. Measured peak RSS
+  // over a full live pass, which is the number that decides whether the
+  // container survives:
+  //
+  //   listings only, unbounded   386 MB   35s
+  //   descriptions, 8 at a time  570 MB   42s
+  //   descriptions, 4 at a time  548 MB   29s
+  //   descriptions, 2 at a time  474 MB   26s
+  //
+  // Four, because the run is network-bound rather than CPU-bound and a smaller
+  // pool costs nothing in wall clock. Drop to 2 if the container is tight.
+  SOURCE_CONCURRENCY: z.coerce.number().int().min(1).max(32).default(4),
   COMMUNITY_MAX_RESULTS_PER_SOURCE: z.coerce.number().int().positive().max(2000).default(300),
   // Applies to boards fetched page by page (Lever, SmartRecruiters, Workday),
   // where it genuinely limits how many requests are made.
@@ -76,6 +98,11 @@ const envSchema = z.object({
   // tail was waiting a tick or more to be said. 100 roles is about 64 KB of the
   // ~102 KB Gmail allows before it clips.
   DIGEST_MAX_ROLES: z.coerce.number().int().min(1).max(150).default(100),
+  // The sponsorship-unlikely section has its own, much smaller cap. Those roles
+  // are reported rather than dropped because the boilerplate is not always the
+  // practice, but Anduril alone posts 139 of them and they must never be able
+  // to spend the digest that the open roles need.
+  DIGEST_MAX_SPONSORSHIP_UNLIKELY: z.coerce.number().int().min(0).max(50).default(15),
   // LinkedIn's public guest endpoint. Twice a day by default: coverage against
   // a 24-hour window is nearly identical to running every tick, and a fixed
   // egress address makes restraint the difference between working and being

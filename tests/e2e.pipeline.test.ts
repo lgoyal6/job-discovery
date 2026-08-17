@@ -20,9 +20,11 @@ suite('complete fixture-to-email-batch pipeline', () => {
   it('persists, filters, deduplicates, claims once, confirms, and suppresses repeats', async () => {
     const first = await runPipeline({ fixtures: true, persistent: true });
     expect(first).toMatchObject({ dryRun: false, shouldSend: true, notionModified: false });
-    expect(first.counts).toMatchObject({ raw: 7, accepted: 3, rejected: 3, deduplicated: 1 });
+    // Four, not three: the posting that says it cannot sponsor is reported in
+    // its own section now rather than rejected outright.
+    expect(first.counts).toMatchObject({ raw: 7, accepted: 4, rejected: 2, deduplicated: 1 });
     expect(first.batchKey).toBeTruthy();
-    expect(first.jobs.map(job => job.sponsorshipStatus).sort()).toEqual(['SUPPORTED', 'SUPPORTED', 'UNKNOWN']);
+    expect(first.jobs.map(job => job.sponsorshipStatus).sort()).toEqual(['SUPPORTED', 'SUPPORTED', 'UNKNOWN', 'UNSUPPORTED']);
 
     expect(await db.markBatchSent(first.batchKey!, 'mock-gmail-message-id')).toBe(true);
     expect(await db.markBatchSent(first.batchKey!, 'duplicate-confirmation')).toBe(false);
@@ -35,8 +37,11 @@ suite('complete fixture-to-email-batch pipeline', () => {
 
     const batches = await db.pool.query<{ status: string; provider_message_id: string }>("SELECT status,provider_message_id FROM email_batches WHERE provider_message_id='mock-gmail-message-id'");
     expect(batches.rows).toEqual([{ status: 'SENT', provider_message_id: 'mock-gmail-message-id' }]);
+    // This asserted 0 while sponsorship was a rejection. It is deliberately
+    // reversed: those roles are now reported under their own capped section, so
+    // one is sent, stamped, and gone from the queue rather than held in it.
     const unsupportedSent = await db.pool.query<{ count: string }>("SELECT count(*)::text AS count FROM jobs WHERE sponsorship_status='UNSUPPORTED' AND sent_at IS NOT NULL");
-    expect(unsupportedSent.rows[0]?.count).toBe('0');
+    expect(unsupportedSent.rows[0]?.count).toBe('1');
   });
 });
 
