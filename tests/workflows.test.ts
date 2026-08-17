@@ -28,7 +28,11 @@ describe('exported n8n workflows', () => {
     // link in every digest row is dead.
     expect(value.active).toBe(false);
     const entrypoint = await readFile(resolve(process.cwd(), 'scripts/railway-entrypoint.sh'), 'utf8');
-    expect(entrypoint).toContain('mark-applied-webhook.json --activeState=true');
+    // --activeState takes "false" or "fromJson" and nothing else, and the
+    // entrypoint runs under set -eu, so a rejected value would stop the
+    // container from ever starting n8n.
+    expect(entrypoint).not.toMatch(/--activeState=(?!false|fromJson)/);
+    expect(entrypoint).toContain('n8n update:workflow --id=LakshMarkApplied --active=true');
     const validator = value.nodes.find((node: any) => node.name === 'Validate Signed Link');
     expect(validator.parameters.jsCode).toContain('[0-9a-f]{32}');
     expect(validator.parameters.jsCode).toContain('MARK_APPLIED_SECRET');
