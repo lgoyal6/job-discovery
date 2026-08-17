@@ -1,0 +1,37 @@
+{
+  "id": "LakshMarkApplied",
+  "name": "Laksh Job Discovery — Mark Applied Webhook",
+  "nodes": [
+    {
+      "parameters":{"httpMethod":"GET","path":"mark-applied","responseMode":"responseNode","options":{}},
+      "id":"3a51d0c9-6f0b-4a4e-9a2c-1d7b0d5c8e11","name":"Mark Applied Webhook","type":"n8n-nodes-base.webhook","typeVersion":2,"position":[-500,0],"webhookId":"9f2b7c14-2f45-4b21-9d3e-6a0c5b8e1f42"
+    },
+    {
+      "parameters":{"jsCode":"// Both values are interpolated into a shell command downstream, so nothing\n// but the exact shapes this pipeline signs may pass: a job uuid and a 32\n// character hex digest. Anything else is rejected here, before the command\n// node can see it.\nconst job = String($json.query?.job || '');\nconst sig = String($json.query?.sig || '');\nconst valid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(job) && /^[0-9a-f]{32}$/i.test(sig) && Boolean($env.MARK_APPLIED_SECRET);\nreturn [{ json: { valid, job: valid ? job.toLowerCase() : '', sig: valid ? sig.toLowerCase() : '' } }];"},
+      "id":"7c2e91af-40d8-4f6c-8a5b-2e9d3c6f10b8","name":"Validate Signed Link","type":"n8n-nodes-base.code","typeVersion":2,"position":[-260,0]
+    },
+    {
+      "parameters":{"conditions":{"options":{"caseSensitive":true,"typeValidation":"strict"},"conditions":[{"id":"58b3d0e6-9a7c-4c11-bb02-7e4f6a1d9c33","leftValue":"={{ $json.valid }}","rightValue":true,"operator":{"type":"boolean","operation":"true","singleValue":true}}],"combinator":"and"}},
+      "id":"1d84f5b2-3c60-4a97-9f8e-5b2a7c0d6e14","name":"Valid Signed Link?","type":"n8n-nodes-base.if","typeVersion":2.2,"position":[-20,0]
+    },
+    {
+      "parameters":{"command":"=cd /opt/job-pipeline && node dist/cli.js mark-applied --job '{{ $json.job }}' --sig '{{ $json.sig }}'"},
+      "id":"b0f7a3c8-51d2-4e69-8c47-9a1e2d5b7f06","name":"Record Applied in Notion","type":"n8n-nodes-base.executeCommand","typeVersion":1,"position":[220,-100]
+    },
+    {
+      "parameters":{"jsCode":"const result = JSON.parse($json.stdout);\nconst role = [result.company, result.title].filter(Boolean).join(' — ');\nconst message = result.ok\n  ? (result.alreadyApplied ? 'Already in the ledger: ' + role : 'Marked applied: ' + role)\n  : ({ disabled: 'Mark-applied is not configured on this deployment.', bad_signature: 'That link is not valid.', unknown_job: 'That role is no longer in the database.', notion_failed: 'Notion refused the write: ' + (result.error || 'unknown error') }[result.reason] || 'Could not mark this role applied.');\nreturn [{ json: { ok: result.ok, html: '<!doctype html><meta name=\"viewport\" content=\"width=device-width\"><title>Job discovery</title><body style=\"font:16px/1.5 -apple-system,system-ui,sans-serif;padding:2rem;max-width:34rem\"><p>' + message.replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])) + '</p><p style=\"color:#666\">It will not appear in future digests.</p>' } }];"},
+      "id":"e5c1b782-9d34-4a08-b16f-3c7d0e2a4915","name":"Render Result","type":"n8n-nodes-base.code","typeVersion":2,"position":[460,-100]
+    },
+    {
+      "parameters":{"respondWith":"text","responseBody":"={{ $json.html }}","options":{"responseCode":200,"responseHeaders":{"entries":[{"name":"content-type","value":"text/html; charset=utf-8"}]}}},
+      "id":"c9a06d4e-7b18-4f52-83d9-1e6b5a0c8237","name":"Return Page","type":"n8n-nodes-base.respondToWebhook","typeVersion":1.4,"position":[700,-100]
+    },
+    {
+      "parameters":{"respondWith":"json","responseBody":"={{ { ok:false, error:'invalid_link' } }}","options":{"responseCode":400}},
+      "id":"46f8e2a1-0c95-4d73-a6b8-2f9d7c1e5043","name":"Reject Safely","type":"n8n-nodes-base.respondToWebhook","typeVersion":1.4,"position":[220,100]
+    }
+  ],
+  "pinData":{},
+  "connections":{"Mark Applied Webhook":{"main":[[{"node":"Validate Signed Link","type":"main","index":0}]]},"Validate Signed Link":{"main":[[{"node":"Valid Signed Link?","type":"main","index":0}]]},"Valid Signed Link?":{"main":[[{"node":"Record Applied in Notion","type":"main","index":0}],[{"node":"Reject Safely","type":"main","index":0}]]},"Record Applied in Notion":{"main":[[{"node":"Render Result","type":"main","index":0}]]},"Render Result":{"main":[[{"node":"Return Page","type":"main","index":0}]]}},
+  "active":false,"settings":{"executionOrder":"v1","timezone":"America/Los_Angeles","saveManualExecutions":true,"callerPolicy":"workflowsFromSameOwner"},"versionId":"5d1c8b03-4e27-49a6-b8f1-7c0a2e9d6534","meta":{"templateCredsSetupCompleted":false},"tags":[]
+}

@@ -30,4 +30,4 @@ npm run build
 DATABASE_URL="${database_url}" node dist/cli.js migrate
 TEST_DATABASE_URL="${database_url}" npx vitest run \
   --no-file-parallelism \
-  tests/db.integration.test.ts tests/e2e.pipeline.test.ts
+  tests/db.integration.test.ts tests/e2e.pipeline.test.ts tests/repeat-suppression.test.ts

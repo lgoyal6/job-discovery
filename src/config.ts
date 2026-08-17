@@ -120,8 +120,35 @@ const envSchema = z.object({
   // path resolves to nothing locally and every entry point that reads the
   // watchlist dies before doing any work. Override to point at a checkout.
   WATCHLIST_PATH: z.string().default(''),
+  // Mirror every newly persisted eligible role into the Notion ledger under
+  // NOTION_MIRROR_STATUS, so the workspace holds the postings this pipeline
+  // found and not only the ones applied to. Off by default: it is the first
+  // thing here that writes to the workspace on a schedule rather than on a
+  // click, and deploying the code must not start doing that on its own.
+  //
+  // Notion allows roughly three requests a second, so the writes are serial and
+  // paced, and a run mirrors at most this many. A backlog drains over
+  // subsequent runs rather than holding a digest open; each page is written
+  // once and its id is stored on the job.
+  NOTION_MIRROR_ENABLED: z.enum(['true', 'false']).default('false').transform(v => v === 'true'),
+  NOTION_MIRROR_MAX_PER_RUN: z.coerce.number().int().min(0).max(1000).default(200),
+  // Anything except the value the exclusion read filters on. A mirrored row
+  // must not read back as a role already applied to.
+  NOTION_MIRROR_STATUS: z.string().min(1).default('New'),
+  // One-click "Mark applied" in the digest. Both are required before a link is
+  // rendered: without the secret anyone who can read the email could file rows
+  // in the ledger, and without a base URL there is nowhere to send the click.
+  // Absent either, the digest renders exactly as it does today.
+  MARK_APPLIED_SECRET: z.string().min(16).optional(),
+  MARK_APPLIED_BASE_URL: z.string().url().optional(),
   REZZY_WEBHOOK_SECRET: z.string().optional(),
   REZZY_API_BASE_URL: z.string().url().default('https://api.rezzy.dev/v1')
+}).refine(value => value.NOTION_MIRROR_STATUS.trim().toLowerCase() !== 'applied', {
+  // Mirroring under "Applied" would make every posting the pipeline found read
+  // back as a role already applied to, and the next run would exclude all of
+  // them. Fail at startup instead.
+  path: ['NOTION_MIRROR_STATUS'],
+  message: 'NOTION_MIRROR_STATUS must not be "Applied"; that is the value the applied-exclusion read filters on.'
 });
 
 export type AppConfig = z.infer<typeof envSchema>;

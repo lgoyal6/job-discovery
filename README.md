@@ -2,7 +2,7 @@
 
 Deterministic, self-hosted job discovery for Laksh Goyal. n8n schedules the run and sends a Gmail digest; a TypeScript package owns ingestion, validation, filtering, scoring, deduplication, state, and rendering. PostgreSQL is the system of record. No LLM API is used at runtime.
 
-The existing Codex automation and both files in `../automation/` are untouched. The watchlist is mounted read-only into the n8n image. Notion is read-only during discovery and remains an applied-only ledger.
+The existing Codex automation and both files in `../automation/` are untouched. The watchlist is mounted read-only into the n8n image. Notion is read-only during discovery unless the opt-in posting mirror is enabled; both writes it can perform are described below.
 
 ## Safety defaults
 
@@ -11,7 +11,7 @@ The existing Codex automation and both files in `../automation/` are untouched. 
 - `npm run dry-run`: fixture-only; no network, database, credentials, email, Notion, Rezzy, or paid API.
 - `npm run dry-run:live`: free public sources only; no database, credentials, email, Notion, Rezzy, or paid API.
 - Both exported workflows are inactive. Rezzy is a separate manual webhook and returns `rezzy_disabled` when its credentials are absent.
-- The discovery code only calls Notion's data-source query endpoint. There is no Notion create, update, archive, or delete implementation.
+- Notion writes are gated and off by default. `NOTION_MIRROR_ENABLED=false` means a run only queries the ledger and reports `notionModified: false`; `MARK_APPLIED_SECRET` and `MARK_APPLIED_BASE_URL` are both empty, which renders no link and makes the webhook refuse every request. There is no archive or delete implementation, and the only update is a status change on a page this pipeline created.
 
 ## Architecture
 
@@ -19,7 +19,7 @@ Every two hours, n8n invokes the compiled Node CLI. The CLI acquires a PostgreSQ
 
 The Railway image uses `scripts/railway-entrypoint.sh` to apply the ordered, idempotent pipeline migrations before starting n8n. It emits a structured `job_pipeline_migrations_complete` marker, then Railway checks `/healthz` on `PORT=5678`. This avoids a separate pre-deploy container while preserving private-network database access and observable migration failure. After the n8n owner account exists, set `N8N_IMPORT_WORKFLOWS_ON_START=true` for one deployment to import both version-controlled workflows. Imports target the owner's personal project, upsert their stable IDs, and remain inactive. Set the switch back to `false` immediately after the two `n8n_workflow_import_complete` log markers appear.
 
-The database contains `jobs`, `job_sources`, `source_runs`, `email_batches`, `watchlist_states`, `company_aliases`, `sponsorship_overrides`, `pipeline_watermarks`, `applied_exclusions`, and `schema_migrations`. A 72-hour stale-source threshold closes jobs conservatively; a later open observation clears `sent_at` and increments `material_version`. Material changes to title, location, cycle, or direct application URL do the same.
+The database contains `jobs`, `job_sources`, `source_runs`, `email_batches`, `watchlist_states`, `company_aliases`, `sponsorship_overrides`, `pipeline_watermarks`, `applied_exclusions`, and `schema_migrations`. A 72-hour stale-source threshold closes jobs conservatively. A reopen only clears `sent_at` and increments `material_version` if the role was gone for more than 30 days, because "closed" here means "absent from a capped, rotating scrape" and a shorter gap is sampling rather than a repost. A material change to the title signature, canonicalized location, or cycle does the same; the apply URL does not, and neither does a second list wording the title or spelling the city differently. A requisition already emailed under one row is suppressed if it later arrives as another.
 
 ## Quick start
 
@@ -63,7 +63,37 @@ Set both `PORT=5678` and `N8N_PORT=5678`. The n8n service references the Postgre
 
 ### Notion
 
-Create an internal integration with read-content access only, share the applied ledger with it, and set `NOTION_TOKEN`. The database/data-source IDs are already the supplied IDs. If the token is missing or a read fails, the run uses the last successful PostgreSQL exclusion cache and reports degraded coverage; it never clears that cache on failure.
+Create an internal integration, share the applied ledger with it, and set `NOTION_TOKEN`. Read-content access is all the default configuration needs; the two opt-in writes below need insert and update as well. The database/data-source IDs are already the supplied IDs. If the token is missing or a read fails, the run uses the last successful PostgreSQL exclusion cache and reports degraded coverage; it never clears that cache on failure.
+
+### Mirroring postings into the ledger
+
+`NOTION_MIRROR_ENABLED=true` writes a Notion page for every newly persisted eligible role, under `NOTION_MIRROR_STATUS` (default `New`). The applied read filters on `Status = Applied`, so a mirrored posting is a record rather than an exclusion; startup fails if the two are set to the same value.
+
+The cost this carries, and what bounds it:
+
+- Notion allows roughly three requests a second, so writes are serial and paced at 350ms. A run mirrors at most `NOTION_MIRROR_MAX_PER_RUN` (default 200) and a backlog drains over later runs.
+- It runs last in the pipeline, after the email batch is claimed, so it never delays the digest.
+- Each role is written once. Its page id is stored on the job, so later runs skip it and `Mark applied` moves that page to `Applied` instead of filing a second row beside it.
+- It never throws. A workspace that is down, rate limiting, or missing its integration costs the run its mirror and nothing else, and five consecutive failures with no success abandons the batch until the next run.
+
+The integration needs insert- and update-content capability for this. A run that mirrored anything reports `notionModified: true`.
+
+### Mark applied from the digest
+
+Each role in the digest can carry a `Mark applied` link. Following it files that role in the Notion ledger with `Status = Applied`, which is the same row the next run reads back as an exclusion, so the role stops appearing. It is off until both values are set:
+
+```bash
+openssl rand -hex 32          # MARK_APPLIED_SECRET
+# MARK_APPLIED_BASE_URL=https://<n8n public domain>/webhook/mark-applied
+```
+
+Turning it on also means adding insert-content capability to the Notion integration, which is the only reason this project ever writes to the workspace. Then import the workflow and activate only this one:
+
+```bash
+docker compose exec -T n8n n8n import:workflow --input=/opt/job-pipeline/workflows/mark-applied-webhook.json
+```
+
+The link carries the job id and an HMAC of it, so a guessed id files nothing. The webhook accepts only a uuid and a 32-character hex digest, rejecting anything else before the value reaches a shell. A row already in the ledger is reported as success and written once, so a re-clicked link, or a mail client that scans links on its own, cannot create duplicates. The ledger's own schema decides the payload, so the role lands in whichever property the reader looks for (`Role`/`Title`/`Name`) rather than a guessed column.
 
 ### Gmail in n8n
 

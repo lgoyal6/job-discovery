@@ -63,6 +63,54 @@ export async function loadCachedAppliedExclusions(): Promise<AppliedExclusion[]>
   return rows.rows.map(row => ({ notionPageId: row.notion_page_id, companyNormalized: row.company_normalized, titleNormalized: row.title_normalized, canonicalUrl: row.canonical_url ?? undefined, sourceJobId: row.source_job_id ?? undefined }));
 }
 
+export async function recordAppliedExclusion(exclusion: AppliedExclusion): Promise<void> {
+  await pool.query(
+    `INSERT INTO applied_exclusions(notion_page_id,company_normalized,title_normalized,canonical_url,source_job_id)
+     VALUES($1,$2,$3,$4,$5) ON CONFLICT(notion_page_id) DO UPDATE SET company_normalized=EXCLUDED.company_normalized,title_normalized=EXCLUDED.title_normalized,canonical_url=EXCLUDED.canonical_url,source_job_id=EXCLUDED.source_job_id,synced_at=now()`,
+    [exclusion.notionPageId, exclusion.companyNormalized, exclusion.titleNormalized, exclusion.canonicalUrl ?? null, exclusion.sourceJobId ?? null]);
+}
+
+export interface LedgerJob { id: string; company: string; title: string; url: string; sourceJobId?: string; notionPageId?: string }
+
+/**
+ * The roles that still owe the ledger a page: eligible, open, and never
+ * mirrored. Oldest first, so a backlog drains in the order it arrived rather
+ * than starving behind whatever is newest.
+ */
+export async function getJobsToMirror(limit: number): Promise<LedgerJob[]> {
+  if (limit <= 0) return [];
+  const rows = await pool.query<{ id: string; company: string; title: string; url: string | null; source_job_id: string | null }>(
+    `SELECT j.id, j.company, j.title, s.url, s.source_job_id
+       FROM jobs j
+       LEFT JOIN LATERAL (
+         SELECT COALESCE(NULLIF(direct_apply_url,''), source_url) AS url, source_job_id
+           FROM job_sources WHERE job_id = j.id ORDER BY updated_at DESC LIMIT 1
+       ) s ON true
+      WHERE j.notion_page_id IS NULL AND j.status='OPEN'
+      ORDER BY j.first_seen_at LIMIT $1`, [limit]);
+  return rows.rows.map(row => ({ id: row.id, company: row.company, title: row.title, url: row.url ?? '', sourceJobId: row.source_job_id ?? undefined }));
+}
+
+export async function recordNotionPage(jobId: string, notionPageId: string): Promise<void> {
+  await pool.query('UPDATE jobs SET notion_page_id=$2, updated_at=now() WHERE id=$1', [jobId, notionPageId]);
+}
+
+// The ledger wants what a human reads in the digest row, so the URL is the one
+// the digest linked: the direct application if the role has one, its source
+// listing otherwise.
+export async function getJobForLedger(jobId: string): Promise<LedgerJob | undefined> {
+  const rows = await pool.query<{ id: string; company: string; title: string; url: string | null; source_job_id: string | null; notion_page_id: string | null }>(
+    `SELECT j.id, j.company, j.title, j.notion_page_id, s.url, s.source_job_id
+       FROM jobs j
+       LEFT JOIN LATERAL (
+         SELECT COALESCE(NULLIF(direct_apply_url,''), source_url) AS url, source_job_id
+           FROM job_sources WHERE job_id = j.id ORDER BY updated_at DESC LIMIT 1
+       ) s ON true
+      WHERE j.id = $1`, [jobId]);
+  const row = rows.rows[0];
+  return row ? { id: row.id, company: row.company, title: row.title, url: row.url ?? '', sourceJobId: row.source_job_id ?? undefined, notionPageId: row.notion_page_id ?? undefined } : undefined;
+}
+
 export interface SponsorshipOverrideRow {
   companyNormalized: string;
   sourceJobId?: string;
@@ -103,6 +151,10 @@ export async function isSourceDue(sourceName: string, minimumIntervalHours: numb
 
 export interface UpsertResult { job: DigestJob; isNew: boolean; stateChanged: boolean }
 
+// How long a role must have been absent before its return counts as a repost
+// rather than a gap in what the sources happened to sample.
+const REPOST_AFTER_DAYS = 30;
+
 export async function upsertJob(job: ClassifiedJob): Promise<UpsertResult> {
   const client = await pool.connect();
   try {
@@ -112,8 +164,16 @@ export async function upsertJob(job: ClassifiedJob): Promise<UpsertResult> {
       `SELECT j.* FROM jobs j
        WHERE j.canonical_key=$1 OR ($2 <> '' AND EXISTS (SELECT 1 FROM job_sources s WHERE s.job_id=j.id AND (s.direct_apply_url=$2 OR s.source_url=$2)))
           OR (j.normalized_company=$3 AND j.normalized_title=$4 AND j.normalized_location=$5 AND j.cycle=$6)
+          -- The requisition id, without the source that carried it. A canonical
+          -- key prefixes the source name, so the same posting reached through a
+          -- board and through a list that links to it produced two rows and a
+          -- second email. In-run dedupe has always collapsed these; the database
+          -- did not, which is why the repeat appeared a day later rather than in
+          -- the same digest. Company-scoped: a Workday R-number is unique only
+          -- within its tenant.
+          OR ($7 <> '' AND j.normalized_company=$3 AND EXISTS (SELECT 1 FROM job_sources s2 WHERE s2.job_id=j.id AND s2.source_job_id=$7))
        ORDER BY j.first_seen_at LIMIT 1 FOR UPDATE`,
-      [job.canonicalKey, job.canonicalUrl, job.normalizedCompany, job.normalizedTitle, job.normalizedLocation, job.cycle]);
+      [job.canonicalKey, job.canonicalUrl, job.normalizedCompany, job.normalizedTitle, job.normalizedLocation, job.cycle, job.sourceJobId ?? '']);
     let id: string;
     let isNew = false;
     let stateChanged = false;
@@ -127,15 +187,23 @@ export async function upsertJob(job: ClassifiedJob): Promise<UpsertResult> {
       id = inserted.rows[0]!.id;
     } else {
       const prior = existing.rows[0]; id = prior.id;
-      stateChanged = (prior.status === 'CLOSED' && nowOpen) || (Boolean(prior.material_fingerprint) && prior.material_fingerprint !== fingerprint);
+      // A role is only "closed" here because no source happened to carry it for
+      // 72 hours, and the board actors sample a capped, rotating slice of a big
+      // employer's postings. So a high-volume employer's role drops out, closes,
+      // comes back and gets mailed again, on repeat, without anything about it
+      // having changed. Only an absence far longer than any sampling gap can
+      // explain is treated as a genuine repost worth an email.
+      const genuineRepost = prior.status === 'CLOSED' && nowOpen
+        && prior.closed_at instanceof Date && prior.closed_at.getTime() < Date.now() - REPOST_AFTER_DAYS * 86_400_000;
+      stateChanged = genuineRepost || (Boolean(prior.material_fingerprint) && prior.material_fingerprint !== fingerprint);
       await client.query(
         `UPDATE jobs SET company=$2,normalized_company=$3,title=$4,normalized_title=$5,location=$6,normalized_location=$7,cycle=$8,category=$9,sponsorship_status=$10,sponsorship_evidence=$11,description=COALESCE($12,description),employment_type=COALESCE($13,employment_type),required_skills=$14,score=$15,last_seen_at=now(),last_verified_at=now(),status=$16,
           closed_at=CASE WHEN $16='CLOSED' THEN COALESCE(closed_at,now()) ELSE NULL END,
           reopened_at=CASE WHEN status='CLOSED' AND $16='OPEN' THEN now() ELSE reopened_at END,
-          sent_at=CASE WHEN (status='CLOSED' AND $16='OPEN') OR (material_fingerprint<>'' AND material_fingerprint<>$17) THEN NULL ELSE sent_at END,
-          material_version=CASE WHEN (status='CLOSED' AND $16='OPEN') OR (material_fingerprint<>'' AND material_fingerprint<>$17) THEN material_version+1 ELSE material_version END,
+          sent_at=CASE WHEN (status='CLOSED' AND $16='OPEN' AND closed_at < now() - make_interval(days => $18::int)) OR (material_fingerprint<>'' AND material_fingerprint<>$17) THEN NULL ELSE sent_at END,
+          material_version=CASE WHEN (status='CLOSED' AND $16='OPEN' AND closed_at < now() - make_interval(days => $18::int)) OR (material_fingerprint<>'' AND material_fingerprint<>$17) THEN material_version+1 ELSE material_version END,
           material_fingerprint=$17,updated_at=now() WHERE id=$1`,
-        [id, job.company, job.normalizedCompany, job.title, job.normalizedTitle, job.location ?? 'Unspecified', job.normalizedLocation, job.cycle, job.category, job.sponsorshipStatus, job.sponsorshipEvidence, job.description ?? null, job.employmentType ?? null, JSON.stringify(job.requiredSkills), job.score, job.status ?? 'OPEN', fingerprint]);
+        [id, job.company, job.normalizedCompany, job.title, job.normalizedTitle, job.location ?? 'Unspecified', job.normalizedLocation, job.cycle, job.category, job.sponsorshipStatus, job.sponsorshipEvidence, job.description ?? null, job.employmentType ?? null, JSON.stringify(job.requiredSkills), job.score, job.status ?? 'OPEN', fingerprint, REPOST_AFTER_DAYS]);
     }
     await client.query(
       `INSERT INTO job_sources(job_id,source_name,source_job_id,source_url,direct_apply_url,posted_at,scraped_at,verification_status,raw_payload)
@@ -203,6 +271,25 @@ export async function getUnsentJobIds(ids: string[]): Promise<Set<string>> {
      WHERE j.id = ANY($1::uuid[]) AND j.sent_at IS NULL AND j.status='OPEN'
        AND (e.status IS NULL OR e.status <> 'UNSUPPORTED')`, [ids]);
   return new Set(rows.rows.map(row => row.id));
+}
+
+/**
+ * The company, title and cycle of every role already emailed, for the companies
+ * in this run.
+ *
+ * A role can still reach the digest twice under two different database rows:
+ * two lists describing one requisition in different words, with different ids
+ * and different apply links, match on nothing the upsert can key on. Whether
+ * they are the same requisition is a question the digest already answers when
+ * it groups rows, so the answer is computed the same way, here, against what
+ * has been sent.
+ */
+export async function getSentRequisitions(companies: string[]): Promise<Array<{ normalizedCompany: string; normalizedTitle: string; cycle: string }>> {
+  if (!companies.length) return [];
+  const rows = await pool.query<{ normalized_company: string; normalized_title: string; cycle: string }>(
+    `SELECT DISTINCT normalized_company, normalized_title, cycle FROM jobs
+      WHERE sent_at IS NOT NULL AND normalized_company = ANY($1::text[])`, [companies]);
+  return rows.rows.map(row => ({ normalizedCompany: row.normalized_company, normalizedTitle: row.normalized_title, cycle: row.cycle }));
 }
 
 export async function closeStaleJobs(): Promise<number> {

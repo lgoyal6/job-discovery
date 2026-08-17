@@ -6,7 +6,7 @@ const enabled = Boolean(process.env.TEST_DATABASE_URL);
 const suite = enabled ? describe : describe.skip;
 
 suite('PostgreSQL persistence integration', () => {
-  it('merges duplicates, claims one email batch, and re-emails Closed to Open', async () => {
+  it('merges duplicates, claims one email batch, and re-emails a repost but not a sampling gap', async () => {
     process.env.DATABASE_URL = process.env.TEST_DATABASE_URL;
     const db = await import('../src/db.js');
     const suffix = randomUUID();
@@ -29,10 +29,18 @@ suite('PostgreSQL persistence integration', () => {
     expect(sameBatch.claimed).toBe(false);
     expect(await db.markBatchSent(firstBatch.batchKey, `message-${suffix}`)).toBe(true);
 
+    // Closing and reopening inside the sampling window is the scrape losing
+    // sight of the role, not a repost, so the send must survive it.
     await db.upsertJob({ ...base, status: 'CLOSED' });
     const reopened = await db.upsertJob({ ...base, status: 'OPEN' });
-    expect(reopened.stateChanged).toBe(true);
-    expect((await db.getUnsentJobIds([reopened.job.id!])).has(reopened.job.id!)).toBe(true);
+    expect(reopened.stateChanged).toBe(false);
+    expect((await db.getUnsentJobIds([reopened.job.id!])).has(reopened.job.id!)).toBe(false);
+
+    // An absence no sampling gap explains still earns a second email.
+    await db.pool.query("UPDATE jobs SET status='CLOSED', closed_at = now() - interval '120 days' WHERE id=$1", [reopened.job.id]);
+    const reposted = await db.upsertJob({ ...base, status: 'OPEN' });
+    expect(reposted.stateChanged).toBe(true);
+    expect((await db.getUnsentJobIds([reposted.job.id!])).has(reposted.job.id!)).toBe(true);
 
     const apifySource = `apify:test:${suffix}`;
     expect(await db.isSourceDue(apifySource, 24)).toBe(true);
@@ -44,6 +52,15 @@ suite('PostgreSQL persistence integration', () => {
     await db.recordSourceRuns(randomUUID(), [{ sourceName: apifySource, status: 'SUCCESS', jobs: [], startedAt: now, finishedAt: now, durationMs: 0, costUnits: 0, metrics: { skippedDueToCadence: true } }]);
     const watermarkAfter = await db.pool.query<{ updated_at: Date }>('SELECT updated_at FROM pipeline_watermarks WHERE source_name=$1', [apifySource]);
     expect(watermarkAfter.rows[0]?.updated_at.getTime()).toBe(watermarkBefore.rows[0]?.updated_at.getTime());
+
+    // The mirror queue is "never written to Notion", so a role leaves it the
+    // moment its page id is stored. Without that, every run rewrites every
+    // posting and the ledger fills with duplicates.
+    const queued = await db.getJobsToMirror(500);
+    expect(queued.some(row => row.id === first.job.id)).toBe(true);
+    await db.recordNotionPage(first.job.id!, `notion-page-${suffix}`);
+    expect((await db.getJobsToMirror(500)).some(row => row.id === first.job.id)).toBe(false);
+    expect((await db.getJobForLedger(first.job.id!))?.notionPageId).toBe(`notion-page-${suffix}`);
 
     let releaseLock!: () => void;
     let confirmLock!: () => void;

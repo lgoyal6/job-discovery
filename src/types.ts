@@ -81,5 +81,7 @@ export interface PipelineReport {
   };
   rejectionReasons: Record<string, number>;
   degradedSources: string[];
-  notionModified: false;
+  // True only when the run mirrored postings into the ledger, which requires
+  // NOTION_MIRROR_ENABLED. Discovery itself still only reads Notion.
+  notionModified: boolean;
 }

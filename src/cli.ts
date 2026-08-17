@@ -52,6 +52,14 @@ async function main(): Promise<void> {
     process.stdout.write(`${JSON.stringify({ newBoards: hits.length, entries }, null, 2)}\n`);
     return;
   }
+  if (command === 'mark-applied') {
+    // Reached from a link in the digest, so a refused click is an answer to
+    // render, not a crash: exit 0 with ok:false and let the webhook say why.
+    const { markApplied } = await import('./applied.js');
+    const result = await markApplied(flag('--job') ?? '', flag('--sig') ?? '');
+    process.stdout.write(`${JSON.stringify(result)}\n`);
+    return;
+  }
   if (command === 'batch-sent') {
     const batchKey = flag('--batch-key');
     if (!batchKey) throw new Error('--batch-key is required');
@@ -59,7 +67,7 @@ async function main(): Promise<void> {
     process.stdout.write(`${JSON.stringify({ ok: marked, batchKey })}\n`);
     return;
   }
-  throw new Error('Usage: cli.ts migrate | dry-run [--fixtures|--live-free] | pipeline | discover-boards | harvest-boards | batch-sent --batch-key KEY [--message-id ID]');
+  throw new Error('Usage: cli.ts migrate | dry-run [--fixtures|--live-free] | pipeline | discover-boards | harvest-boards | mark-applied --job ID --sig SIG | batch-sent --batch-key KEY [--message-id ID]');
 }
 
 main().catch(error => { log('error', 'cli_failed', { error: error instanceof Error ? error.message : String(error) }); process.exitCode = 1; }).finally(() => pool.end());

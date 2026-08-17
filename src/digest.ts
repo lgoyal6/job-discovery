@@ -1,3 +1,4 @@
+import { markAppliedUrl } from './applied.js';
 import type { DigestJob, SourceResult } from './types.js';
 
 function escapeHtml(value: string): string {
@@ -8,21 +9,24 @@ function roleHtml(job: DigestJob): string {
   const posted = job.postedAt ? new Date(job.postedAt).toLocaleDateString('en-US', { timeZone: 'America/Los_Angeles' }) : job.firstSeenAt ? new Date(job.firstSeenAt).toLocaleDateString('en-US') : 'First seen today';
   const skills = job.requiredSkills.length ? job.requiredSkills.join(', ') : 'Not stated';
   const direct = job.directApplyUrl ? `<a href="${escapeHtml(job.directApplyUrl)}">Direct application</a>` : 'No separate direct URL';
+  const applied = markAppliedUrl(job.id);
   return `<li style="margin-bottom:18px"><strong>${escapeHtml(job.company)} — ${escapeHtml(job.title)}</strong><br>
     ${escapeHtml(job.cycle)} · ${escapeHtml(job.location ?? 'Unspecified')} · ${escapeHtml(job.category)} · score ${job.score}<br>
     Sponsorship: <strong>${job.sponsorshipStatus}</strong> — ${escapeHtml(job.sponsorshipEvidence)}<br>
     Posted/first seen: ${escapeHtml(posted)} · Source: ${escapeHtml(job.sourceName)}<br>
-    <a href="${escapeHtml(job.sourceUrl)}">Source</a> · ${direct}<br>
+    <a href="${escapeHtml(job.sourceUrl)}">Source</a> · ${direct}${applied ? ` · <a href="${escapeHtml(applied)}">Mark applied</a>` : ''}<br>
     ${escapeHtml(job.summary)}<br><em>Required skills:</em> ${escapeHtml(skills)}</li>`;
 }
 
 function roleText(job: DigestJob): string {
+  const applied = markAppliedUrl(job.id);
   return [
     `${job.company} — ${job.title}`,
     `${job.cycle} | ${job.location ?? 'Unspecified'} | ${job.category} | score ${job.score}`,
     `Sponsorship: ${job.sponsorshipStatus} — ${job.sponsorshipEvidence}`,
     `Source: ${job.sourceName} — ${job.sourceUrl}`,
     `Direct apply: ${job.directApplyUrl ?? 'Not available separately'}`,
+    ...(applied ? [`Mark applied: ${applied}`] : []),
     `Summary: ${job.summary}`,
     `Required skills: ${job.requiredSkills.join(', ') || 'Not stated'}`
   ].join('\n');

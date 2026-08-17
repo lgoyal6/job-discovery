@@ -18,6 +18,22 @@ describe('exported n8n workflows', () => {
     expect(JSON.stringify(value)).toContain('batch-sent');
   });
 
+  // The one webhook that writes anywhere, and its two arguments are pasted into
+  // a shell command. Dies if the character whitelist is ever loosened, or if the
+  // command node is fed the query string directly rather than the validated node.
+  it('validates the signed link before any value reaches a shell', async () => {
+    const value = await workflow('mark-applied-webhook.json');
+    expect(value.active).toBe(false);
+    const validator = value.nodes.find((node: any) => node.name === 'Validate Signed Link');
+    expect(validator.parameters.jsCode).toContain('[0-9a-f]{32}');
+    expect(validator.parameters.jsCode).toContain('MARK_APPLIED_SECRET');
+    const command = value.nodes.find((node: any) => node.name === 'Record Applied in Notion');
+    expect(command.parameters.command).toContain('cli.js mark-applied');
+    expect(command.parameters.command).toBe("=cd /opt/job-pipeline && node dist/cli.js mark-applied --job '{{ $json.job }}' --sig '{{ $json.sig }}'");
+    expect(JSON.stringify(value.connections['Valid Signed Link?'].main[0])).toContain('Record Applied in Notion');
+    expect(JSON.stringify(value.connections['Valid Signed Link?'].main[1])).toContain('Reject Safely');
+  });
+
   it('keeps Rezzy separate, manual, secret-protected, and inactive', async () => {
     const value = await workflow('rezzy-shortlist-webhook.json');
     expect(value.active).toBe(false);

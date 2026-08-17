@@ -3,11 +3,12 @@ import { resolve } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import { config, loadCompanyAliases, loadSponsorshipPatterns, projectRoot, watchlistPath } from './config.js';
-import { buildAliasMap, canonicalizeUrl, canonicalKey, extractSourceJobId, normalizeCompany, normalizeText } from './normalization.js';
+import { buildAliasMap, canonicalizeUrl, canonicalKey, canonicalLocation, extractSourceJobId, locationBucket, normalizeCompany, normalizeText, requisitionSignature, titleSignature } from './normalization.js';
 import { classifyCategory, classifyCycle, classifyGraduation, classifyLocation, classifySponsorship, extractSkills, scoreJob } from './classification.js';
 import { parseWatchlist, rotateWatchlist, type WatchlistCompany } from './watchlist.js';
 import type { ClassifiedJob, DigestJob, PipelineReport, RawJob, SourceAdapter, SourceResult } from './types.js';
 import { enrichSponsorship } from './enrichment.js';
+import { mirrorNewPostings } from './mirror.js';
 import { loadCommunitySources } from './sources/community.js';
 import { ApifySource } from './sources/apify.js';
 import { loadAtsSources } from './sources/ats.js';
@@ -16,7 +17,7 @@ import { checkWatchedPages, loadWatchPages, type PageChange } from './sources/pa
 import { skippedSource } from './sources/base.js';
 import { readAppliedExclusions, isApplied, type AppliedExclusion } from './notion.js';
 import { buildDigest, type ProgramChange } from './digest.js';
-import { getPageWatchState, savePageWatch, closeStaleJobs, getEnrichment, getUnsentJobIds, isSourceDue, saveEnrichment, loadCachedAppliedExclusions, loadCompanyAliasRows, loadSponsorshipOverrides, prepareEmailBatch, recordSourceRuns, syncAppliedExclusions, upsertJob, withPipelineLock, type SponsorshipOverrideRow } from './db.js';
+import { getPageWatchState, savePageWatch, closeStaleJobs, getEnrichment, getSentRequisitions, getUnsentJobIds, isSourceDue, saveEnrichment, loadCachedAppliedExclusions, loadCompanyAliasRows, loadSponsorshipOverrides, prepareEmailBatch, recordSourceRuns, syncAppliedExclusions, upsertJob, withPipelineLock, type SponsorshipOverrideRow } from './db.js';
 import { log } from './logger.js';
 
 interface RunOptions { fixtures?: boolean; liveFree?: boolean; persistent?: boolean }
@@ -87,7 +88,10 @@ export async function classifyRawJob(raw: RawJob, context: { aliases: Map<string
   const canonicalUrl = canonicalizeUrl(raw.directApplyUrl ?? raw.sourceUrl);
   const skills = extractSkills(`${title}\n${description}`);
   const normalizedTitle = normalizeText(title);
-  const normalizedLocation = normalizeText(location);
+  // Canonical, not merely lowercased: "Atlanta, GA" and "Atlanta, Georgia,
+  // United States" have to be one place here, or every comparison downstream
+  // that keys on location treats one role from two lists as two roles.
+  const normalizedLocation = canonicalLocation(location);
   let rejectionReason: string | undefined;
   if (raw.status === 'CLOSED') rejectionReason = 'closed_or_expired';
   // Plurals: "Internships" ends the match on a word character, so \b fails and
@@ -116,32 +120,6 @@ export async function classifyRawJob(raw: RawJob, context: { aliases: Map<string
     score: scoreJob({ cycle: resolvedCycle, category: role.category, sponsorshipStatus: sponsorship.status, skills, postedAt: raw.postedAt, location, watchlistPriority: context.priorities.get(company.normalized) ?? 0 }),
     rejectionReason, summary: shortSummary(description)
   };
-}
-
-// Words that vary between lists describing the same requisition. Dropping them
-// lets "SWE Intern - C++ or Python", "Software Engineering Internship - C++ or
-// Python - Summer 2027" and "Software Engineering Intern (Summer 2027, C++ /
-// Python)" collapse to one row instead of three.
-const TITLE_NOISE = /^(intern|interns|internship|internships|co|op|coop|summer|fall|winter|spring|20\d\d|the|and|or|a|an|of|for|at|in|to|program|programme)$/;
-
-// Truncation is what makes engineer/engineering agree. Five characters is short
-// enough to stem those pairs and long enough that backend/frontend, undergrad/
-// masters, and distinct team suffixes stay separate.
-// One requisition open in several cities gets rendered differently by every
-// list, "6 locations Atlanta, GA …", "Atlanta, GA +5", "New York, NY
-// (multiple)", so those must share a bucket. Two postings each naming a single
-// distinct city are genuinely separate roles and must not.
-const MULTI_LOCATION = /\+\s*\d|\b\d+\s+locations?\b|\bmultiple\b|\bvarious\b/i;
-function locationBucket(location: string, normalizedLocation: string): string {
-  if (MULTI_LOCATION.test(location) || location.split(',').length >= 3) return '*';
-  return normalizedLocation;
-}
-
-function titleSignature(normalizedTitle: string): string {
-  const tokens = normalizedTitle.split(/[^a-z0-9+#]+/)
-    .filter(token => token && !TITLE_NOISE.test(token))
-    .map(token => token.slice(0, 5));
-  return [...new Set(tokens)].sort().join('.');
 }
 
 // One requisition posted to six cities is six postings, and the database is
@@ -234,6 +212,30 @@ export function diversifiedTop(jobs: DigestJob[], limit: number): DigestJob[] {
     }
   }
   return picked;
+}
+
+/**
+ * Drops the roles whose requisition has already been emailed under some other
+ * database row.
+ *
+ * The upsert merges what it can prove is the same posting: a shared canonical
+ * key, apply URL, requisition id, or an identical company/title/location/cycle.
+ * Two lists that word one requisition differently and link to it differently
+ * share none of those, so both rows are real and only one of them is news. The
+ * key is the one the digest already groups rows by, so a role suppressed here
+ * is one that would have been folded into an existing row anyway.
+ */
+export function dropAlreadySentRequisitions(
+  jobs: DigestJob[],
+  sent: Array<{ normalizedCompany: string; normalizedTitle: string; cycle: string }>
+): { kept: DigestJob[]; suppressed: number } {
+  const sentKeys = new Set(sent.map(requisitionSignature).filter((key): key is string => Boolean(key)));
+  if (!sentKeys.size) return { kept: jobs, suppressed: 0 };
+  const kept = jobs.filter(job => {
+    const key = requisitionSignature(job);
+    return !key || !sentKeys.has(key);
+  });
+  return { kept, suppressed: jobs.length - kept.length };
 }
 
 export function localDedupe(jobs: ClassifiedJob[]): { unique: ClassifiedJob[]; count: number } {
@@ -353,6 +355,7 @@ async function execute(options: RunOptions): Promise<PipelineReport> {
   let digestJobs: DigestJob[] = deduped.unique;
   let batchKey: string | null = null;
   let shouldSend = false;
+  let alreadySentRequisitions = 0;
   if (options.persistent) {
     if (notionReadSucceeded) await syncAppliedExclusions(applied);
     await recordSourceRuns(runId, sourceRuns);
@@ -360,6 +363,16 @@ async function execute(options: RunOptions): Promise<PipelineReport> {
     await closeStaleJobs();
     const unsentIds = await getUnsentJobIds(stored.map(item => item.job.id).filter((id): id is string => Boolean(id)));
     digestJobs = stored.map(item => item.job).filter(job => job.id && unsentIds.has(job.id));
+    // Second line of defence, for the copy that got its own row: a requisition
+    // already emailed is not news because a different list found it again.
+    const sent = await getSentRequisitions([...new Set(digestJobs.map(job => job.normalizedCompany))]);
+    const suppression = dropAlreadySentRequisitions(digestJobs, sent);
+    digestJobs = suppression.kept;
+    alreadySentRequisitions = suppression.suppressed;
+    if (alreadySentRequisitions) {
+      rejectionReasons.requisition_already_sent = alreadySentRequisitions;
+      log('info', 'requisition_already_sent', { runId, suppressed: alreadySentRequisitions });
+    }
   }
   // Highest score first, then cap. Whatever is left keeps sent_at NULL and is
   // picked up by the next tick, so a backlog drains over several readable
@@ -417,13 +430,18 @@ async function execute(options: RunOptions): Promise<PipelineReport> {
     // unless it is recorded; an unset flag defaults to off and reads as healthy.
     log('warn', 'email_send_disabled', { runId, digest: digestJobs.length });
   }
-  log('info', 'pipeline_complete', { runId, raw: raw.length, eligible: eligible.length, digest: digestJobs.length, shouldSend, dryRun: !options.persistent });
+  // Last, deliberately. Mirroring is a record of what the run found, so it must
+  // not sit between finding a role and claiming the batch that emails it: at a
+  // paced write per role this is the longest step in the run.
+  let mirrored = 0;
+  if (options.persistent) mirrored = (await mirrorNewPostings(runId)).created;
+  log('info', 'pipeline_complete', { runId, raw: raw.length, eligible: eligible.length, digest: digestJobs.length, shouldSend, mirrored, dryRun: !options.persistent });
   return {
     runId, dryRun: !options.persistent, batchKey, shouldSend, emailTo: config.EMAIL_TO,
     subject: digestJobs.length ? digest.subject : null, html: digestJobs.length ? digest.html : null, text: digestJobs.length ? digest.text : null,
     jobs: digestJobs, sourceRuns: sourceRuns.map(run => ({ ...run, jobs: [], metrics: { ...(run.metrics ?? {}), fetchedCount: run.jobs.length } })),
     counts: { raw: raw.length, accepted: digestJobs.length, rejected: classified.length - eligible.length, deduplicated: deduped.count, appliedExcluded },
-    rejectionReasons, degradedSources: sourceRuns.filter(run => run.status !== 'SUCCESS').map(run => run.sourceName), notionModified: false
+    rejectionReasons, degradedSources: sourceRuns.filter(run => run.status !== 'SUCCESS').map(run => run.sourceName), notionModified: mirrored > 0
   };
 }
 
