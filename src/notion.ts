@@ -22,8 +22,24 @@ export const LEDGER_FIELDS = {
   title: ['Role', 'Title', 'Name'],
   url: ['Link', 'URL', 'Application URL'],
   sourceJobId: ['Job ID', 'Source Job ID'],
-  status: ['Status']
+  status: ['Status'],
+  // The ledger already had a column for each of these, and its select options
+  // are this pipeline's own vocabulary: Category is exactly SWE/ML-AI/Quant/
+  // GTM Eng/Other, Cycle is the four target cycles, and all 15 skills the
+  // extractor can name are already options. A row that fills only company,
+  // role and link leaves a tracker that has to be finished by hand.
+  location: ['Location'],
+  cycle: ['Cycle'],
+  category: ['Category'],
+  workAuth: ['Work Auth', 'Work Authorization', 'Sponsorship Status'],
+  skills: ['Required Skills', 'Skills'],
+  postedAt: ['Original Posted Date', 'Posted Date', 'Posted'],
+  summary: ['JD Meta', 'Summary', 'Notes'],
+  appliedOn: ['Date Applied', 'Applied Date', 'Applied On']
 } as const;
+
+// The ledger's own words for a sponsorship verdict.
+const WORK_AUTH: Record<string, string> = { SUPPORTED: 'F-1 OK', UNSUPPORTED: 'US only', UNKNOWN: 'Unknown' };
 
 function propertyText(property: any): string {
   if (!property) return '';
@@ -94,7 +110,11 @@ export async function readAppliedExclusions(): Promise<AppliedExclusion[]> {
   return exclusions;
 }
 
-export interface AppliedLedgerEntry { company: string; title: string; url?: string; sourceJobId?: string }
+export interface AppliedLedgerEntry {
+  company: string; title: string; url?: string; sourceJobId?: string;
+  location?: string; cycle?: string; category?: string; sponsorshipStatus?: string;
+  skills?: string[]; postedAt?: string; summary?: string;
+}
 
 const schemaSchema = z.object({ properties: z.record(z.string(), z.object({ type: z.string() }).loose()) });
 
@@ -144,22 +164,22 @@ async function ledgerBinding(): Promise<LedgerBinding> {
  */
 export async function createLedgerPage(entry: AppliedLedgerEntry, status: string): Promise<string> {
   const { version, parent, schema } = await ledgerBinding();
-  const values: Array<[readonly string[], string]> = [
+  const properties = buildProperties(schema, [
     [LEDGER_FIELDS.company, entry.company],
     [LEDGER_FIELDS.title, entry.title],
     [LEDGER_FIELDS.url, entry.url ?? ''],
     [LEDGER_FIELDS.sourceJobId, entry.sourceJobId ?? ''],
-    [LEDGER_FIELDS.status, status]
-  ];
-  const properties: Record<string, unknown> = {};
-  for (const [names, value] of values) {
-    const found = findProperty(schema, names);
-    if (!found || !value) continue;
-    const [name, definition] = found;
-    const encoded = encodeProperty(String(definition.type), value);
-    if (encoded) properties[name] = encoded;
-  }
-
+    [LEDGER_FIELDS.status, status],
+    [LEDGER_FIELDS.location, entry.location ?? ''],
+    [LEDGER_FIELDS.cycle, entry.cycle ?? ''],
+    [LEDGER_FIELDS.category, entry.category ?? ''],
+    [LEDGER_FIELDS.workAuth, entry.sponsorshipStatus ? WORK_AUTH[entry.sponsorshipStatus] ?? '' : ''],
+    [LEDGER_FIELDS.skills, entry.skills ?? []],
+    // A date column rejects a timestamp's time half, and one malformed value
+    // fails the whole page rather than the one property.
+    [LEDGER_FIELDS.postedAt, entry.postedAt ? entry.postedAt.slice(0, 10) : ''],
+    [LEDGER_FIELDS.summary, entry.summary ?? '']
+  ]);
   const created = await notionCall('https://api.notion.com/v1/pages', version, {
     method: 'POST', body: JSON.stringify({ parent, properties })
   });
@@ -170,24 +190,57 @@ export async function createLedgerPage(entry: AppliedLedgerEntry, status: string
  * Moves a page the mirror already wrote to a new status, so marking a role
  * applied updates its row rather than filing a second one beside it.
  */
-export async function setLedgerStatus(pageId: string, status: string): Promise<void> {
+export async function setLedgerStatus(pageId: string, status: string, appliedOn?: string): Promise<void> {
   const { version, schema } = await ledgerBinding();
-  const found = findProperty(schema, LEDGER_FIELDS.status);
-  if (!found) throw new Error('The ledger has no Status property to update.');
-  const encoded = encodeProperty(String(found[1].type), status);
-  if (!encoded) throw new Error(`The ledger's Status property is a ${String(found[1].type)}, which cannot carry a name.`);
+  const properties = buildProperties(schema, [
+    [LEDGER_FIELDS.status, status],
+    // The ledger has a column for the day of the application, and the click
+    // that files it is the only moment that knows.
+    [LEDGER_FIELDS.appliedOn, appliedOn ?? '']
+  ]);
+  if (!Object.keys(properties).length) throw new Error(`The ledger has no Status column that can carry "${status}".`);
   await notionCall(`https://api.notion.com/v1/pages/${pageId}`, version, {
-    method: 'PATCH', body: JSON.stringify({ properties: { [found[0]]: encoded } })
+    method: 'PATCH', body: JSON.stringify({ properties })
   });
 }
 
-function encodeProperty(type: string, value: string): unknown {
+function buildProperties(schema: Record<string, { type: string }>, values: Array<[readonly string[], string | string[]]>): Record<string, unknown> {
+  const properties: Record<string, unknown> = {};
+  for (const [names, value] of values) {
+    if (!value.length) continue;
+    const found = findProperty(schema, names);
+    if (!found) continue;
+    const encoded = encodeProperty(found[1] as { type: string }, value);
+    if (encoded) properties[found[0]] = encoded;
+  }
+  return properties;
+}
+
+/**
+ * Encodes one value for one column, from that column's own definition.
+ *
+ * A select is written only when the option already exists. Notion invents an
+ * option for anything it has not seen, so writing a cycle of "Later compatible"
+ * into a Cycle column offering the four target cycles would quietly add a fifth
+ * to a database this pipeline does not own.
+ */
+function encodeProperty(definition: { type: string; [key: string]: unknown }, value: string | string[]): unknown {
+  const type = definition.type;
+  const options = (definition[type] as { options?: Array<{ name: string }> } | undefined)?.options;
+  const known = (name: string): boolean => !options || options.some(option => option.name.toLowerCase() === name.toLowerCase());
+
+  if (Array.isArray(value)) {
+    if (type !== 'multi_select') return undefined;
+    const names = value.filter(known).map(name => ({ name }));
+    return names.length ? { multi_select: names } : undefined;
+  }
   const text = [{ type: 'text', text: { content: value.slice(0, 2000) } }];
   if (type === 'title') return { title: text };
   if (type === 'rich_text') return { rich_text: text };
   if (type === 'url') return { url: value };
-  if (type === 'select') return { select: { name: value } };
-  if (type === 'status') return { status: { name: value } };
+  if (type === 'date') return { date: { start: value } };
+  if (type === 'select') return known(value) ? { select: { name: value } } : undefined;
+  if (type === 'status') return known(value) ? { status: { name: value } } : undefined;
   return undefined;
 }
 

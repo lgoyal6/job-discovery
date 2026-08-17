@@ -117,9 +117,9 @@ describe('marking a role applied', () => {
     // This ledger keeps the company in the page title and the role in rich
     // text, the shape readAppliedExclusions already handles. A payload built
     // from Notion's property types alone would file the company as the role.
-    const mockedFetch = vi.fn()
-      .mockResolvedValueOnce(new Response(JSON.stringify(ledgerSchema), { status: 200, headers: { 'content-type': 'application/json' } }))
-      .mockResolvedValueOnce(new Response(JSON.stringify({ id: 'new-page-1' }), { status: 200, headers: { 'content-type': 'application/json' } }));
+    const json = (body: unknown): Response => new Response(JSON.stringify(body), { status: 200, headers: { 'content-type': 'application/json' } });
+    const mockedFetch = vi.fn().mockImplementation((url: string) =>
+      Promise.resolve(String(url).includes('/pages') ? json({ id: 'new-page-1' }) : json(ledgerSchema)));
     vi.stubGlobal('fetch', mockedFetch);
     const db = mockDb();
     const { markApplied, signJobId } = await import('../src/applied.js');

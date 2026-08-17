@@ -36,10 +36,7 @@ export async function mirrorNewPostings(runId: string): Promise<MirrorResult> {
   for (const job of pending) {
     result.attempted += 1;
     try {
-      const pageId = await createLedgerPage(
-        { company: job.company, title: job.title, url: job.url, sourceJobId: job.sourceJobId },
-        config.NOTION_MIRROR_STATUS
-      );
+      const pageId = await createLedgerPage(job, config.NOTION_MIRROR_STATUS);
       await recordNotionPage(job.id, pageId);
       result.created += 1;
     } catch (error) {

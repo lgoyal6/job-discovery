@@ -73,11 +73,13 @@ export async function markApplied(jobId: string, signature: string): Promise<Mar
     // The mirror may already have filed this role. Moving that page to Applied
     // is the whole point of having stored its id: the alternative is a second
     // row for the same posting, one of them stale, every time.
+    const today = new Date().toISOString().slice(0, 10);
     if (job.notionPageId) {
-      await setLedgerStatus(job.notionPageId, 'Applied');
+      await setLedgerStatus(job.notionPageId, 'Applied', today);
       notionPageId = job.notionPageId;
     } else {
-      notionPageId = await createLedgerPage({ company: job.company, title: job.title, url: job.url, sourceJobId: job.sourceJobId }, 'Applied');
+      notionPageId = await createLedgerPage(job, 'Applied');
+      await setLedgerStatus(notionPageId, 'Applied', today);
       await recordNotionPage(job.id, notionPageId);
     }
   } catch (error) {

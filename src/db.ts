@@ -3,6 +3,7 @@ import { readdir, readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import pg from 'pg';
 import { config, projectRoot } from './config.js';
+import { extractText } from './enrichment.js';
 import type { ClassifiedJob, DigestJob, SourceResult } from './types.js';
 import type { AppliedExclusion } from './notion.js';
 import { batchKey as makeBatchKey, digestHash as makeDigestHash } from './state.js';
@@ -70,7 +71,39 @@ export async function recordAppliedExclusion(exclusion: AppliedExclusion): Promi
     [exclusion.notionPageId, exclusion.companyNormalized, exclusion.titleNormalized, exclusion.canonicalUrl ?? null, exclusion.sourceJobId ?? null]);
 }
 
-export interface LedgerJob { id: string; company: string; title: string; url: string; sourceJobId?: string; notionPageId?: string }
+export interface LedgerJob {
+  id: string; company: string; title: string; url: string; sourceJobId?: string; notionPageId?: string;
+  location?: string; cycle?: string; category?: string; sponsorshipStatus?: string; skills?: string[]; postedAt?: string; summary?: string;
+}
+
+// One shape for both callers, because a row the mirror files and a row the
+// applied click files have to carry the same columns.
+const LEDGER_COLUMNS = `j.id, j.company, j.title, j.location, j.cycle, j.category, j.sponsorship_status, j.required_skills, j.description, j.notion_page_id,
+       s.url, s.source_job_id, s.posted_at`;
+const LEDGER_JOIN = `LEFT JOIN LATERAL (
+         SELECT COALESCE(NULLIF(direct_apply_url,''), source_url) AS url, source_job_id, posted_at
+           FROM job_sources WHERE job_id = j.id ORDER BY updated_at DESC LIMIT 1
+       ) s ON true`;
+
+interface LedgerRow {
+  id: string; company: string; title: string; location: string | null; cycle: string | null; category: string | null;
+  sponsorship_status: string | null; required_skills: unknown; description: string | null; notion_page_id: string | null;
+  url: string | null; source_job_id: string | null; posted_at: Date | null;
+}
+
+function toLedgerJob(row: LedgerRow): LedgerJob {
+  return {
+    id: row.id, company: row.company, title: row.title, url: row.url ?? '',
+    sourceJobId: row.source_job_id ?? undefined, notionPageId: row.notion_page_id ?? undefined,
+    location: row.location ?? undefined, cycle: row.cycle ?? undefined, category: row.category ?? undefined,
+    sponsorshipStatus: row.sponsorship_status ?? undefined,
+    skills: Array.isArray(row.required_skills) ? row.required_skills as string[] : [],
+    postedAt: row.posted_at ? row.posted_at.toISOString() : undefined,
+    // Greenhouse stores its description as HTML, so the ledger would otherwise
+    // get a column of markup. Same stripper the enrichment reader uses.
+    summary: row.description ? extractText(row.description).slice(0, 1900) : undefined
+  };
+}
 
 /**
  * The roles that still owe the ledger a page: eligible, open, and never
@@ -79,16 +112,11 @@ export interface LedgerJob { id: string; company: string; title: string; url: st
  */
 export async function getJobsToMirror(limit: number): Promise<LedgerJob[]> {
   if (limit <= 0) return [];
-  const rows = await pool.query<{ id: string; company: string; title: string; url: string | null; source_job_id: string | null }>(
-    `SELECT j.id, j.company, j.title, s.url, s.source_job_id
-       FROM jobs j
-       LEFT JOIN LATERAL (
-         SELECT COALESCE(NULLIF(direct_apply_url,''), source_url) AS url, source_job_id
-           FROM job_sources WHERE job_id = j.id ORDER BY updated_at DESC LIMIT 1
-       ) s ON true
+  const rows = await pool.query<LedgerRow>(
+    `SELECT ${LEDGER_COLUMNS} FROM jobs j ${LEDGER_JOIN}
       WHERE j.notion_page_id IS NULL AND j.status='OPEN'
       ORDER BY j.first_seen_at LIMIT $1`, [limit]);
-  return rows.rows.map(row => ({ id: row.id, company: row.company, title: row.title, url: row.url ?? '', sourceJobId: row.source_job_id ?? undefined }));
+  return rows.rows.map(toLedgerJob);
 }
 
 export async function recordNotionPage(jobId: string, notionPageId: string): Promise<void> {
@@ -99,16 +127,9 @@ export async function recordNotionPage(jobId: string, notionPageId: string): Pro
 // the digest linked: the direct application if the role has one, its source
 // listing otherwise.
 export async function getJobForLedger(jobId: string): Promise<LedgerJob | undefined> {
-  const rows = await pool.query<{ id: string; company: string; title: string; url: string | null; source_job_id: string | null; notion_page_id: string | null }>(
-    `SELECT j.id, j.company, j.title, j.notion_page_id, s.url, s.source_job_id
-       FROM jobs j
-       LEFT JOIN LATERAL (
-         SELECT COALESCE(NULLIF(direct_apply_url,''), source_url) AS url, source_job_id
-           FROM job_sources WHERE job_id = j.id ORDER BY updated_at DESC LIMIT 1
-       ) s ON true
-      WHERE j.id = $1`, [jobId]);
+  const rows = await pool.query<LedgerRow>(`SELECT ${LEDGER_COLUMNS} FROM jobs j ${LEDGER_JOIN} WHERE j.id = $1`, [jobId]);
   const row = rows.rows[0];
-  return row ? { id: row.id, company: row.company, title: row.title, url: row.url ?? '', sourceJobId: row.source_job_id ?? undefined, notionPageId: row.notion_page_id ?? undefined } : undefined;
+  return row ? toLedgerJob(row) : undefined;
 }
 
 export interface SponsorshipOverrideRow {

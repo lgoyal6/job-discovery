@@ -70,6 +70,72 @@ describe('mirroring postings into the Notion ledger', () => {
     expect(db.recordNotionPage).toHaveBeenCalledWith(pending[0]!.id, 'page-x');
   }, 15_000);
 
+  // The ledger already had a column for each of these and its select options
+  // are this pipeline's own vocabulary, so a row that fills only company, role
+  // and link leaves a tracker to be finished by hand.
+  it('fills the columns the ledger defines, and invents no select option', async () => {
+    process.env.NOTION_TOKEN = 'test-token';
+    process.env.NOTION_MIRROR_ENABLED = 'true';
+    const schema = { properties: {
+      Company: { type: 'title' }, Role: { type: 'rich_text' }, Link: { type: 'url' },
+      Location: { type: 'rich_text' },
+      Cycle: { type: 'select', select: { options: [{ name: 'Summer 2027' }, { name: 'Fall 2026' }] } },
+      Category: { type: 'select', select: { options: [{ name: 'SWE' }, { name: 'ML/AI' }] } },
+      'Work Auth': { type: 'select', select: { options: [{ name: 'F-1 OK' }, { name: 'US only' }, { name: 'Unknown' }] } },
+      'Required Skills': { type: 'multi_select', multi_select: { options: [{ name: 'Python' }, { name: 'React' }] } },
+      'Original Posted Date': { type: 'date' },
+      Status: { type: 'select', select: { options: [{ name: 'New' }, { name: 'Applied' }] } }
+    } };
+    const json = (body: unknown): Response => new Response(JSON.stringify(body), { status: 200, headers: { 'content-type': 'application/json' } });
+    const mockedFetch = vi.fn().mockImplementation((url: string) =>
+      Promise.resolve(String(url).includes('/pages') ? json({ id: 'page-x' }) : json(schema)));
+    vi.stubGlobal('fetch', mockedFetch);
+    mockDb([{
+      id: pending[0]!.id, company: 'Anduril', title: '2027 Software Engineer Intern', url: 'https://example.test/1',
+      sourceJobId: 'src-1', location: 'Atlanta, GA', cycle: 'Summer 2027', category: 'SWE',
+      sponsorshipStatus: 'UNSUPPORTED', skills: ['Python', 'React', 'Fortran'],
+      postedAt: '2026-08-12T20:30:26.000Z', summary: 'A defense role.'
+    }] as never);
+    const { mirrorNewPostings } = await import('../src/mirror.js');
+
+    expect(await mirrorNewPostings('run-1')).toMatchObject({ created: 1, failed: 0 });
+    const create = mockedFetch.mock.calls.find(call => String(call[0]).includes('/pages')) as [string, RequestInit];
+    const properties = JSON.parse(String(create[1].body)).properties;
+
+    expect(properties.Location.rich_text[0].text.content).toBe('Atlanta, GA');
+    expect(properties.Cycle.select).toEqual({ name: 'Summer 2027' });
+    expect(properties.Category.select).toEqual({ name: 'SWE' });
+    // UNSUPPORTED is the ledger's "US only", not a status word of ours.
+    expect(properties['Work Auth'].select).toEqual({ name: 'US only' });
+    // A date column rejects the time half, and one bad value fails the page.
+    expect(properties['Original Posted Date'].date).toEqual({ start: '2026-08-12' });
+    // Fortran is not an option in this ledger, and Notion would have created
+    // it. Only the two that exist are written.
+    expect(properties['Required Skills'].multi_select).toEqual([{ name: 'Python' }, { name: 'React' }]);
+  }, 15_000);
+
+  it('writes no select value the ledger has never heard of', async () => {
+    process.env.NOTION_TOKEN = 'test-token';
+    process.env.NOTION_MIRROR_ENABLED = 'true';
+    const schema = { properties: {
+      Company: { type: 'title' },
+      // The real ledger offers the four target cycles and nothing else.
+      Cycle: { type: 'select', select: { options: [{ name: 'Summer 2027' }, { name: 'Fall 2026' }] } },
+      Status: { type: 'select', select: { options: [{ name: 'New' }] } }
+    } };
+    const json = (body: unknown): Response => new Response(JSON.stringify(body), { status: 200, headers: { 'content-type': 'application/json' } });
+    vi.stubGlobal('fetch', vi.fn().mockImplementation((url: string) =>
+      Promise.resolve(String(url).includes('/pages') ? json({ id: 'page-x' }) : json(schema))));
+    mockDb([{ id: pending[0]!.id, company: 'Epic Games', title: 'Gameplay Programmer Intern', url: 'https://example.test/1', cycle: 'Later compatible' }] as never);
+    const { mirrorNewPostings } = await import('../src/mirror.js');
+
+    await mirrorNewPostings('run-1');
+    const call = (vi.mocked(fetch).mock.calls.find(c => String(c[0]).includes('/pages')) ?? []) as [string, RequestInit];
+    const properties = JSON.parse(String(call[1].body)).properties;
+    expect(properties.Cycle).toBeUndefined();
+    expect(properties.Company.title[0].text.content).toBe('Epic Games');
+  }, 15_000);
+
   it('asks for no more than the per-run cap', async () => {
     process.env.NOTION_TOKEN = 'test-token';
     process.env.NOTION_MIRROR_ENABLED = 'true';
