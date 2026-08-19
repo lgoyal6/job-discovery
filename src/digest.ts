@@ -1,3 +1,4 @@
+import { activeProfile } from './config.js';
 import { markAppliedUrl } from './applied.js';
 import type { DigestJob, SourceResult } from './types.js';
 
@@ -51,7 +52,7 @@ export function buildDigest(jobs: DigestJob[], sourceRuns: SourceResult[], times
   // "0 roles" reads as noise and gets ignored, which defeats the point of
   // watching for an announcement weeks before the requisition exists.
   const subject = jobs.length
-    ? `New technical internships: ${jobs.length} roles, ${displayTime}`
+    ? `${activeProfile === 'finance' ? 'New finance internships and analyst roles' : 'New technical internships'}: ${jobs.length} roles, ${displayTime}`
     : `Program page updates: ${programChanges.length} changed, ${displayTime}`;
   const htmlSections = sections.filter(([, items]) => items.length).map(([name, items]) => `<h2>${name}</h2><ol>${items.map(roleHtml).join('')}</ol>`).join('');
   const changeHtml = programChanges.length

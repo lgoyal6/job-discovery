@@ -25,12 +25,12 @@
     {
       "name": "intern-list-swe",
       "url": "https://www.intern-list.com/swe-intern-list",
-      "format": "html"
+      "format": "intern-list"
     },
     {
       "name": "intern-list-data",
       "url": "https://www.intern-list.com/da-intern-list",
-      "format": "html"
+      "format": "intern-list"
     },
     {
       "name": "speedyapply",
@@ -49,6 +49,24 @@
       "url": "https://raw.githubusercontent.com/speedyapply/2027-AI-College-Jobs/main/README.md",
       "format": "markdown",
       "cycle": "Summer 2027"
+    },
+    {
+      "name": "jobright-finance-internship",
+      "url": "https://raw.githubusercontent.com/jobright-ai/2026-Account-Internship/master/README.md",
+      "format": "markdown",
+      "profile": "finance"
+    },
+    {
+      "name": "jobright-finance-newgrad",
+      "url": "https://raw.githubusercontent.com/jobright-ai/2026-Account-New-Grad/master/README.md",
+      "format": "markdown",
+      "profile": "finance"
+    },
+    {
+      "name": "intern-list-finance",
+      "url": "https://www.intern-list.com/accounting-and-finance-intern-list",
+      "format": "intern-list",
+      "profile": "finance"
     }
   ],
   "ats": [

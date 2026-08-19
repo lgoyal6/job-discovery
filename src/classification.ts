@@ -1,5 +1,5 @@
 import type { Category, Cycle, RawJob, SponsorshipStatus } from './types.js';
-import type { SponsorshipPatterns } from './config.js';
+import type { Profile, SponsorshipPatterns } from './config.js';
 
 // A category pattern is tested before nonTechnical, so anything matched here
 // bypasses that filter. That is why the additions below name a discipline or a
@@ -129,7 +129,19 @@ const US_LOCATION = new RegExp(String.raw`\b(?:united states|usa|u\.s\.a?\.?|${U
 // more often than the country.
 const NON_US_LOCATION = /\b(?:afghanistan|albania|algeria|andorra|angola|argentina|armenia|australia|austria|azerbaijan|bahamas|bahrain|bangladesh|barbados|belarus|belgium|belize|benin|bermuda|bhutan|bolivia|bosnia|botswana|brazil|brunei|bulgaria|burkina faso|burundi|cambodia|cameroon|canada|cape verde|cayman islands|chad|chile|china|colombia|congo|costa rica|croatia|cuba|cyprus|czechia|czech republic|denmark|dominican republic|ecuador|egypt|el salvador|estonia|eswatini|ethiopia|fiji|finland|france|gabon|gambia|germany|ghana|gibraltar|greece|greenland|guatemala|guinea|guyana|haiti|honduras|hong kong|hungary|iceland|india|indonesia|iran|iraq|ireland|isle of man|israel|italy|ivory coast|jamaica|japan|jordan|kazakhstan|kenya|kosovo|kuwait|kyrgyzstan|laos|latvia|lebanon|lesotho|liberia|libya|liechtenstein|lithuania|luxembourg|macau|madagascar|malawi|malaysia|maldives|mali|malta|mauritania|mauritius|mexico|moldova|monaco|mongolia|montenegro|morocco|mozambique|myanmar|namibia|nepal|netherlands|new zealand|nicaragua|niger|nigeria|north macedonia|norway|oman|pakistan|palestine|panama|papua new guinea|paraguay|peru|philippines|poland|portugal|qatar|romania|russia|rwanda|saudi arabia|senegal|serbia|singapore|slovakia|slovenia|somalia|south africa|south korea|korea|spain|sri lanka|sudan|suriname|sweden|switzerland|syria|taiwan|tajikistan|tanzania|thailand|togo|trinidad|tunisia|turkey|türkiye|turkmenistan|uganda|ukraine|united arab emirates|uae|united kingdom|uk|england|scotland|wales|northern ireland|great britain|uruguay|uzbekistan|venezuela|vietnam|yemen|zambia|zimbabwe)\b/i;
 
+// A Canadian city with a bare province code names no country, so "Toronto, ON"
+// read as eligible and Barclays' Toronto banking programme reached a digest
+// whose whole premise is a US work authorisation. None of these codes is also a
+// US state code, which is what makes them safe to read as foreign where a city
+// name would not be: "Ontario, CA" is in California and "London, KY" is in
+// Kentucky.
+const CANADIAN_PROVINCE = /,\s*(?:ON|QC|BC|AB|MB|SK|NS|NB|NL|PE|YT|NT|NU)\b/;
+
 export function classifyLocation(location: string): { eligible: boolean; evidence: string } {
+  // Before the US test, not after: the finance lists write "Toronto, ON, CA",
+  // and CA is a US state code, so the US test claimed it for California.
+  const province = location.match(CANADIAN_PROVINCE);
+  if (province) return { eligible: false, evidence: `Location is a Canadian province: ${province[0].replace(/^,\s*/, '')}.` };
   if (US_LOCATION.test(location)) return { eligible: true, evidence: 'Location names a US state, territory, or the United States.' };
   const match = location.match(NON_US_LOCATION);
   if (match) return { eligible: false, evidence: `Location is outside the United States: ${match[0]}.` };
@@ -186,8 +198,68 @@ export function extractSkills(text: string): string[] {
   return skillPatterns.filter(([, pattern]) => pattern.test(text)).map(([name]) => name);
 }
 
+/**
+ * The finance digest's rules, consulted only under JOB_PROFILE=finance.
+ *
+ * Front office is tested before the accounting reject, and corporate finance
+ * after it, because the two overlap in the words they use. "Accounting and
+ * Finance Intern" has to be rejected even though it says finance, while
+ * "Investment Banking, Tax Advisory" has to survive even though it says tax;
+ * testing the specific patterns first and the loose one last is what gives both
+ * answers. It is also what lets the corporate-finance pattern end in a bare
+ * "finance": "Intern, Finance (Summer 2027)" has to match, and anything narrower
+ * is defeated by the word order. Accounting, audit and tax are excluded on request: they are 602 of
+ * the 3,996 rows on the new-grad list and 57 of 100 on the internship list, and
+ * none of them is a role this digest is for.
+ */
+const frontOffice: Array<[Category, RegExp]> = [
+  ['IB', /\b(investment bank(?:ing|er)?|banking (?:analyst|associate|intern(?:ship)?|summer)|capital markets|m&a|mergers (?:&|and) acquisitions|summer analyst|sales (?:&|and) trading|equity research|leveraged finance|debt capital markets|equity capital markets|restructuring|global markets|coverage banking)\b/i],
+  ['PE/VC', /\b(private equity|venture capital|growth equity|buyout|private credit|principal investment|direct investment)\b/i],
+  ['AM/WM', /\b(asset management|wealth management|investment management|portfolio management|private client|private bank(?:ing)?|financial advis\w+|fund management|multi-?asset)\b/i],
+  // Quant is the one category both profiles share, and the technical digest
+  // already earns its keep on these titles.
+  ['Quant', /\b(quantitative|quant)\s+(developer|research(?:er)?|trading|trader|analyst|risk|strategist|engineer)\b|\balgorithmic trading\b|\btrading intern(?:ship)?\b/i]
+];
+const corporateFinance: Array<[Category, RegExp]> = [
+  ['Corp Fin', /\b(finance|financial|corporate development|fp&a|treasury|investor relations|valuation|credit analyst|risk analyst)\b/i]
+];
+const accountingAuditTax = /\b(accounting|accountant|accounts (?:payable|receivable)|audit(?:or|ing)?|tax|bookkeep\w*|payroll|controller|cpa|billing|collections)\b/i;
+
+export function classifyFinanceCategory(title: string, description = ''): { category: Category; eligible: boolean; reason?: string } {
+  for (const [category, pattern] of frontOffice) if (pattern.test(title)) return { category, eligible: true };
+  if (accountingAuditTax.test(title)) return { category: 'Other', eligible: false, reason: 'accounting_audit_or_tax' };
+  for (const [category, pattern] of corporateFinance) if (pattern.test(title)) return { category, eligible: true };
+  // Only a title that named no track of its own earns a look at the
+  // description, the same allowance the technical policy makes.
+  for (const [category, pattern] of [...frontOffice, ...corporateFinance]) if (pattern.test(description)) return { category, eligible: true };
+  return { category: 'Other', eligible: false, reason: 'no_finance_signal' };
+}
+
+/**
+ * What each digest requires of a posting before it can be mailed.
+ *
+ * The finance profile takes internships and full-time roles as they come, so it
+ * cannot require a cycle: an internship names one and a new-grad analyst role
+ * names nothing, and requiring it would drop every row on the new-grad list. The
+ * graduation filter is off because `classifyGraduation` encodes one candidate's
+ * June 2028 window and this digest is not theirs. The US gate and the whole
+ * sponsorship treatment are shared, which is the half that already answers
+ * "usable by a non-citizen in the US".
+ */
+export interface RolePolicy {
+  classifyRole: (title: string, description?: string) => { category: Category; eligible: boolean; reason?: string };
+  requireStudentRole: boolean;
+  requireCycle: boolean;
+  requireGraduationFit: boolean;
+}
+
+export const rolePolicies: Record<Profile, RolePolicy> = {
+  technical: { classifyRole: classifyCategory, requireStudentRole: true, requireCycle: true, requireGraduationFit: true },
+  finance: { classifyRole: classifyFinanceCategory, requireStudentRole: false, requireCycle: false, requireGraduationFit: false }
+};
+
 const cyclePoints: Record<Cycle, number> = { 'Summer 2027': 50, 'Fall 2026': 40, 'Winter 2027': 35, 'Spring 2027': 30, 'Later compatible': 15 };
-const categoryPoints: Record<Category, number> = { SWE: 30, 'ML/AI': 30, Quant: 20, 'GTM Eng': 15, Other: 10 };
+const categoryPoints: Record<Category, number> = { SWE: 30, 'ML/AI': 30, Quant: 20, 'GTM Eng': 15, Other: 10, IB: 30, 'PE/VC': 30, 'AM/WM': 28, 'Corp Fin': 20 };
 
 export function scoreJob(job: Pick<RawJob, 'postedAt' | 'location'> & { cycle: Cycle; category: Category; sponsorshipStatus: SponsorshipStatus; skills: string[]; watchlistPriority: number }): number {
   let score = cyclePoints[job.cycle] + categoryPoints[job.category] + Math.min(15, job.skills.length * 3) + job.watchlistPriority;

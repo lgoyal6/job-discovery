@@ -73,6 +73,13 @@ const envSchema = z.object({
   // pool costs nothing in wall clock. Drop to 2 if the container is tight.
   SOURCE_CONCURRENCY: z.coerce.number().int().min(1).max(32).default(4),
   COMMUNITY_MAX_RESULTS_PER_SOURCE: z.coerce.number().int().positive().max(2000).default(300),
+  // intern-list holds its roles in the markup but its list page carries no
+  // location and no prose, so each row that can still qualify costs a second
+  // request to the posting's own page. About 130 pages a list a pass, which is
+  // why it runs on the boards' cadence rather than every two hours; six hours
+  // is also well inside the 72-hour window closeStaleJobs closes against.
+  INTERN_LIST_MIN_INTERVAL_HOURS: z.coerce.number().int().min(1).max(168).default(6),
+  INTERN_LIST_DETAIL_CONCURRENCY: z.coerce.number().int().min(1).max(16).default(4),
   // Applies to boards fetched page by page (Lever, SmartRecruiters, Workday),
   // where it genuinely limits how many requests are made.
   ATS_MAX_RESULTS_PER_SOURCE: z.coerce.number().int().positive().max(1000).default(250),
@@ -179,7 +186,34 @@ const envSchema = z.object({
 });
 
 export type AppConfig = z.infer<typeof envSchema>;
-export const config: AppConfig = envSchema.parse(process.env);
+
+/**
+ * A second digest, for a second reader, out of one codebase.
+ *
+ * The finance profile reads its own sources, its own rules, its own database and
+ * its own recipient. Resolving it here rather than threading a parameter through
+ * every call is what lets each reader downstream keep using EMAIL_TO and
+ * DATABASE_URL without knowing which profile it is running as, and keeps the
+ * technical path byte-identical whenever JOB_PROFILE is unset.
+ *
+ * Its own database is not a preference. `jobs.sent_at` is one column and
+ * `email_batches` has no recipient, so a role included in one person's email is
+ * consumed for everybody; two profiles against one database would mean the
+ * second reader silently never sees a role the first was mailed.
+ */
+export type Profile = 'technical' | 'finance';
+export const activeProfile: Profile = process.env.JOB_PROFILE === 'finance' ? 'finance' : 'technical';
+export const financeDatabaseConfigured = Boolean(process.env.FINANCE_DATABASE_URL);
+
+function profileEnv(): Record<string, string | undefined> {
+  if (activeProfile === 'technical') return process.env;
+  // The whole point of this profile is that it mails someone else. Falling back
+  // to EMAIL_TO would send their digest to the technical recipient instead.
+  if (!process.env.FINANCE_EMAIL_TO) throw new Error('JOB_PROFILE=finance requires FINANCE_EMAIL_TO');
+  return { ...process.env, EMAIL_TO: process.env.FINANCE_EMAIL_TO, DATABASE_URL: process.env.FINANCE_DATABASE_URL ?? process.env.DATABASE_URL };
+}
+
+export const config: AppConfig = envSchema.parse(profileEnv());
 
 export const watchlistPath = config.WATCHLIST_PATH
   ? resolve(config.WATCHLIST_PATH)

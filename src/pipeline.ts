@@ -2,14 +2,15 @@ import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
-import { config, loadCompanyAliases, loadSponsorshipPatterns, projectRoot, watchlistPath } from './config.js';
+import { config, loadCompanyAliases, loadSponsorshipPatterns, projectRoot, watchlistPath, activeProfile } from './config.js';
 import { buildAliasMap, canonicalizeUrl, canonicalKey, canonicalLocation, extractSourceJobId, locationBucket, normalizeCompany, normalizeText, requisitionSignature, titleSignature } from './normalization.js';
-import { classifyCategory, classifyCycle, classifyGraduation, classifyLocation, classifySponsorship, extractSkills, scoreJob, STUDENT_ROLE } from './classification.js';
+import { classifyCycle, classifyGraduation, classifyLocation, classifySponsorship, extractSkills, scoreJob, STUDENT_ROLE, rolePolicies } from './classification.js';
 import { parseWatchlist, rotateWatchlist, type WatchlistCompany } from './watchlist.js';
 import type { ClassifiedJob, DigestJob, PipelineReport, RawJob, SourceAdapter, SourceResult } from './types.js';
 import { enrichSponsorship } from './enrichment.js';
 import { mirrorNewPostings } from './mirror.js';
 import { loadCommunitySources } from './sources/community.js';
+import { loadInternListSources } from './sources/intern-list.js';
 import { ApifySource } from './sources/apify.js';
 import { loadAtsSources } from './sources/ats.js';
 import { loadLinkedInSources } from './sources/linkedin.js';
@@ -36,9 +37,14 @@ async function fixtureRuns(): Promise<SourceResult[]> {
 
 async function collectSources(options: RunOptions, watchlistCohort: WatchlistCompany[]): Promise<SourceResult[]> {
   if (options.fixtures) return fixtureRuns();
-  const [community, ats, linkedin] = await Promise.all([loadCommunitySources(), loadAtsSources(), loadLinkedInSources()]);
-  const greenhouse = config.GREENHOUSE_CONTENT_ENABLED ? ats.filter(source => source.name.startsWith('greenhouse:')) : [];
-  const sources: SourceAdapter[] = [...community, ...ats.filter(source => !greenhouse.includes(source))];
+  const [community, internList, ats, linkedin] = await Promise.all([loadCommunitySources(), loadInternListSources(), loadAtsSources(), loadLinkedInSources()]);
+  // 160 ATS boards, five LinkedIn queries and three Apify actors are all aimed at
+  // technical roles, and the finance rules would reject every posting they
+  // return. The Greenhouse pass alone is 300 MB, so this is the difference
+  // between a finance run costing about 2 MB and costing 300.
+  const boards = activeProfile === 'technical' ? ats : [];
+  const greenhouse = config.GREENHOUSE_CONTENT_ENABLED ? boards.filter(source => source.name.startsWith('greenhouse:')) : [];
+  const sources: SourceAdapter[] = [...community, ...boards.filter(source => !greenhouse.includes(source))];
   const deferred: SourceResult[] = [];
   // A Greenhouse board carrying descriptions is the most expensive fetch here,
   // about 300 MB across the 93 of them, so it runs on its own cadence rather
@@ -48,9 +54,18 @@ async function collectSources(options: RunOptions, watchlistCohort: WatchlistCom
     if (due) sources.push(source);
     else deferred.push({ ...skippedSource(source.name, `not due: runs every ${config.GREENHOUSE_MIN_INTERVAL_HOURS}h`), metrics: { skippedDueToCadence: true, minimumIntervalHours: config.GREENHOUSE_MIN_INTERVAL_HOURS } });
   }
+  // Each qualifying row on intern-list costs a request to its own page for the
+  // location and prose the list omits, about 130 a list a pass, so it runs on
+  // the boards' cadence. Six hours also keeps every row seen well inside the
+  // 72-hour window closeStaleJobs closes an unseen posting against.
+  for (const source of internList) {
+    const due = !options.persistent || await isSourceDue(source.name, config.INTERN_LIST_MIN_INTERVAL_HOURS);
+    if (due) sources.push(source);
+    else deferred.push({ ...skippedSource(source.name, `not due: runs every ${config.INTERN_LIST_MIN_INTERVAL_HOURS}h`), metrics: { skippedDueToCadence: true, minimumIntervalHours: config.INTERN_LIST_MIN_INTERVAL_HOURS } });
+  }
   // Twice a day, gated on the same watermark the Apify actors use. A dry run is
   // always allowed through so the source can be exercised without waiting.
-  for (const source of linkedin) {
+  for (const source of activeProfile === 'technical' ? linkedin : []) {
     const due = !options.persistent || await isSourceDue(source.name, config.LINKEDIN_MIN_INTERVAL_HOURS);
     if (due) sources.push(source);
     else {
@@ -60,7 +75,7 @@ async function collectSources(options: RunOptions, watchlistCohort: WatchlistCom
       deferred.push({ ...skippedSource(source.name, `not due: runs every ${config.LINKEDIN_MIN_INTERVAL_HOURS}h`), metrics: { skippedDueToCadence: true, minimumIntervalHours: config.LINKEDIN_MIN_INTERVAL_HOURS } });
     }
   }
-  if (!options.liveFree) {
+  if (!options.liveFree && activeProfile === 'technical') {
     const apify = [
       new ApifySource('linkedin', config.APIFY_LINKEDIN_ACTOR, config.APIFY_LINKEDIN_MAX_RESULTS, watchlistCohort.map(company => company.parent)),
       new ApifySource('indeed', config.APIFY_INDEED_ACTOR, config.APIFY_INDEED_MAX_RESULTS),
@@ -98,7 +113,8 @@ export async function classifyRawJob(raw: RawJob, context: { aliases: Map<string
   const company = normalizeCompany(raw.company, context.aliases);
   const location = raw.location?.trim() || 'Unspecified';
   const description = raw.description ?? '';
-  const role = classifyCategory(title, description);
+  const policy = rolePolicies[activeProfile];
+  const role = policy.classifyRole(title, description);
   const place = classifyLocation(location);
   const cycle = classifyCycle(title, description, raw.cycleHint ?? '');
   const graduation = classifyGraduation(title, description);
@@ -112,11 +128,11 @@ export async function classifyRawJob(raw: RawJob, context: { aliases: Map<string
   const normalizedLocation = canonicalLocation(location);
   let rejectionReason: string | undefined;
   if (raw.status === 'CLOSED') rejectionReason = 'closed_or_expired';
-  else if (!STUDENT_ROLE.test(`${title} ${description}`)) rejectionReason = 'not_student_role';
+  else if (policy.requireStudentRole && !STUDENT_ROLE.test(`${title} ${description}`)) rejectionReason = 'not_student_role';
   else if (!place.eligible) rejectionReason = 'outside_us';
-  else if (!cycle) rejectionReason = 'outside_target_cycles';
+  else if (policy.requireCycle && !cycle) rejectionReason = 'outside_target_cycles';
   else if (!role.eligible) rejectionReason = role.reason ?? 'not_technical';
-  else if (!graduation.eligible) rejectionReason = 'graduation_incompatible';
+  else if (policy.requireGraduationFit && !graduation.eligible) rejectionReason = 'graduation_incompatible';
   // Sponsorship is deliberately not a rejection. A posting that says it cannot
   // sponsor is carried through and reported in its own digest section, because
   // the sentence is boilerplate an employer sometimes departs from and the call
@@ -291,7 +307,7 @@ async function execute(options: RunOptions): Promise<PipelineReport> {
   // Program pages announce a cycle before any requisition exists, which is the
   // one thing the rest of the pipeline structurally cannot see.
   const programChanges: ProgramChange[] = [];
-  const watchPages = await loadWatchPages();
+  const watchPages = activeProfile === 'technical' ? await loadWatchPages() : [];
   if (watchPages.length) {
     const due = !options.persistent || await isSourceDue('page-watch', config.PAGEWATCH_MIN_INTERVAL_HOURS);
     if (!due) {
@@ -341,7 +357,11 @@ async function execute(options: RunOptions): Promise<PipelineReport> {
   let applied: AppliedExclusion[] = [];
   let notionReadSucceeded = false;
   if (!options.fixtures && !options.liveFree) {
-    if (!config.NOTION_TOKEN) {
+    // The Notion ledger is one person's applied history. Excluding their
+    // applications from somebody else's digest is wrong, not conservative.
+    if (activeProfile !== 'technical') {
+      sourceRuns.push(skippedSource('notion-applied', `${activeProfile} profile: the applied ledger belongs to the technical digest`));
+    } else if (!config.NOTION_TOKEN) {
       if (options.persistent) applied = await loadCachedAppliedExclusions();
       sourceRuns.push(skippedSource('notion-applied', `NOTION_TOKEN is not configured; using ${applied.length} cached exclusions`));
     } else {

@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { config, projectRoot } from '../config.js';
+import { activeProfile, config, projectRoot } from '../config.js';
 import { fetchWithPolicy } from '../http.js';
 import type { RawJob } from '../types.js';
 import { SafeSource } from './base.js';
@@ -11,7 +11,7 @@ import { extractSourceJobId } from '../normalization.js';
 // full README (these run 50-160 KB) never does.
 const EMPTY_PARSE_MIN_BYTES = 2000;
 
-const sourceConfigSchema = z.object({ community: z.array(z.object({ name: z.string(), url: z.string().url(), format: z.enum(['markdown', 'html']), cycle: z.string().optional() })) });
+const sourceConfigSchema = z.object({ community: z.array(z.object({ name: z.string(), url: z.string().url(), format: z.enum(['markdown', 'html', 'intern-list']), cycle: z.string().optional(), profile: z.enum(['technical', 'finance']).default('technical') })) });
 export type CommunityConfig = z.infer<typeof sourceConfigSchema>['community'][number];
 
 function cleanCell(cell: string): string {
@@ -155,5 +155,12 @@ export class CommunitySource extends SafeSource {
 
 export async function loadCommunitySources(): Promise<CommunitySource[]> {
   const json = JSON.parse(await readFile(resolve(projectRoot, 'config/sources.json'), 'utf8'));
-  return sourceConfigSchema.parse(json).community.map(source => new CommunitySource(source));
+  // intern-list entries are read by their own adapter, which follows each row to
+  // the posting's page for the location and prose this page shape omits. A list
+  // belongs to exactly one digest: the finance lists would be rejected wholesale
+  // by the technical rules and vice versa, so fetching either in the other's run
+  // is only cost.
+  return sourceConfigSchema.parse(json).community
+    .filter(source => source.format !== 'intern-list' && source.profile === activeProfile)
+    .map(source => new CommunitySource(source));
 }

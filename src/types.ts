@@ -1,5 +1,5 @@
 export type SponsorshipStatus = 'SUPPORTED' | 'UNKNOWN' | 'UNSUPPORTED';
-export type Category = 'SWE' | 'ML/AI' | 'Quant' | 'GTM Eng' | 'Other';
+export type Category = 'SWE' | 'ML/AI' | 'Quant' | 'GTM Eng' | 'Other' | 'IB' | 'PE/VC' | 'AM/WM' | 'Corp Fin';
 export type Cycle = 'Summer 2027' | 'Fall 2026' | 'Winter 2027' | 'Spring 2027' | 'Later compatible';
 export type SourceStatus = 'SUCCESS' | 'DEGRADED' | 'FAILED' | 'SKIPPED';
 

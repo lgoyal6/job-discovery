@@ -3,6 +3,7 @@ import { getSeenApplyUrls, markBatchSent, migrate, pool } from './db.js';
 import { harvestBoardsFromSeenUrls, runDiscovery } from './discovery.js';
 import { runPipeline } from './pipeline.js';
 import { log } from './logger.js';
+import { activeProfile, financeDatabaseConfigured } from './config.js';
 
 function flag(name: string): string | undefined {
   const index = process.argv.indexOf(name);
@@ -22,6 +23,13 @@ async function main(): Promise<void> {
     return;
   }
   if (command === 'pipeline') {
+    // Two profiles against one database would mean the second reader never sees
+    // a role the first was mailed: `jobs.sent_at` is one column and
+    // `email_batches` carries no recipient. A dry run has no database to share,
+    // so the check belongs here rather than in the config schema.
+    if (activeProfile !== 'technical' && !financeDatabaseConfigured) {
+      throw new Error(`JOB_PROFILE=${activeProfile} requires FINANCE_DATABASE_URL: sharing the technical database would consume its send state`);
+    }
     const report = await runPipeline({ persistent: true });
     process.stdout.write(`${JSON.stringify(report)}\n`);
     return;

@@ -5,6 +5,27 @@ import { describe, expect, it } from 'vitest';
 async function workflow(name: string): Promise<any> { return JSON.parse(await readFile(resolve(process.cwd(), 'workflows', name), 'utf8')); }
 
 describe('exported n8n workflows', () => {
+  it('ships an inactive six-hour finance digest that runs under its own profile', async () => {
+    const value = await workflow('finance-digest-every-six-hours.json');
+    expect(value.active).toBe(false);
+    expect(value.id).not.toBe('LakshJobDiscovery2h');
+    expect(value.nodes.find((node: any) => node.type.endsWith('scheduleTrigger')).parameters.rule.interval[0].hoursInterval).toBe(6);
+    // Both commands, not just the pipeline: batch-sent writes the send state and
+    // under this profile it has to write the finance database, not the technical
+    // one. The two runs hold advisory locks in separate databases, so the offset
+    // minute is about the container's CPU and network rather than the lock.
+    const commands = value.nodes.filter((node: any) => node.type.endsWith('executeCommand')).map((node: any) => node.parameters.command);
+    expect(commands).toHaveLength(2);
+    for (const command of commands) expect(command).toContain('JOB_PROFILE=finance');
+    // The entrypoint is what puts this workflow in n8n at all, and what keeps
+    // the finance database on the same ordered migrations as the technical one.
+    const entrypoint = await readFile(resolve(process.cwd(), 'scripts/railway-entrypoint.sh'), 'utf8');
+    expect(entrypoint).toContain('workflows/finance-digest-every-six-hours.json');
+    expect(entrypoint).toContain('JOB_PROFILE=finance node dist/cli.js migrate');
+    expect(value.nodes.find((node: any) => node.type.endsWith('scheduleTrigger')).parameters.rule.interval[0].triggerAtMinute).toBe(37);
+    expect(value.nodes.find((node: any) => node.name === 'Send Gmail Digest').credentials).toBeUndefined();
+  });
+
   it('has a two-hour inactive schedule, email guard, and batch confirmation', async () => {
     const value = await workflow('job-discovery-every-two-hours.json');
     expect(value.active).toBe(false);
