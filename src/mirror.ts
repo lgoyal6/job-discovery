@@ -1,4 +1,4 @@
-import { config } from './config.js';
+import { activeProfile, config } from './config.js';
 import { getJobsToMirror, recordNotionPage } from './db.js';
 import { log } from './logger.js';
 import { createLedgerPage } from './notion.js';
@@ -21,6 +21,12 @@ const WRITE_INTERVAL_MS = 350;
  */
 export async function mirrorNewPostings(runId: string): Promise<MirrorResult> {
   const result: MirrorResult = { attempted: 0, created: 0, failed: 0 };
+  // The ledger belongs to the technical reader. The finance profile has its own
+  // database and its own recipient but shares NOTION_DATABASE_ID, so its first
+  // run filed 200 finance postings as pages in someone else's ledger, up to the
+  // per-run cap. The applied read was already gated for this reason; the write
+  // was not.
+  if (activeProfile !== 'technical') return result;
   if (!config.NOTION_MIRROR_ENABLED || !config.NOTION_TOKEN) return result;
 
   let pending: Awaited<ReturnType<typeof getJobsToMirror>>;

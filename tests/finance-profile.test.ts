@@ -86,6 +86,27 @@ describe('profile isolation', () => {
   });
 });
 
+describe('the Notion ledger', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.resetModules();
+  });
+
+  it('is not written to by the finance profile', async () => {
+    // Its first run filed 200 finance postings as pages in the technical
+    // reader's ledger, the per-run cap, because the profile overrides the
+    // database and the recipient but shares NOTION_DATABASE_ID.
+    vi.resetModules();
+    vi.stubEnv('JOB_PROFILE', 'finance');
+    vi.stubEnv('FINANCE_EMAIL_TO', 'someone@example.edu');
+    vi.stubEnv('NOTION_MIRROR_ENABLED', 'true');
+    vi.stubEnv('NOTION_TOKEN', 'secret_test_token_value');
+    const { mirrorNewPostings } = await import('../src/mirror.js');
+    // Returns the empty result without reaching the database or Notion.
+    await expect(mirrorNewPostings('run-1')).resolves.toEqual({ attempted: 0, created: 0, failed: 0 });
+  });
+});
+
 describe('mark applied', () => {
   afterEach(() => {
     vi.unstubAllEnvs();
