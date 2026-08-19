@@ -1,5 +1,5 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
-import { config } from './config.js';
+import { activeProfile, config } from './config.js';
 import { getJobForLedger, loadCachedAppliedExclusions, recordAppliedExclusion, recordNotionPage } from './db.js';
 import { log } from './logger.js';
 import { createLedgerPage, isApplied, setLedgerStatus } from './notion.js';
@@ -34,6 +34,13 @@ export function verifyJobSignature(jobId: string, signature: string): boolean {
  * id travels with a signature the webhook checks before it does anything.
  */
 export function markAppliedUrl(jobId: string | undefined): string | undefined {
+  // Not on the finance digest. The webhook resolves a job id against the
+  // technical database and files the row in the technical reader's Notion
+  // ledger, so a finance row's id is unknown to it: the click answered "nothing
+  // was changed" four times in the first email that went out. A dead button is
+  // worse than no button, and a working one would file someone else's
+  // application in the wrong person's ledger.
+  if (activeProfile !== 'technical') return undefined;
   if (!jobId || !config.MARK_APPLIED_SECRET || !config.MARK_APPLIED_BASE_URL) return undefined;
   const url = new URL(config.MARK_APPLIED_BASE_URL);
   url.searchParams.set('job', jobId);

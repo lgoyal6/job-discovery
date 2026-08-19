@@ -93,7 +93,13 @@ export function parseMarkdownJobs(markdown: string, source: Pick<CommunityConfig
     if (/^(?:↳|same|〃|\^)$/.test(company) || !company) company = previousCompany;
     else previousCompany = company;
     const title = cleanCell(cells[1] ?? '');
-    const allLinks = cells.flatMap(links);
+    // The role cell's link is the posting; the company cell's is the company's
+    // own website. jobright labels neither "apply", so the fallback below took
+    // the first link in column order and every row off those two lists arrived
+    // pointing at pimco.com or capitalone.com instead of at the job. It also
+    // collapsed identity: one company website is one canonical URL, so every
+    // role at that company became one row.
+    const allLinks = [...links(cells[1] ?? ''), ...cells.flatMap((cell, index) => index === 1 ? [] : links(cell))];
     if (!company || !title || allLinks.length === 0 || /closed/i.test(line) || /🔒/.test(line)) continue;
     // A simplify.jobs/c/ company profile is never an application, and those
     // URLs are identical per company, so shipping one as directApplyUrl also

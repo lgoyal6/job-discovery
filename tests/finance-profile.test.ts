@@ -86,6 +86,32 @@ describe('profile isolation', () => {
   });
 });
 
+describe('mark applied', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.resetModules();
+  });
+
+  it('renders the link for the technical digest and not for the finance one', async () => {
+    vi.resetModules();
+    // An earlier test in this file leaves JOB_PROFILE stubbed.
+    vi.stubEnv('JOB_PROFILE', '');
+    vi.stubEnv('MARK_APPLIED_SECRET', 'x'.repeat(32));
+    vi.stubEnv('MARK_APPLIED_BASE_URL', 'https://example.test/mark-applied');
+    const technical = await import('../src/applied.js');
+    expect(technical.markAppliedUrl('7f1c9f2e-1111-4222-8333-444455556666')).toContain('sig=');
+
+    // The webhook resolves the id against the technical database and files the
+    // row in that reader's Notion ledger, so a finance id is unknown to it: the
+    // click answered "nothing was changed" four times in the first email sent.
+    vi.resetModules();
+    vi.stubEnv('JOB_PROFILE', 'finance');
+    vi.stubEnv('FINANCE_EMAIL_TO', 'someone@example.edu');
+    const finance = await import('../src/applied.js');
+    expect(finance.markAppliedUrl('7f1c9f2e-1111-4222-8333-444455556666')).toBeUndefined();
+  });
+});
+
 describe('US-only, read strictly enough for a banking list', () => {
   afterEach(() => vi.unstubAllEnvs());
 

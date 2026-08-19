@@ -136,6 +136,30 @@ describe('source parsers', () => {
     expect(jobs[1]?.directApplyUrl).toBe('https://beta.com/careers/456');
   });
 
+  it('applies to the posting, not to the company website', () => {
+    // jobright links the company name to the company's own site and the role to
+    // the posting, and labels neither "apply". The fallback used to take the
+    // first link in column order, so every row off both finance lists arrived
+    // pointing at pimco.com or capitalone.com. It also collapsed identity: one
+    // company website is one canonical URL, so every role there became one row.
+    const jobright = ['| Company | Job Title | Location | Work Model | Date Posted |',
+      '| ----- | --------- | --------- | ---- | ------- |',
+      '| **[Specsavers](https://www.specsavers.co.uk)** | **[Commercial Finance Intern](https://jobright.ai/jobs/info/6a85ddc02f4f0014cae268d6?utm_campaign=1052&utm_source=git)** | Burnaby, BC | Hybrid | Aug 19 |'].join('\n');
+    const [job] = parseMarkdownJobs(jobright, { name: 'jobright-finance-internship', url: 'https://example.com/readme' }, '2026-08-19T00:00:00Z');
+    expect(job?.directApplyUrl).toBe('https://jobright.ai/jobs/info/6a85ddc02f4f0014cae268d6?utm_campaign=1052&utm_source=git');
+    expect(job?.company).toBe('Specsavers');
+  });
+
+  it('still prefers a labelled apply link over the role cell', () => {
+    // Simplify and speedyapply put the ATS link in its own column with an
+    // "Apply" label, which outranks the role cell's own link.
+    const simplify = ['| Company | Role | Location | Application | Age |',
+      '| ---- | ---- | ---- | ---- | ---- |',
+      '| [Acme](https://simplify.jobs/c/acme) | [SWE Intern](https://simplify.jobs/p/abc123) | NYC | [Apply](https://boards.greenhouse.io/acme/jobs/456) | 3d |'].join('\n');
+    const [job] = parseMarkdownJobs(simplify, { name: 'simplify-summer', url: 'https://example.com/readme' }, '2026-08-19T00:00:00Z');
+    expect(job?.directApplyUrl).toBe('https://boards.greenhouse.io/acme/jobs/456');
+  });
+
   it('extracts unique direct job links from HTML feeds', () => {
     const html = '<section>Acme Software Internship <a href="https://jobs.lever.co/acme/123">Apply for job</a></section><a href="https://jobs.lever.co/acme/123">duplicate</a>';
     const jobs = parseHtmlJobs(html, { name: 'html-feed', url: 'https://feed.test', cycle: 'Summer 2027' }, '2026-08-04T00:00:00Z');
