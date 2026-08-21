@@ -231,9 +231,31 @@ export async function upsertJob(job: ClassifiedJob): Promise<UpsertResult> {
        VALUES($1,$2,NULLIF($3,''),$4,$5,$6,$7,$8,$9)
        ON CONFLICT DO NOTHING`,
       [id, job.sourceName, job.sourceJobId ?? '', job.sourceUrl, job.directApplyUrl ?? null, job.postedAt ?? null, job.scrapedAt, job.directApplyUrl ? 'DIRECT_URL' : 'SOURCE_ONLY', JSON.stringify(job.raw ?? {})]);
+    // The second branch of this WHERE re-points a source row at the job it now
+    // belongs to, so that a list which changed its link refreshes the row it
+    // already has instead of growing a second one. Unrestricted, it is also what
+    // took the technical digest down for eighteen hours: every community list
+    // gives all of its rows the same README as source_url, so the moment a
+    // posting migrated from one job row to another, this tried to move
+    // (old job, README) onto (this job, README) and hit
+    // job_sources_job_id_source_url_key against the row the INSERT above had
+    // just created. The transaction rolled back, the run aborted before it could
+    // claim an email batch, and because the migration is re-attempted from the
+    // same state every two hours it failed identically 10 runs in a row.
+    //
+    // NOT EXISTS leaves a row where it is rather than moving it onto a collision,
+    // and DISTINCT ON keeps the statement from moving two rows that share a
+    // source_url onto this job at once, which would collide with each other
+    // inside the one statement. The row that is already on this job wins, then
+    // the most recently updated one.
     await client.query(
       `UPDATE job_sources SET job_id=$1,direct_apply_url=COALESCE($5,direct_apply_url),posted_at=COALESCE($6,posted_at),scraped_at=$7,verification_status=$8,raw_payload=$9,updated_at=now()
-       WHERE (job_id=$1 AND source_url=$4) OR (source_name=$2 AND source_job_id=NULLIF($3,''))`,
+       WHERE id IN (
+         SELECT DISTINCT ON (s.source_url) s.id FROM job_sources s
+          WHERE ((s.job_id=$1 AND s.source_url=$4) OR (s.source_name=$2 AND s.source_job_id=NULLIF($3,'')))
+            AND NOT EXISTS (SELECT 1 FROM job_sources t WHERE t.job_id=$1 AND t.source_url=s.source_url AND t.id<>s.id)
+          ORDER BY s.source_url, (s.job_id=$1) DESC, s.updated_at DESC
+       )`,
       [id, job.sourceName, job.sourceJobId ?? '', job.sourceUrl, job.directApplyUrl ?? null, job.postedAt ?? null, job.scrapedAt, job.directApplyUrl ? 'DIRECT_URL' : 'SOURCE_ONLY', JSON.stringify(job.raw ?? {})]);
     await client.query('COMMIT');
     return { job: { ...job, id, meaningfulStateChange: stateChanged }, isNew, stateChanged };
