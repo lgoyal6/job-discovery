@@ -72,8 +72,13 @@ describe('intern-list source', () => {
     expect(result.jobs.every(job => job.location === 'Seattle, WA')).toBe(true);
     expect(result.jobs[0]).toMatchObject({
       sourceName: 'intern-list-swe',
-      directApplyUrl: `${LIST_URL}/2027_software_engineer_intern_onsite__at_rtx_87811882`
+      sourceUrl: `${LIST_URL}/2027_software_engineer_intern_onsite__at_rtx_87811882`
     });
+    // No direct apply URL. This page is the list's own write-up and its apply
+    // button leads to a jobright.ai account wall rather than to the employer,
+    // so offering the same URL a second time as a "direct application" promised
+    // a link that does not exist.
+    expect(result.jobs[0]?.directApplyUrl).toBeUndefined();
     // The trailing number in the slug is this site's row id, not the employer's
     // requisition id, and localDedupe's req: key is scoped by company rather
     // than by source.

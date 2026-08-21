@@ -51,18 +51,6 @@
       "cycle": "Summer 2027"
     },
     {
-      "name": "jobright-finance-internship",
-      "url": "https://raw.githubusercontent.com/jobright-ai/2026-Account-Internship/master/README.md",
-      "format": "markdown",
-      "profile": "finance"
-    },
-    {
-      "name": "jobright-finance-newgrad",
-      "url": "https://raw.githubusercontent.com/jobright-ai/2026-Account-New-Grad/master/README.md",
-      "format": "markdown",
-      "profile": "finance"
-    },
-    {
       "name": "intern-list-finance",
       "url": "https://www.intern-list.com/accounting-and-finance-intern-list",
       "format": "intern-list",
@@ -78,7 +66,8 @@
     {
       "type": "greenhouse",
       "board": "fiveringsllc",
-      "company": "Five Rings"
+      "company": "Five Rings",
+      "profile": "both"
     },
     {
       "type": "lever",
@@ -128,7 +117,8 @@
     {
       "type": "greenhouse",
       "company": "AQR",
-      "board": "aqr"
+      "board": "aqr",
+      "profile": "both"
     },
     {
       "type": "greenhouse",
@@ -143,7 +133,8 @@
     {
       "type": "lever",
       "company": "Belvedere Trading",
-      "site": "belvederetrading"
+      "site": "belvederetrading",
+      "profile": "both"
     },
     {
       "type": "greenhouse",
@@ -173,7 +164,8 @@
     {
       "type": "greenhouse",
       "company": "Chicago Trading Company",
-      "board": "chicagotrading"
+      "board": "chicagotrading",
+      "profile": "both"
     },
     {
       "type": "greenhouse",
@@ -338,7 +330,8 @@
     {
       "type": "greenhouse",
       "company": "IMC",
-      "board": "imc"
+      "board": "imc",
+      "profile": "both"
     },
     {
       "type": "greenhouse",
@@ -348,12 +341,14 @@
     {
       "type": "greenhouse",
       "company": "Jane Street",
-      "board": "janestreet"
+      "board": "janestreet",
+      "profile": "both"
     },
     {
       "type": "greenhouse",
       "company": "Jump Trading",
-      "board": "jumptrading"
+      "board": "jumptrading",
+      "profile": "both"
     },
     {
       "type": "ashby",
@@ -443,7 +438,8 @@
     {
       "type": "greenhouse",
       "company": "PDT Partners",
-      "board": "pdtpartners"
+      "board": "pdtpartners",
+      "profile": "both"
     },
     {
       "type": "ashby",
@@ -478,7 +474,8 @@
     {
       "type": "greenhouse",
       "company": "Point72",
-      "board": "point72"
+      "board": "point72",
+      "profile": "both"
     },
     {
       "type": "greenhouse",
@@ -538,7 +535,8 @@
     {
       "type": "greenhouse",
       "company": "Schonfeld",
-      "board": "schonfeld"
+      "board": "schonfeld",
+      "profile": "both"
     },
     {
       "type": "greenhouse",
@@ -658,7 +656,8 @@
     {
       "type": "greenhouse",
       "company": "Virtu",
-      "board": "virtu"
+      "board": "virtu",
+      "profile": "both"
     },
     {
       "type": "ashby",
@@ -698,17 +697,20 @@
     {
       "type": "greenhouse",
       "board": "aquaticcapitalmanagement",
-      "company": "Aquatic"
+      "company": "Aquatic",
+      "profile": "both"
     },
     {
       "type": "greenhouse",
       "board": "ctccampusboard",
-      "company": "Chicago Trading Company"
+      "company": "Chicago Trading Company",
+      "profile": "both"
     },
     {
       "type": "greenhouse",
       "board": "chicagotradingcampus",
-      "company": "Chicago Trading Company"
+      "company": "Chicago Trading Company",
+      "profile": "both"
     },
     {
       "type": "ashby",
@@ -718,7 +720,8 @@
     {
       "type": "greenhouse",
       "board": "dvtrading",
-      "company": "DV Group"
+      "company": "DV Group",
+      "profile": "both"
     },
     {
       "type": "ashby",
@@ -738,7 +741,8 @@
     {
       "type": "greenhouse",
       "board": "flowtraders",
-      "company": "Flow Traders"
+      "company": "Flow Traders",
+      "profile": "both"
     },
     {
       "type": "ashby",
@@ -758,7 +762,8 @@
     {
       "type": "greenhouse",
       "board": "oldmissioncapital",
-      "company": "Old Mission"
+      "company": "Old Mission",
+      "profile": "both"
     },
     {
       "type": "ashby",
@@ -778,7 +783,8 @@
     {
       "type": "greenhouse",
       "board": "scm",
-      "company": "Stevens Capital Management"
+      "company": "Stevens Capital Management",
+      "profile": "both"
     },
     {
       "type": "greenhouse",
@@ -793,7 +799,8 @@
     {
       "type": "greenhouse",
       "board": "towerresearchcapital",
-      "company": "Tower Research Capital"
+      "company": "Tower Research Capital",
+      "profile": "both"
     },
     {
       "type": "ashby",
@@ -803,12 +810,14 @@
     {
       "type": "greenhouse",
       "board": "voloridgeinvestmentmanagement",
-      "company": "Voloridge Investment Management"
+      "company": "Voloridge Investment Management",
+      "profile": "both"
     },
     {
       "type": "greenhouse",
       "board": "walleyecapital-external-students",
-      "company": "Walleye Capital"
+      "company": "Walleye Capital",
+      "profile": "both"
     },
     {
       "type": "lever",
@@ -825,6 +834,128 @@
       "host": "https://egug.fa.us2.oraclecloud.com",
       "site": "CX_1",
       "company": "American Express"
+    },
+    {
+      "type": "workday",
+      "host": "https://blackrock.wd1.myworkdayjobs.com",
+      "tenant": "blackrock",
+      "site": "BlackRock_Professional",
+      "company": "BlackRock",
+      "profile": "finance"
+    },
+    {
+      "type": "workday",
+      "host": "https://blackstone.wd1.myworkdayjobs.com",
+      "tenant": "blackstone",
+      "site": "Blackstone_Campus_Careers",
+      "company": "Blackstone",
+      "profile": "finance"
+    },
+    {
+      "type": "workday",
+      "host": "https://troweprice.wd5.myworkdayjobs.com",
+      "tenant": "troweprice",
+      "site": "TRowePrice",
+      "company": "T. Rowe Price",
+      "profile": "finance"
+    },
+    {
+      "type": "workday",
+      "host": "https://invesco.wd1.myworkdayjobs.com",
+      "tenant": "invesco",
+      "site": "IVZ",
+      "company": "Invesco",
+      "profile": "finance"
+    },
+    {
+      "type": "workday",
+      "host": "https://aresmgmt.wd1.myworkdayjobs.com",
+      "tenant": "aresmgmt",
+      "site": "External",
+      "company": "Ares Management",
+      "profile": "finance"
+    },
+    {
+      "type": "workday",
+      "host": "https://wellington.wd5.myworkdayjobs.com",
+      "tenant": "wellington",
+      "site": "External",
+      "company": "Wellington Management",
+      "profile": "finance"
+    },
+    {
+      "type": "workday",
+      "host": "https://vanguard.wd5.myworkdayjobs.com",
+      "tenant": "vanguard",
+      "site": "vanguard_external",
+      "company": "Vanguard",
+      "profile": "finance"
+    },
+    {
+      "type": "workday",
+      "host": "https://fmr.wd1.myworkdayjobs.com",
+      "tenant": "fmr",
+      "site": "FidelityCareers",
+      "company": "Fidelity Investments",
+      "profile": "finance"
+    },
+    {
+      "type": "workday",
+      "host": "https://ms.wd5.myworkdayjobs.com",
+      "tenant": "ms",
+      "site": "External",
+      "company": "Morgan Stanley",
+      "profile": "finance"
+    },
+    {
+      "type": "workday",
+      "host": "https://baird.wd1.myworkdayjobs.com",
+      "tenant": "baird",
+      "site": "Careers",
+      "company": "Baird",
+      "profile": "finance"
+    },
+    {
+      "type": "greenhouse",
+      "board": "stepstone",
+      "company": "StepStone Group",
+      "profile": "finance"
+    },
+    {
+      "type": "greenhouse",
+      "board": "adamsstreetpartners",
+      "company": "Adams Street Partners",
+      "profile": "finance"
+    },
+    {
+      "type": "greenhouse",
+      "board": "sixthstreet",
+      "company": "Sixth Street",
+      "profile": "finance"
+    },
+    {
+      "type": "greenhouse",
+      "board": "audaxgroup",
+      "company": "Audax Group",
+      "profile": "finance"
+    },
+    {
+      "type": "greenhouse",
+      "board": "artisanpartners",
+      "company": "Artisan Partners",
+      "profile": "finance"
+    },
+    {
+      "type": "greenhouse",
+      "board": "generalatlantic",
+      "company": "General Atlantic",
+      "profile": "finance"
+    },
+    {
+      "type": "ashby",
+      "board": "dimensional",
+      "company": "Dimensional Fund Advisors",
+      "profile": "finance"
     }
   ],
   "linkedin": [
@@ -852,6 +983,48 @@
       "name": "linkedin:software-developer-internship",
       "keywords": "software developer internship",
       "location": "United States"
+    },
+    {
+      "name": "linkedin:equity-research",
+      "keywords": "equity research internship",
+      "location": "United States",
+      "profile": "finance"
+    },
+    {
+      "name": "linkedin:investment-management",
+      "keywords": "investment management internship",
+      "location": "United States",
+      "profile": "finance"
+    },
+    {
+      "name": "linkedin:asset-management",
+      "keywords": "asset management summer analyst",
+      "location": "United States",
+      "profile": "finance"
+    },
+    {
+      "name": "linkedin:investment-analyst",
+      "keywords": "investment analyst intern",
+      "location": "United States",
+      "profile": "finance"
+    },
+    {
+      "name": "linkedin:private-equity",
+      "keywords": "private equity internship",
+      "location": "United States",
+      "profile": "finance"
+    },
+    {
+      "name": "linkedin:wealth-management",
+      "keywords": "wealth management internship",
+      "location": "United States",
+      "profile": "finance"
+    },
+    {
+      "name": "linkedin:investment-banking",
+      "keywords": "investment banking summer analyst",
+      "location": "United States",
+      "profile": "finance"
     }
   ],
   "watchPages": [

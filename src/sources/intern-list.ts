@@ -143,7 +143,12 @@ export class InternListSource extends SafeSource {
       if (!detail && wantedUrls.has(row.url)) return [];
       return [{
         sourceName: this.name, title: row.title, company: row.company, location: detail?.location ?? 'Unspecified',
-        postedAt: row.postedAt, description: detail?.description, sourceUrl: row.url, directApplyUrl: row.url,
+        // No directApplyUrl. This page is the list's own write-up of the role
+        // and its apply button leads to a jobright.ai account wall rather than
+        // to the employer, so presenting the same URL twice, once as the source
+        // and once as a direct application, promised a link that does not
+        // exist. It stays the source URL, which is what it honestly is.
+        postedAt: row.postedAt, description: detail?.description, sourceUrl: row.url,
         scrapedAt: now, cycleHint: this.source.cycle
       }];
     });

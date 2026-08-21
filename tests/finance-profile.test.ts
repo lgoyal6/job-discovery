@@ -13,13 +13,141 @@ describe('finance role rules', () => {
       ['Asset & Wealth Management, Private Wealth Management Analyst', 'AM/WM'],
       ['Merrill Advisor Development Program - Financial Advisor', 'AM/WM'],
       ['Quantitative Trader Intern - Summer 2027', 'Quant'],
+      // Quant is tested ahead of the general investment-management desk, so the
+      // label on this row says what the job is.
+      ['Quantitative Research Analyst - Intern (US)', 'Quant'],
       ['FP&A Internship - Summer 2027', 'Corp Fin'],
-      ['Intern, Finance (Summer 2027)', 'Corp Fin'],
-      ['Credit Analyst - Spring/Summer 2027', 'Corp Fin']
+      ['Intern, Finance (Summer 2027)', 'Corp Fin']
     ];
     for (const [title, category] of cases) {
       expect(classifyFinanceCategory(title), title).toMatchObject({ category, eligible: true });
     }
+  });
+
+  it('keeps the roles this digest was actually asked for', () => {
+    // The reader's own list: investment management, investment analysis, wealth
+    // management, asset management, private and public investing, private and
+    // public markets, equity research, and plain finance internships.
+    const cases: Array<[string, string]> = [
+      ['2027 Investment Management Summer Analyst', 'AM/WM'],
+      // Private debt and equity, so the private-markets desk claims it ahead of
+      // the general investment-management one. Both are investing rows.
+      ['Investment Analyst Intern - Private Debt & Equity, Summer 2027', 'PE/VC'],
+      ['Internship in Portfolio Management (Undergraduate & Master\'s)', 'AM/WM'],
+      ['Public Investments - Credit Investment Intern, Summer 2027', 'AM/WM'],
+      ['Early Career Intern - Fundamental Equities', 'AM/WM'],
+      ['Summer 2027 Fixed Income Credit Research Intern', 'AM/WM'],
+      ['Research Associate - Early Careers Program 2027', 'AM/WM'],
+      ['2027 Private Equity Summer Analyst', 'PE/VC'],
+      ['2027 Private Credit Strategies Summer Analyst', 'PE/VC'],
+      ['Private Markets Investment Intern', 'PE/VC'],
+      ['2026-2027 - Commercial & Investment Bank - Markets Equity Research - Part Time Analyst Internship', 'IB']
+    ];
+    for (const [title, category] of cases) {
+      expect(classifyFinanceCategory(title), title).toMatchObject({ category, eligible: true });
+    }
+  });
+
+  it('drops commercial banking, which was asked for by name', () => {
+    for (const title of ['Summer 2027 Commercial Banking Intern Houston, TX', 'Corporate Banking Analyst Program',
+      'ETP Intern - Corporate Banking Group, Commercial Credit Products', 'Retail Banking Summer Intern',
+      'Business Banking Relationship Manager Intern', 'National Lending Intern (Summer, 2027)',
+      'Mortgage Operations Intern', 'Treasury Management Analyst Intern']) {
+      expect(classifyFinanceCategory(title), title).toMatchObject({ eligible: false });
+    }
+    expect(classifyFinanceCategory('Summer 2027 Commercial Banking Intern')).toMatchObject({ reason: 'commercial_banking' });
+  });
+
+  it('drops the back office, the insurance desk and the risk desk', () => {
+    const cases: Array<[string, string]> = [
+      ['2027 Summer Intern - Trade Support Analyst', 'back_office_operations'],
+      ['2027 - Summer Analyst Internship - Corporate Functions, Operations', 'back_office_operations'],
+      ['2026 Client Service Junior Analyst', 'back_office_operations'],
+      ['Fund Administration Intern', 'back_office_operations'],
+      ['Summer 2027 Actuarial Internship', 'insurance_risk_or_compliance'],
+      ['Summer 2027 Underwriting Operations Internship', 'back_office_operations'],
+      ['Summer 2027 Internship - Risk Management', 'insurance_risk_or_compliance'],
+      ['Compliance Intern - Summer 2027', 'insurance_risk_or_compliance']
+    ];
+    for (const [title, reason] of cases) {
+      expect(classifyFinanceCategory(title), title).toMatchObject({ eligible: false, reason });
+    }
+  });
+
+  it('lets a front-office title outrank the reject that shares its words', () => {
+    // Order is the whole design. Commercial banking and the back office are
+    // tested before the front office because "Commercial Banking Intern" and
+    // "Summer Analyst, Operations" would otherwise be claimed by it. Insurance,
+    // tax and underwriting are tested after it, because there the overlap runs
+    // the other way.
+    expect(classifyFinanceCategory('2027 Blackstone Credit and Insurance, Private Credit Strategies Summer Analyst'))
+      .toMatchObject({ category: 'PE/VC', eligible: true });
+    expect(classifyFinanceCategory('Equity Capital Markets Underwriting Analyst')).toMatchObject({ category: 'IB', eligible: true });
+    // JPMorgan writes "Commercial & Investment Bank" on an equity research
+    // internship, which is one of the best rows the lists carry. The commercial
+    // pattern requires the two words adjacent so that it survives.
+    expect(classifyFinanceCategory('Commercial & Investment Bank - Markets Equity Research Internship'))
+      .toMatchObject({ category: 'IB', eligible: true });
+  });
+
+  it('drops a role that is not early career, whatever desk it is on', () => {
+    // Whole employer boards are read now, not student lists: BlackRock's is 250
+    // postings of which two are internships. The student-title and graduation
+    // filters are deliberately off for this profile, so seniority is the filter
+    // that keeps a Vice President out of a digest of internships.
+    for (const title of ['ETF Product Platform - BlackRock Global Markets, Vice President',
+      'Managing Director, Investment Banking', 'Director, Portfolio Management', 'Senior Equity Research Analyst',
+      'Head of Private Credit', 'Lead Investment Analyst', 'Portfolio Manager, Multi-Asset']) {
+      expect(classifyFinanceCategory(title), title).toMatchObject({ eligible: false, reason: 'not_early_career' });
+    }
+  });
+
+  it('keeps the early-career titles that merely sound senior', () => {
+    // "principal investments" is private equity rather than a job level, and
+    // neither "leadership" nor "management" is a seniority word.
+    for (const title of ['Principal Investments Summer Analyst 2027', 'Financial Leadership Development Program Intern',
+      'Internship in Portfolio Management', 'Investment Banking Analyst, Summer 2027']) {
+      expect(classifyFinanceCategory(title), title).toMatchObject({ eligible: true });
+    }
+  });
+
+  it('drops another discipline even when its description talks about trading', () => {
+    // The trading firms' boards are shared with the technical digest and are
+    // mostly software roles. Their descriptions say "proprietary trading", and
+    // the description fallback used to read that as a finance signal: Chicago
+    // Trading Company's software internship and IMC's machine learning
+    // internship both reached this email.
+    const description = 'Chicago Trading Company is a premier proprietary trading firm. Algorithmic trading, capital markets.';
+    for (const title of ['Software Engineering Internship - Summer 2027', 'Machine Learning Research Intern - Summer 2027',
+      'Summer Intern 2027 - Software Developer', 'Hardware Engineering Intern']) {
+      expect(classifyFinanceCategory(title, description), title).toMatchObject({ eligible: false, reason: 'not_a_finance_discipline' });
+    }
+    // A quant title is not another discipline: the quant patterns name their
+    // own discipline, so they are the only ones allowed to keep a title that
+    // another discipline also claims.
+    expect(classifyFinanceCategory('Quantitative Developer Intern - Summer 2027', description)).toMatchObject({ category: 'Quant', eligible: true });
+    expect(classifyFinanceCategory('Campus Quantitative Researcher (Intern)', description)).toMatchObject({ category: 'Quant', eligible: true });
+    // A software role that merely sits on an equities desk is still a software
+    // role, even though "fundamental equities" is a buy-side phrase.
+    expect(classifyFinanceCategory('Software Engineer - Fundamental Equities'))
+      .toMatchObject({ eligible: false, reason: 'not_a_finance_discipline' });
+  });
+
+  it('reads only the front office out of a description, never the loose finance word', () => {
+    // A title with no track of its own is the only one that earns a look at the
+    // body, and every job description written at a financial firm says
+    // "financial" somewhere inside it.
+    expect(classifyFinanceCategory('2027 Summer Analyst Program', 'Join our investment banking division.')).toMatchObject({ category: 'IB', eligible: true });
+    expect(classifyFinanceCategory('Campus Intern 2027', 'A financial services company with a strong finance function.'))
+      .toMatchObject({ eligible: false, reason: 'no_finance_signal' });
+  });
+
+  it('reads financial planning and analysis as corporate finance, not wealth management', () => {
+    // "Financial Planning" is a wealth-management title and "Financial Planning
+    // & Analysis" is a corporate-finance one, and the two sit in different
+    // sections of the email.
+    expect(classifyFinanceCategory('Intern, Financial Planning - Los Altos, CA')).toMatchObject({ category: 'AM/WM' });
+    expect(classifyFinanceCategory('Financial Planning & Analysis Intern')).toMatchObject({ category: 'Corp Fin' });
   });
 
   it('drops accounting, audit and tax', () => {
@@ -41,6 +169,11 @@ describe('finance role rules', () => {
 
   it('does not reach for roles that are not finance at all', () => {
     for (const title of ['Software Engineer Intern', 'Marketing Intern', 'Mechanical Engineering Co-op']) {
+      expect(classifyFinanceCategory(title), title).toMatchObject({ eligible: false, reason: 'not_a_finance_discipline' });
+    }
+    // And a title that names no discipline this digest has an opinion about
+    // still has to fail, rather than fall through to something.
+    for (const title of ['Warehouse Associate', 'Barista, Part Time', 'Summer Camp Counselor']) {
       expect(classifyFinanceCategory(title), title).toMatchObject({ eligible: false, reason: 'no_finance_signal' });
     }
   });

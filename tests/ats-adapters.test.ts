@@ -59,14 +59,18 @@ describe('ATS adapters', () => {
     expect(smart.jobs).toHaveLength(101);
     expect(String(smartFetch.mock.calls[1]?.[0])).toContain('offset=100');
 
+    // Twenty a page, because Workday answers HTTP 400 with an empty message for
+    // any limit above 20. Asking for a hundred failed every board on every
+    // attempt: all ten investment managers reported FAILED on the first run
+    // that configured one.
     const workdayFetch = vi.fn()
-      .mockResolvedValueOnce(new Response(JSON.stringify({ jobPostings: Array.from({ length: 100 }, (_, index) => workdayJob(index)) }), { status: 200 }))
-      .mockResolvedValueOnce(new Response(JSON.stringify({ jobPostings: [workdayJob(100)] }), { status: 200 }));
+      .mockResolvedValueOnce(new Response(JSON.stringify({ jobPostings: Array.from({ length: 20 }, (_, index) => workdayJob(index)) }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ jobPostings: [workdayJob(20)] }), { status: 200 }));
     vi.stubGlobal('fetch', workdayFetch);
     const workday = await new AtsSource({ type: 'workday', host: 'https://acme.wd5.myworkdayjobs.com', tenant: 'acme', site: 'External', company: 'Acme' }).fetch();
-    expect(workday.jobs).toHaveLength(101);
+    expect(workday.jobs).toHaveLength(21);
     const secondBody = JSON.parse(String((workdayFetch.mock.calls[1]?.[1] as RequestInit).body));
-    expect(secondBody).toMatchObject({ offset: 100, limit: 100, searchText: '' });
+    expect(secondBody).toMatchObject({ offset: 20, limit: 20, searchText: '' });
   });
 
   // 93 Greenhouse boards answered with no description at all, so a title with
