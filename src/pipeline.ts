@@ -17,7 +17,7 @@ import { loadLinkedInSources } from './sources/linkedin.js';
 import { checkWatchedPages, loadWatchPages, type PageChange } from './sources/pagewatch.js';
 import { skippedSource } from './sources/base.js';
 import { readAppliedExclusions, isApplied, type AppliedExclusion } from './notion.js';
-import { buildDigest, type ProgramChange } from './digest.js';
+import { buildDigest, digestOrder, type ProgramChange } from './digest.js';
 import { getPageWatchState, savePageWatch, closeStaleJobs, getEnrichment, getSentRequisitions, getUnsentJobIds, isSourceDue, saveEnrichment, loadCachedAppliedExclusions, loadCompanyAliasRows, loadSponsorshipOverrides, prepareEmailBatch, recordSourceRuns, syncAppliedExclusions, upsertJob, withPipelineLock, type SponsorshipOverrideRow } from './db.js';
 import { log } from './logger.js';
 
@@ -104,8 +104,28 @@ async function collectSources(options: RunOptions, watchlistCohort: WatchlistCom
   return [...results, ...deferred];
 }
 
-function shortSummary(description = ''): string {
-  const text = description.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+// Greenhouse answers with its `content` field entity-encoded, so there was no
+// literal "<" for the tag stripper to find, and the digest then escaped the
+// ampersands on the way into the email. Every board row's summary read
+// "&lt;p&gt;&lt;span style=&quot;font-size: 12pt;&quot;&gt;About Us" instead of
+// a sentence. Decoded before stripping, and "&amp;" last, so a posting that
+// really does write "&lt;" in its prose keeps it rather than having it read as
+// the start of a tag.
+function decodeEntities(value: string): string {
+  return value
+    .replace(/&(?:nbsp|#160|#x00a0);/gi, ' ')
+    .replace(/&(?:lt|#60|#x3c);/gi, '<')
+    .replace(/&(?:gt|#62|#x3e);/gi, '>')
+    .replace(/&(?:quot|#34|#x22);/gi, '"')
+    .replace(/&(?:apos|#39|#x27);/gi, "'")
+    .replace(/&(?:amp|#38|#x26);/gi, '&');
+}
+
+export function shortSummary(description = ''): string {
+  // Decoded twice, because the employer's own HTML is frequently encoded before
+  // the board encodes it again: Greenhouse rows carry "&amp;nbsp;" verbatim, and
+  // one pass leaves "&nbsp;" sitting in the middle of the sentence.
+  const text = decodeEntities(decodeEntities(description)).replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
   return text ? text.slice(0, 280) : 'The source did not provide a verifiable description summary.';
 }
 
@@ -225,7 +245,9 @@ export function applyEnrichment(
 // takes 40% of the digest. Deal one role per company per pass instead, companies
 // ordered by their best role, so breadth wins before any employer gets seconds.
 export function diversifiedTop(jobs: DigestJob[], limit: number): DigestJob[] {
-  const ranked = [...jobs].sort((a, b) => b.score - a.score || a.company.localeCompare(b.company));
+  // The digest's own order, so the cap keeps the roles the email would have led
+  // with rather than a different hundred it then has to re-sort.
+  const ranked = [...jobs].sort(digestOrder);
   const queues = new Map<string, DigestJob[]>();
   for (const job of ranked) {
     const key = job.normalizedCompany || job.company;

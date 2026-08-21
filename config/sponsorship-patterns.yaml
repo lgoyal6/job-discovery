@@ -38,6 +38,28 @@ unsupported:
   - "(?:u\\.?s\\.?|united states)[ -](?:citizens?(?:hip)?|green\\s?card holders?|permanent residents?)\\b[^.]{0,40}status (?:is|are) required"
   - "\\bitar\\b"
   - "must be legally authoriz(?:ed|able) to work.{0,80}without (?:current or future |any )?sponsorship"
+  # Read off five live postings that stated a policy every rule above missed.
+  # Each is anchored on declarative or imperative wording, which is what keeps
+  # the application form out of it: a Greenhouse page ends in "Will you now or
+  # in the future require sponsorship for employment visa status? * Select...",
+  # and that is a question put to the candidate rather than anything the
+  # employer has said about the role. Eight of forty postings sampled carry that
+  # question and not one of them may be read as an answer.
+  #
+  # Baird: "Baird is not currently hiring individuals for this position who now
+  # or in the future require sponsorship for employment visa status."
+  - "(?:is|are) not (?:currently )?(?:hiring|considering|able to hire|in a position to hire)[^.]{0,90}requires? sponsorship"
+  # FTI Consulting: "this position does not provide visa sponsorship".
+  # Vanguard: "Vanguard is not offering visa sponsorship for this position."
+  - "(?:does|do|will|is|are) not (?:currently )?(?:able to )?(?:provide|offer|offering|providing|support|supporting)(?: any)? (?:visa |employment |work |immigration )?sponsorship"
+  # CNO Financial: "Candidates must currently possess unrestricted authorization
+  # to work in the United States". An F-1 on OPT does not: the authorization is
+  # tied to the school and the field of study.
+  - "must (?:currently )?(?:possess|have|hold)[^.]{0,50}unrestricted[^.]{0,30}authorization to work"
+  # Royal Caribbean: "Must have authorization to work in the U.S. on a permanent
+  # and ongoing basis". Not [^.], because the abbreviation puts full stops in
+  # the middle of the sentence.
+  - "authoriz\\w+ to work.{0,70}permanent (?:and ongoing )?basis"
   - "not (?:be )?requir(?:e|ing) (?:visa |employment |work )?sponsorship (?:now or in the future)?"
 ambiguous:
   - "authorized to work in the (?:united states|u\\.?s\\.?)"

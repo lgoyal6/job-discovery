@@ -154,3 +154,54 @@ describe('a Workday posting date', () => {
     expect(isoOrUndefined(undefined)).toBeUndefined();
   });
 });
+
+describe('a summary read off a board', () => {
+  it('reads as prose, not as the markup the board encoded it in', async () => {
+    const { shortSummary } = await import('../src/pipeline.js');
+    // Greenhouse's own wire format. Undecoded, the tag stripper found no tags
+    // and the digest escaped the ampersands again, so every board row's summary
+    // read "&lt;p&gt;&lt;span style=..." in the email.
+    const greenhouse = '&lt;div class=&quot;content-intro&quot;&gt;&lt;p&gt;Chicago Trading Company (CTC) is a premier proprietary trading firm.&lt;/p&gt;&amp;nbsp;';
+    const summary = shortSummary(greenhouse);
+    expect(summary).toBe('Chicago Trading Company (CTC) is a premier proprietary trading firm.');
+    expect(summary).not.toContain('&lt;');
+    expect(summary).not.toContain('<');
+  });
+
+  it('still strips real tags, and still admits when there was nothing to read', async () => {
+    const { shortSummary } = await import('../src/pipeline.js');
+    expect(shortSummary('<p>Join our <strong>equity research</strong> team.</p>')).toBe('Join our equity research team.');
+    expect(shortSummary('')).toBe('The source did not provide a verifiable description summary.');
+  });
+});
+
+describe('the cap and the email agree on what matters', () => {
+  afterEach(() => { vi.unstubAllEnvs(); vi.resetModules(); });
+
+  it('keeps the newest roles for finance, not the highest-scoring ones', async () => {
+    // A run finds around 800 eligible roles against a cap of 100. When the cap
+    // ranked by score and the email then sorted by date, "newest first" was
+    // cosmetic: a role posted this morning lost its place to a better-scoring
+    // one from three weeks ago and never appeared at all.
+    vi.resetModules();
+    vi.stubEnv('JOB_PROFILE', 'finance');
+    vi.stubEnv('FINANCE_EMAIL_TO', 'someone@example.edu');
+    const { diversifiedTop } = await import('../src/pipeline.js');
+    const jobs = [
+      role({ company: 'Old But Strong', title: 'Old But Strong', postedAt: '2026-07-30T00:00:00.000Z', score: 200 }),
+      role({ company: 'Posted Today', title: 'Posted Today', postedAt: '2026-08-20T00:00:00.000Z', score: 10 })
+    ];
+    expect(diversifiedTop(jobs, 1).map(job => job.company)).toEqual(['Posted Today']);
+  });
+
+  it('still keeps the highest-scoring roles for the technical digest', async () => {
+    vi.resetModules();
+    vi.stubEnv('JOB_PROFILE', '');
+    const { diversifiedTop } = await import('../src/pipeline.js');
+    const jobs = [
+      role({ company: 'Old But Strong', title: 'Old But Strong', postedAt: '2026-07-30T00:00:00.000Z', score: 200 }),
+      role({ company: 'Posted Today', title: 'Posted Today', postedAt: '2026-08-20T00:00:00.000Z', score: 10 })
+    ];
+    expect(diversifiedTop(jobs, 1).map(job => job.company)).toEqual(['Old But Strong']);
+  });
+});
