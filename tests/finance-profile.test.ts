@@ -179,6 +179,50 @@ describe('finance role rules', () => {
   });
 });
 
+describe('open to a student or a new graduate, or not carried at all', () => {
+  it('keeps internships, graduate programmes and entry-level roles', async () => {
+    const { classifyEarlyCareer } = await import('../src/classification.js');
+    for (const title of ['Finance Internship (Summer 2027)', 'Corporate Finance Intern', '2027 US Finance Summer Internship Program',
+      'Investment Banking Summer Analyst', 'Campus Undergraduate Summer Internship Program', 'Entry Level Finance Opportunities',
+      'Financial Leadership Development Program Intern', 'Equity Research Co-op', 'New Grad Investment Analyst',
+      // A class year beside an analyst title is how campus hiring names itself
+      // when it uses no other word for it.
+      '2027 Harvest Analyst', 'Investment Banking Analyst - Energy (Summer 2027)']) {
+      expect(classifyEarlyCareer(title), title).toMatchObject({ eligible: true });
+    }
+  });
+
+  it('drops the experienced roles that name neither a seniority nor a cycle', async () => {
+    const { classifyEarlyCareer } = await import('../src/classification.js');
+    // These are the rows that kept reaching the digest: seniority rejects a Vice
+    // President and a cycle filter would reject an internship, but "Certified
+    // Financial Advisor" names neither and still wants years behind it.
+    for (const title of ['Certified Financial Advisor', 'Private Wealth Management Investment Consultant',
+      'Portfolio Analyst', 'Equity Research Associate, Consumer']) {
+      expect(classifyEarlyCareer(title), title).toMatchObject({ eligible: false });
+    }
+  });
+
+  it('reads a stated experience requirement as the disqualifier it is', async () => {
+    const { classifyEarlyCareer } = await import('../src/classification.js');
+    expect(classifyEarlyCareer('Investment Analyst', 'We are looking for 3+ years of relevant experience in credit.'))
+      .toMatchObject({ eligible: false, evidence: expect.stringContaining('3+ years') });
+    expect(classifyEarlyCareer('Investment Analyst', 'Requires 5 - 7 years experience across public markets.'))
+      .toMatchObject({ eligible: false });
+    // One year is common on entry-level postings that count an internship
+    // towards it, so the floor starts at two.
+    expect(classifyEarlyCareer('Investment Analyst', 'Internship experience preferred; 1 year of experience welcome.'))
+      .toMatchObject({ eligible: true });
+  });
+
+  it('is required of the finance digest and of nothing else', () => {
+    expect(rolePolicies.finance.requireEarlyCareer).toBe(true);
+    // The technical digest already requires a student title and a target cycle,
+    // which is the stricter test and makes this one redundant there.
+    expect(rolePolicies.technical.requireEarlyCareer).toBe(false);
+  });
+});
+
 describe('profile isolation', () => {
   it('leaves the technical rules alone', () => {
     // The finance lists are only fetched under the finance profile, but if one
