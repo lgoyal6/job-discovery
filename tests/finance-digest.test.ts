@@ -36,15 +36,15 @@ describe('the finance digest', () => {
       role({ title: 'Investment Banking Analyst', company: 'Citizens Only Bank', category: 'IB', sponsorshipStatus: 'UNSUPPORTED', sponsorshipEvidence: 'Requires U.S. citizenship.' })
     ]);
     const headings = [...digest.html.matchAll(/<h2>([^<]*)<\/h2>/g)].map(match => match[1]);
-    expect(headings).toEqual(['Investing', 'Finance', 'Sponsorship or citizenship required (listed so nothing is missed)']);
+    expect(headings).toEqual(['Investing', 'Corporate finance', 'Sponsorship or citizenship required (listed so nothing is missed)']);
 
     // Each row under the heading that describes what the job is, not merely
     // where it came from. The corporate-finance tail is kept, and kept apart:
     // that separation is the whole reason it is allowed in at all.
-    const investing = digest.html.slice(digest.html.indexOf('Investing'), digest.html.indexOf('>Finance<'));
+    const investing = digest.html.slice(digest.html.indexOf('Investing'), digest.html.indexOf('>Corporate finance<'));
     expect(investing).toContain('Private Equity Summer Analyst');
     expect(investing).not.toContain('Intern, Finance');
-    const financeSection = digest.html.slice(digest.html.indexOf('>Finance<'), digest.html.indexOf('Sponsorship or citizenship'));
+    const financeSection = digest.html.slice(digest.html.indexOf('>Corporate finance<'), digest.html.indexOf('Sponsorship or citizenship'));
     expect(financeSection).toContain('Intern, Finance');
   });
 

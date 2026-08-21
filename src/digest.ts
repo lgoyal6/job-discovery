@@ -107,7 +107,12 @@ function sectionsFor(sorted: DigestJob[]): Array<[string, DigestJob[]]> {
   const open = sorted.filter(job => job.sponsorshipStatus !== 'UNSUPPORTED');
   return [
     ['Investing', open.filter(job => INVESTING_CATEGORIES.has(job.category))],
-    ['Finance', open.filter(job => !INVESTING_CATEGORIES.has(job.category))],
+    // Named for what it holds rather than for what it is not. These are the
+    // corporate-finance roles: a finance internship, an FP&A or treasury
+    // internship, a financial analyst programme at an employer whose business is
+    // not investing. They are kept apart from the investing rows on purpose, so
+    // that the tail can never dilute the section above it.
+    ['Corporate finance', open.filter(job => !INVESTING_CATEGORIES.has(job.category))],
     ['Sponsorship or citizenship required (listed so nothing is missed)', sorted.filter(job => job.sponsorshipStatus === 'UNSUPPORTED')]
   ];
 }

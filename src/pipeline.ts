@@ -4,7 +4,7 @@ import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import { config, loadCompanyAliases, loadSponsorshipPatterns, projectRoot, watchlistPath, activeProfile } from './config.js';
 import { buildAliasMap, canonicalizeUrl, canonicalKey, canonicalLocation, extractSourceJobId, locationBucket, normalizeCompany, normalizeText, requisitionSignature, titleSignature } from './normalization.js';
-import { classifyCycle, classifyGraduation, classifyLocation, classifySponsorship, extractSkills, scoreJob, STUDENT_ROLE, rolePolicies } from './classification.js';
+import { classifyCycle, classifyEarlyCareer, classifyGraduation, classifyLocation, classifySponsorship, extractSkills, scoreJob, STUDENT_ROLE, rolePolicies } from './classification.js';
 import { parseWatchlist, rotateWatchlist, type WatchlistCompany } from './watchlist.js';
 import type { ClassifiedJob, DigestJob, PipelineReport, RawJob, SourceAdapter, SourceResult } from './types.js';
 import { enrichSponsorship } from './enrichment.js';
@@ -148,6 +148,7 @@ export async function classifyRawJob(raw: RawJob, context: { aliases: Map<string
   const place = classifyLocation(location);
   const cycle = classifyCycle(title, description, raw.cycleHint ?? '');
   const graduation = classifyGraduation(title, description);
+  const earlyCareer = classifyEarlyCareer(title, description);
   let sponsorship = classifySponsorship(`${title}\n${description}`, context.patterns);
   const canonicalUrl = canonicalizeUrl(raw.directApplyUrl ?? raw.sourceUrl);
   const skills = extractSkills(`${title}\n${description}`);
@@ -163,6 +164,7 @@ export async function classifyRawJob(raw: RawJob, context: { aliases: Map<string
   else if (policy.requireCycle && !cycle) rejectionReason = 'outside_target_cycles';
   else if (!role.eligible) rejectionReason = role.reason ?? 'not_technical';
   else if (policy.requireGraduationFit && !graduation.eligible) rejectionReason = 'graduation_incompatible';
+  else if (policy.requireEarlyCareer && !earlyCareer.eligible) rejectionReason = 'not_open_to_a_student_or_new_grad';
   // Sponsorship is deliberately not a rejection. A posting that says it cannot
   // sponsor is carried through and reported in its own digest section, because
   // the sentence is boilerplate an employer sometimes departs from and the call

@@ -331,16 +331,62 @@ export function classifyFinanceCategory(title: string, description = ''): { cate
  * sponsorship treatment are shared, which is the half that already answers
  * "usable by a non-citizen in the US".
  */
+/**
+ * Whether a role is one a student or a new graduate can actually take.
+ *
+ * The finance profile cannot use `STUDENT_ROLE` for this. That filter is off
+ * here on purpose, because an internship names a cycle and a full-time new-grad
+ * analyst role names nothing, and requiring a student title would drop every
+ * one of the latter. Seniority covers the other end, rejecting a Vice President
+ * or a Director outright. Between the two sat the roles this reader kept being
+ * shown: Vanguard's "Certified Financial Advisor" and Morgan Stanley's "Private
+ * Wealth Management Investment Consultant" name no seniority and no cycle, and
+ * both want years behind them.
+ *
+ * So the evidence has to be positive. A title that names an internship, a
+ * graduate programme, a campus or summer analyst class, or an entry-level role
+ * qualifies; so does an analyst or associate title carrying its class year,
+ * which is how campus hiring writes itself. Failing that, a stated experience
+ * requirement of two years or more disqualifies, and a body that names an
+ * internship or a graduate programme still qualifies.
+ *
+ * A row with neither signal is dropped. That is deliberately strict and it does
+ * cost some real entry-level rows, an "Equity Research Associate" whose posting
+ * never says so among them, because a LinkedIn card carries no description at
+ * the point this runs.
+ */
+const EARLY_CAREER = /\b(interns?(?:hips?)?|co-?ops?|students?|campus|undergraduate|new grad(?:uate)?s?|graduate (?:program|programme|scheme|analyst|rotational)|entry[ -]level|summer (?:analyst|associate|intern)|off[ -]cycle|rotational (?:program|programme)|analyst (?:program|programme|class)|trainee|apprentice\w*|early career|placement year|freshman|sophomore|junior year)\b/i;
+// A class year beside an analyst or associate title, which is how campus and
+// new-grad hiring names itself when it uses no other word for it: "2027 Harvest
+// Analyst", "Investment Banking Analyst, Full-Time 2027".
+const CLASS_YEAR_ROLE = /\b20[2-9]\d\b[^.]{0,45}\b(?:analyst|associate)\b|\b(?:analyst|associate)\b[^.]{0,45}\b20[2-9]\d\b/i;
+// Two years or more, stated as a requirement. One year is common on entry-level
+// postings that count internships towards it, so the floor starts at two.
+const EXPERIENCE_REQUIRED = /\b(?:[2-9]|[1-9]\d)\s*(?:\+|-\s*\d+)?\s*years?(?:\s+of)?\s+(?:\w+\s+){0,3}experience\b/i;
+
+export function classifyEarlyCareer(title: string, description = ''): { eligible: boolean; evidence: string } {
+  if (EARLY_CAREER.test(title)) return { eligible: true, evidence: 'The title names an internship, a graduate programme or an entry-level role.' };
+  if (CLASS_YEAR_ROLE.test(title)) return { eligible: true, evidence: 'The title pairs an analyst or associate role with its class year.' };
+  const years = EXPERIENCE_REQUIRED.exec(`${title}\n${description}`);
+  if (years) return { eligible: false, evidence: `The posting asks for ${years[0].trim()}.` };
+  if (EARLY_CAREER.test(description)) return { eligible: true, evidence: 'The posting describes an internship or a graduate programme.' };
+  return { eligible: false, evidence: 'Neither the title nor the posting names an internship, a graduate programme or an entry-level role.' };
+}
+
 export interface RolePolicy {
   classifyRole: (title: string, description?: string) => { category: Category; eligible: boolean; reason?: string };
   requireStudentRole: boolean;
   requireCycle: boolean;
   requireGraduationFit: boolean;
+  /** Whether a role must show positive evidence of being open to a student or a new graduate. */
+  requireEarlyCareer: boolean;
 }
 
 export const rolePolicies: Record<Profile, RolePolicy> = {
-  technical: { classifyRole: classifyCategory, requireStudentRole: true, requireCycle: true, requireGraduationFit: true },
-  finance: { classifyRole: classifyFinanceCategory, requireStudentRole: false, requireCycle: false, requireGraduationFit: false }
+  // The technical digest already requires a student title and a target cycle,
+  // which is a stricter test than this one and makes it redundant there.
+  technical: { classifyRole: classifyCategory, requireStudentRole: true, requireCycle: true, requireGraduationFit: true, requireEarlyCareer: false },
+  finance: { classifyRole: classifyFinanceCategory, requireStudentRole: false, requireCycle: false, requireGraduationFit: false, requireEarlyCareer: true }
 };
 
 const cyclePoints: Record<Cycle, number> = { 'Summer 2027': 50, 'Fall 2026': 40, 'Winter 2027': 35, 'Spring 2027': 30, 'Later compatible': 15 };
