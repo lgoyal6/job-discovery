@@ -75,4 +75,48 @@ suite('PostgreSQL persistence integration', () => {
   });
 });
 
+suite('a source row migrating between job rows', () => {
+  it('re-points it without colliding with the row this job already has', async () => {
+    // This is what took the technical digest down for eighteen hours. Every
+    // community list gives all of its rows the same README as source_url, so
+    // when a posting migrated from one job row to another, the upsert tried to
+    // move (old job, README) onto (this job, README) and hit
+    // job_sources_job_id_source_url_key against the row it had just inserted
+    // itself. The run aborted before it could claim an email batch, and since
+    // the migration is re-attempted from the same state every two hours it
+    // failed identically ten runs in a row.
+    process.env.DATABASE_URL = process.env.TEST_DATABASE_URL;
+    const db = await import('../src/db.js');
+    const suffix = randomUUID();
+    const readme = `https://example.test/list-${suffix}/README.md`;
+    const listRow = (id: string, title: string): ClassifiedJob => ({
+      sourceName: `list:${suffix}`, sourceJobId: id, title, company: `Employer ${id}`,
+      location: 'Remote', sourceUrl: readme, directApplyUrl: `https://boards.example.test/jobs/${id}`,
+      scrapedAt: new Date().toISOString(), canonicalKey: id.replaceAll('-', '').padEnd(64, 'a').slice(0, 64),
+      canonicalUrl: `https://boards.example.test/jobs/${id}`, normalizedCompany: `employer ${id}`,
+      normalizedTitle: title.toLowerCase(), normalizedLocation: 'remote', category: 'SWE', cycle: 'Summer 2027',
+      sponsorshipStatus: 'UNKNOWN', sponsorshipEvidence: 'not stated', graduationEligible: true,
+      graduationEvidence: 'eligible', requiredSkills: [], score: 50, summary: title, status: 'OPEN'
+    });
+
+    // Two distinct jobs off one list, so both hold a job_sources row for the
+    // same README.
+    const alpha = await db.upsertJob(listRow(`alpha-${suffix}`, 'Alpha Intern Summer 2027'));
+    const beta = await db.upsertJob(listRow(`beta-${suffix}`, 'Beta Intern Summer 2027'));
+    expect(alpha.job.id).not.toBe(beta.job.id);
+
+    // Now alpha's requisition id arrives under beta's identity, which is the
+    // migration: the same source and source_job_id, resolving to the other job.
+    const migrated = await db.upsertJob({
+      ...listRow(`alpha-${suffix}`, 'Beta Intern Summer 2027'),
+      canonicalKey: beta.job.canonicalKey,
+      normalizedCompany: beta.job.normalizedCompany,
+      normalizedTitle: beta.job.normalizedTitle
+    });
+    // The point of the test is that this resolved at all rather than throwing.
+    expect(migrated.job.id).toBe(beta.job.id);
+    await db.pool.end();
+  });
+});
+
 afterAll(() => undefined);
