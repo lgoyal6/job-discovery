@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { STUDENT_ROLE } from '../classification.js';
-import { config } from '../config.js';
+import { activeProfile, config } from '../config.js';
 import { fetchWithPolicy } from '../http.js';
 import type { RawJob } from '../types.js';
 import { SafeSource } from './base.js';
@@ -8,7 +8,7 @@ import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { projectRoot } from '../config.js';
 
-export type AtsConfig =
+type AtsBoard =
   | { type: 'greenhouse'; board: string; company: string }
   | { type: 'lever'; site: string; company: string }
   | { type: 'ashby'; board: string; company: string }
@@ -16,6 +16,13 @@ export type AtsConfig =
   | { type: 'workday'; host: string; tenant: string; site: string; company: string }
   | { type: 'oracle'; host: string; site: string; company: string }
   | { type: 'icims' | 'successfactors' | 'eightfold' | 'career-page'; company: string; endpoint: string; method?: 'GET' | 'POST'; body?: unknown };
+
+// Which digest a board is fetched for. Absent means technical, which is what
+// every board configured before the finance digest existed is. "both" is for
+// the trading firms and the investment managers whose boards carry roles each
+// reader wants: a quant internship belongs in either digest, and fetching the
+// board twice is the only alternative.
+export type AtsConfig = AtsBoard & { profile?: 'technical' | 'finance' | 'both' };
 
 // nullish, not optional: Greenhouse sends first_published as an explicit null
 // on a posting it has never published (a draft promoted in place, typically).
@@ -26,6 +33,45 @@ const greenhouseSchema = z.object({ jobs: z.array(z.object({ id: z.union([z.stri
 const leverSchema = z.array(z.object({ id: z.string(), text: z.string(), hostedUrl: z.string().url(), applyUrl: z.string().url().nullish(), createdAt: z.number().nullish(), categories: z.object({ location: z.string().nullish(), commitment: z.string().nullish() }).passthrough(), descriptionPlain: z.string().nullish() }));
 const ashbySchema = z.object({ jobs: z.array(z.object({ id: z.string().nullish(), title: z.string(), location: z.string().nullish(), publishedAt: z.string().nullish(), jobUrl: z.string().url(), applyUrl: z.string().url().nullish(), descriptionPlain: z.string().nullish(), employmentType: z.string().nullish() })) });
 const smartSchema = z.object({ content: z.array(z.object({ id: z.string(), name: z.string(), ref: z.string().url(), releasedDate: z.string().nullish(), location: z.object({ city: z.string().nullish(), region: z.string().nullish(), country: z.string().nullish() }).nullish() })), totalFound: z.number().nullish() });
+
+/** Workday's own hard cap on `limit`; a larger page is an HTTP 400. */
+const WORKDAY_PAGE_SIZE = 20;
+
+const PACIFIC_DAY = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Los_Angeles', year: 'numeric', month: '2-digit', day: '2-digit' });
+
+/**
+ * Workday dates a posting in English prose: "Posted Today", "Posted Yesterday",
+ * "Posted 5 Days Ago", "Posted 30+ Days Ago". That string used to be carried
+ * through as `postedAt` verbatim, where `Date.parse` returned NaN, the age
+ * bonus in `scoreJob` silently evaluated to nothing, and the digest printed
+ * "Invalid Date" on the line that is supposed to say when the role went up.
+ *
+ * Resolved to midnight UTC rather than to the run's clock time: the phrase
+ * names a day and nothing finer, and the digest renders a date-only value as a
+ * date instead of inventing an hour for it. "30+" is a floor, so it is read as
+ * exactly 30 days and the role sorts to the bottom either way.
+ */
+export function parseWorkdayPostedOn(value: unknown, now: string): string | undefined {
+  if (typeof value !== 'string') return undefined;
+  const reference = Date.parse(now);
+  if (Number.isNaN(reference)) return undefined;
+  const text = value.trim().toLowerCase().replace(/^posted\s+/, '');
+  const relative = /^(\d+)\+?\s+days?\s+ago$/.exec(text);
+  const days = /^today$/.test(text) ? 0 : /^yesterday$/.test(text) ? 1 : relative ? Number(relative[1]) : undefined;
+  if (days === undefined) return undefined;
+  // Which day "today" is, asked of the Pacific calendar rather than of UTC. A
+  // run at 5pm Pacific is already tomorrow in UTC, so every role Workday called
+  // "Posted Today" was dated a day into the future for the seven hours of the
+  // day this digest is most often read.
+  const today = Date.parse(`${PACIFIC_DAY.format(reference)}T00:00:00.000Z`);
+  return new Date(today - days * 86_400_000).toISOString();
+}
+
+/** Keeps a value out of `postedAt` unless it is a date something can read. */
+export function isoOrUndefined(value: unknown): string | undefined {
+  if (typeof value !== 'string' || Number.isNaN(Date.parse(value))) return undefined;
+  return value;
+}
 
 // first_published, not updated_at. Greenhouse touches updated_at on any board
 // edit, so IMC's July 1 internships were reported as posted two days ago and a
@@ -151,14 +197,20 @@ export class AtsSource extends SafeSource {
       const workday = this.source;
       const jobs: RawJob[] = [];
       const endpoint = `${workday.host.replace(/\/$/, '')}/wday/cxs/${workday.tenant}/${workday.site}/jobs`;
-      for (let offset = 0; offset < config.ATS_MAX_RESULTS_PER_SOURCE; offset += 100) {
-        const limit = Math.min(100, config.ATS_MAX_RESULTS_PER_SOURCE - offset);
+      // Twenty, and not a page more. Workday answers HTTP 400 with an empty
+      // message for any limit above 20, so asking for a hundred failed every
+      // board on every attempt: all ten investment managers reported FAILED on
+      // the first run that configured one. Postings come back newest first, so
+      // the per-source cap spends itself on the most recent week rather than on
+      // an arbitrary slice.
+      for (let offset = 0; offset < config.ATS_MAX_RESULTS_PER_SOURCE; offset += WORKDAY_PAGE_SIZE) {
+        const limit = Math.min(WORKDAY_PAGE_SIZE, config.ATS_MAX_RESULTS_PER_SOURCE - offset);
         const response = await fetchWithPolicy(endpoint, { sourceName: this.name, timeoutMs: config.SOURCE_TIMEOUT_MS, retries: config.SOURCE_RETRIES, method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ appliedFacets: {}, limit, offset, searchText: '' }) });
         const items = genericItems(await response.json());
         jobs.push(...items.map(item => {
           const externalPath = String(item.externalPath ?? '');
           const sourceUrl = externalPath ? `${workday.host.replace(/\/$/, '')}/en-US/${workday.site}${externalPath}` : endpoint;
-          return { sourceName: this.name, sourceJobId: String(item.bulletFields?.[0] ?? item.id ?? externalPath), company: workday.company, title: String(item.title ?? ''), location: String(item.locationsText ?? 'Unspecified'), postedAt: item.postedOn, employmentType: item.timeType, sourceUrl, directApplyUrl: sourceUrl, scrapedAt: now, raw: item };
+          return { sourceName: this.name, sourceJobId: String(item.bulletFields?.[0] ?? item.id ?? externalPath), company: workday.company, title: String(item.title ?? ''), location: String(item.locationsText ?? 'Unspecified'), postedAt: parseWorkdayPostedOn(item.postedOn, now), employmentType: item.timeType, sourceUrl, directApplyUrl: sourceUrl, scrapedAt: now, raw: item };
         }).filter(job => job.title));
         if (items.length < limit) break;
       }
@@ -199,7 +251,7 @@ export class AtsSource extends SafeSource {
       sourceName: this.name, sourceJobId: String(item.id ?? item.jobId ?? item.requisitionId ?? item.externalPath ?? ''),
       company: this.source.company, title: String(item.title ?? item.jobTitle ?? item.name ?? ''),
       location: String(item.location ?? item.locationsText ?? item.primaryLocation ?? 'Unspecified'),
-      postedAt: item.postedAt ?? item.postedOn ?? item.datePosted, description: item.description ?? item.jobDescription,
+      postedAt: isoOrUndefined(item.postedAt ?? item.datePosted) ?? parseWorkdayPostedOn(item.postedOn, now), description: item.description ?? item.jobDescription,
       employmentType: item.employmentType ?? item.timeType,
       sourceUrl: String(item.url ?? item.externalUrl ?? item.jobUrl ?? url), directApplyUrl: item.applyUrl ?? item.externalUrl ?? item.jobUrl,
       scrapedAt: now, raw: item
@@ -209,5 +261,11 @@ export class AtsSource extends SafeSource {
 
 export async function loadAtsSources(): Promise<AtsSource[]> {
   const raw = JSON.parse(await readFile(resolve(projectRoot, 'config/sources.json'), 'utf8')) as { ats?: AtsConfig[] };
-  return (raw.ats ?? []).map(source => new AtsSource(source));
+  // A board configured without a profile is a technical board, which is what
+  // all 160 of them were before this line existed. The finance run fetches its
+  // own boards and the shared ones, and none of the rest: the Greenhouse pass
+  // alone is 300 MB, and the finance rules would reject every posting in it.
+  return (raw.ats ?? [])
+    .filter(source => source.profile === 'both' || (source.profile ?? 'technical') === activeProfile)
+    .map(source => new AtsSource(source));
 }

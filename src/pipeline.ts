@@ -38,11 +38,12 @@ async function fixtureRuns(): Promise<SourceResult[]> {
 async function collectSources(options: RunOptions, watchlistCohort: WatchlistCompany[]): Promise<SourceResult[]> {
   if (options.fixtures) return fixtureRuns();
   const [community, internList, ats, linkedin] = await Promise.all([loadCommunitySources(), loadInternListSources(), loadAtsSources(), loadLinkedInSources()]);
-  // 160 ATS boards, five LinkedIn queries and three Apify actors are all aimed at
-  // technical roles, and the finance rules would reject every posting they
-  // return. The Greenhouse pass alone is 300 MB, so this is the difference
-  // between a finance run costing about 2 MB and costing 300.
-  const boards = activeProfile === 'technical' ? ats : [];
+  // Boards and LinkedIn queries now carry the profile they belong to and are
+  // filtered as they load, so a finance run fetches the investment managers and
+  // the trading firms and none of the 160 technical boards. The Apify actors
+  // stay technical-only: they are the paid sources, aimed at technical roles by
+  // the actor input itself, and a finance run must not spend that budget.
+  const boards = ats;
   const greenhouse = config.GREENHOUSE_CONTENT_ENABLED ? boards.filter(source => source.name.startsWith('greenhouse:')) : [];
   const sources: SourceAdapter[] = [...community, ...boards.filter(source => !greenhouse.includes(source))];
   const deferred: SourceResult[] = [];
@@ -65,7 +66,7 @@ async function collectSources(options: RunOptions, watchlistCohort: WatchlistCom
   }
   // Twice a day, gated on the same watermark the Apify actors use. A dry run is
   // always allowed through so the source can be exercised without waiting.
-  for (const source of activeProfile === 'technical' ? linkedin : []) {
+  for (const source of linkedin) {
     const due = !options.persistent || await isSourceDue(source.name, config.LINKEDIN_MIN_INTERVAL_HOURS);
     if (due) sources.push(source);
     else {

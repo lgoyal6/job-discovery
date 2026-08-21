@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { config, projectRoot } from '../config.js';
+import { activeProfile, config, projectRoot } from '../config.js';
 import { log } from '../logger.js';
 import type { RawJob } from '../types.js';
 import { SafeSource } from './base.js';
@@ -24,7 +24,11 @@ const linkedinConfigSchema = z.object({
     name: z.string(),
     keywords: z.string(),
     location: z.string().default('United States'),
-    cycle: z.string().optional()
+    cycle: z.string().optional(),
+    // A query belongs to one digest: "software engineer intern" returns nothing
+    // the finance rules accept, and "equity research internship" returns
+    // nothing the technical rules do.
+    profile: z.enum(['technical', 'finance']).default('technical')
   })).default([])
 });
 export type LinkedInQuery = z.infer<typeof linkedinConfigSchema>['linkedin'][number];
@@ -109,5 +113,7 @@ export class LinkedInGuestSource extends SafeSource {
 export async function loadLinkedInSources(): Promise<LinkedInGuestSource[]> {
   if (!config.LINKEDIN_ENABLED) return [];
   const json = JSON.parse(await readFile(resolve(projectRoot, 'config/sources.json'), 'utf8'));
-  return linkedinConfigSchema.parse(json).linkedin.map(query => new LinkedInGuestSource(query));
+  return linkedinConfigSchema.parse(json).linkedin
+    .filter(query => query.profile === activeProfile)
+    .map(query => new LinkedInGuestSource(query));
 }

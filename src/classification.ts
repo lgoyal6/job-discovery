@@ -201,37 +201,122 @@ export function extractSkills(text: string): string[] {
 /**
  * The finance digest's rules, consulted only under JOB_PROFILE=finance.
  *
- * Front office is tested before the accounting reject, and corporate finance
- * after it, because the two overlap in the words they use. "Accounting and
- * Finance Intern" has to be rejected even though it says finance, while
- * "Investment Banking, Tax Advisory" has to survive even though it says tax;
- * testing the specific patterns first and the loose one last is what gives both
- * answers. It is also what lets the corporate-finance pattern end in a bare
- * "finance": "Intern, Finance (Summer 2027)" has to match, and anything narrower
- * is defeated by the word order. Accounting, audit and tax are excluded on request: they are 602 of
- * the 3,996 rows on the new-grad list and 57 of 100 on the internship list, and
- * none of them is a role this digest is for.
+ * The reader asked for one thing: roles that invest money or research what to
+ * invest in. Investment and asset management, wealth management, private and
+ * public markets, equity research, investment banking and M&A, plus plain
+ * finance internships. Explicitly not commercial banking, and not the tail the
+ * finance lists are actually made of: accounting, audit, tax, insurance,
+ * actuarial, underwriting, risk, compliance and back-office operations.
+ *
+ * Order is the whole design here, because these families share vocabulary.
+ *
+ * Commercial banking and back-office operations are tested FIRST, before any
+ * front-office pattern: "Summer 2027 Commercial Banking Intern" contains
+ * "banking intern" and "Summer Analyst - Corporate Functions, Operations"
+ * contains "summer analyst", so testing them later means the front office
+ * claims both. The commercial pattern requires the two words adjacent, which is
+ * what keeps JPMorgan's "Commercial & Investment Bank - Markets Equity
+ * Research" (an equity research internship, and one of the best rows the lists
+ * carry) out of it.
+ *
+ * Accounting, insurance and risk are tested AFTER the front office, because
+ * there the overlap runs the other way: "Investment Banking, Tax Advisory" has
+ * to survive the tax reject, "Credit and Insurance, Private Credit Strategies
+ * Summer Analyst" has to survive the insurance one, and "Equity Capital Markets
+ * Underwriting" has to survive underwriting. Testing the specific patterns
+ * first and the loose ones last is what gives every one of those the right
+ * answer.
+ *
+ * Corporate finance is tested last of all, which is also what lets it end in a
+ * bare "finance": "Intern, Finance (Summer 2027)" has to match, and anything
+ * narrower is defeated by the word order.
  */
+const commercialBanking = /\b(?:commercial|corporate|retail|consumer|community|business|middle[ -]market|personal)\s+bank(?:ing|er)?s?\b|\bbank\s+teller\b|\b(?:teller|branch manager|branch operations|deposit operations|commercial credit|commercial lending|small business lending|loan officer|loan operations|mortgage|treasury management|cash management)\b/i;
+// Back office, and named as specifically as the titles allow. A bare
+// "operations" is deliberate: "Investment Operations", "Trade Support" and
+// "Fund Administration" are the roles this reader called shit, and every one of
+// them is titled after the function it supports rather than the function it is.
+const backOffice = /\b(operations?|middle office|back office|trade support|settlements?|reconciliation|fund admin\w*|client servic\w+|customer servic\w+|call cent\w+|servicing|help ?desk)\b/i;
+// Seniority, which only became a problem when this digest started reading whole
+// employer boards instead of student lists. BlackRock's board is 250 postings
+// of which two are internships, so without this the email led with "ETF Product
+// Platform - BlackRock Global Markets, Vice President". The student-title and
+// graduation filters cannot do this job: they are deliberately off for this
+// profile, because an internship names a cycle and a new-grad analyst role
+// names nothing at all.
+//
+// "principal" is absent on purpose: "principal investments" is private equity,
+// not a job level, and so is "staff": a Staff Accountant is the entry-level
+// accounting title, whatever the word means in engineering. "lead" cannot match "leadership" and "manager" cannot match
+// "management", so the leadership development programmes and the
+// portfolio-management internships both survive.
+const seniorRole = /\b(vice president|vp|svp|evp|avp|managing director|executive director|director|head of|chief|ceo|cfo|cio|coo|cto|senior|sr\.?|lead|manager|supervisor|executive|partner)\b/i;
+const accountingAuditTax = /\b(accounting|accountant|accounts (?:payable|receivable)|audit(?:or|ing)?|tax|bookkeep\w*|payroll|controller|cpa|billing|collections)\b/i;
+// Insurance and risk share a reject because they share a reason: neither is an
+// investing role, and both arrive in volume from lists whose other half is
+// accounting.
+// Another discipline entirely, which the trading firms' boards are mostly made
+// of: Chicago Trading Company's "Software Engineering Internship" and IMC's
+// "Machine Learning Research Intern" both reached this digest, because their
+// descriptions say "proprietary trading" and the description fallback below
+// took that as a finance signal. A quant title still survives: the front office
+// is tested before this, and "Quantitative Developer" matches there.
+const otherDiscipline = /\b(software|firmware|hardware|mechanical|electrical|engineer(?:ing)?|developer|programmer|data scien\w+|machine learning|artificial intelligence|infrastructure|devops|cyber ?security|marketing|human resources|recruit\w+|paralegal|clinical|nurse|teacher)\b/i;
+const insuranceRiskCompliance = /\b(insurance|underwrit\w+|actuar\w+|claims?|reinsurance|risk manage\w+|enterprise risk|operational risk|credit risk|compliance|regulatory|aml|kyc|fraud|internal control)\b/i;
+
+// Ordered specific desk first, catch-all last. The IB pattern ends in a bare
+// "summer analyst", which is how a bank titles its whole analyst class, so
+// tested first it claimed every buy-side row too: "2027 Investment Management
+// Summer Analyst" and "Private Credit Strategies Summer Analyst" both read as
+// investment banking. The desks that name themselves are tested ahead of it.
 const frontOffice: Array<[Category, RegExp]> = [
-  ['IB', /\b(investment bank(?:ing|er)?|banking (?:analyst|associate|intern(?:ship)?|summer)|capital markets|m&a|mergers (?:&|and) acquisitions|summer analyst|sales (?:&|and) trading|equity research|leveraged finance|debt capital markets|equity capital markets|restructuring|global markets|coverage banking)\b/i],
-  ['PE/VC', /\b(private equity|venture capital|growth equity|buyout|private credit|principal investment|direct investment)\b/i],
-  ['AM/WM', /\b(asset management|wealth management|investment management|portfolio management|private client|private bank(?:ing)?|financial advis\w+|fund management|multi-?asset)\b/i],
+  // Private and public markets, which is how this reader named the two halves
+  // of investing. "Private investments", "public credit" and "growth equity"
+  // are the words the postings themselves use.
+  ['PE/VC', /\b(private equity|venture capital|growth equity|buyout|private credit|private debt|private markets?|private investments?|private capital|principal investment|direct investment|real assets|infrastructure investments?|secondaries|co-?investments?)\b/i],
   // Quant is the one category both profiles share, and the technical digest
   // already earns its keep on these titles.
-  ['Quant', /\b(quantitative|quant)\s+(developer|research(?:er)?|trading|trader|analyst|risk|strategist|engineer)\b|\balgorithmic trading\b|\btrading intern(?:ship)?\b/i]
+  ['Quant', /\b(quantitative|quant)\s+(developer|research(?:er)?|trading|trader|analyst|risk|strategist|engineer)\b|\balgorithmic trading\b|\btrading intern(?:ship)?\b/i],
+  ['AM/WM', /\b(asset management|wealth management|investment management|investment analy(?:st|sis|tics)|portfolio management|portfolio manager|portfolio analy(?:st|sis)|equity analyst|research analyst|research associate|investment research|credit research|securities research|fundamental (?:equit\w+|research)|public markets?|public investments?|public equit\w+|public credit|private client|private bank(?:ing)?|financial advis\w+|financial planner|financial planning(?!\s*(?:&|and)\s*analysis)|fund management|multi-?asset|hedge fund|endowment|pension investments?|investment strateg\w+|buy[ -]side)\b/i],
+  ['IB', /\b(investment bank(?:ing|er)?|bank(?:ing)? (?:analyst|associate|intern(?:ship)?|summer)|capital markets|m&a|mergers (?:&|and) acquisitions|summer analyst|sales (?:&|and) trading|equity research|equity capital markets|debt capital markets|leveraged finance|restructuring|global markets|coverage banking|sell[ -]side)\b/i]
 ];
+// Plain finance internships, which the reader asked to keep even where the
+// employer is not an investment firm. They ride in their own digest section, so
+// a Textron finance intern can never dilute the investing rows it is listed
+// beneath.
 const corporateFinance: Array<[Category, RegExp]> = [
-  ['Corp Fin', /\b(finance|financial|corporate development|fp&a|treasury|investor relations|valuation|credit analyst|risk analyst)\b/i]
+  ['Corp Fin', /\b(finance|financial|corporate development|fp&a|treasury|investor relations|valuation|budget\w*|forecast\w*)\b/i]
 ];
-const accountingAuditTax = /\b(accounting|accountant|accounts (?:payable|receivable)|audit(?:or|ing)?|tax|bookkeep\w*|payroll|controller|cpa|billing|collections)\b/i;
+
+/** Categories that answer "this role invests money or researches what to invest in". */
+export const INVESTING_CATEGORIES: ReadonlySet<Category> = new Set<Category>(['IB', 'PE/VC', 'AM/WM', 'Quant']);
 
 export function classifyFinanceCategory(title: string, description = ''): { category: Category; eligible: boolean; reason?: string } {
-  for (const [category, pattern] of frontOffice) if (pattern.test(title)) return { category, eligible: true };
+  if (seniorRole.test(title)) return { category: 'Other', eligible: false, reason: 'not_early_career' };
+  if (commercialBanking.test(title)) return { category: 'Other', eligible: false, reason: 'commercial_banking' };
+  if (backOffice.test(title)) return { category: 'Other', eligible: false, reason: 'back_office_operations' };
+  for (const [category, pattern] of frontOffice) {
+    if (!pattern.test(title)) continue;
+    // Schonfeld's "Software Engineer - Fundamental Equities" is a software role
+    // that happens to sit on an equities desk, and the desk is the half this
+    // matched on. Only the quant patterns, which name their discipline
+    // themselves, may keep a title another discipline also claims; everything
+    // else falls through to the reject on the next line.
+    if (category !== 'Quant' && otherDiscipline.test(title)) break;
+    return { category, eligible: true };
+  }
+  if (otherDiscipline.test(title)) return { category: 'Other', eligible: false, reason: 'not_a_finance_discipline' };
   if (accountingAuditTax.test(title)) return { category: 'Other', eligible: false, reason: 'accounting_audit_or_tax' };
+  if (insuranceRiskCompliance.test(title)) return { category: 'Other', eligible: false, reason: 'insurance_risk_or_compliance' };
   for (const [category, pattern] of corporateFinance) if (pattern.test(title)) return { category, eligible: true };
   // Only a title that named no track of its own earns a look at the
-  // description, the same allowance the technical policy makes.
-  for (const [category, pattern] of [...frontOffice, ...corporateFinance]) if (pattern.test(description)) return { category, eligible: true };
+  // description, the same allowance the technical policy makes, and only the
+  // front office can be read out of one. Every rule above has already returned,
+  // so a description cannot readmit an accounting or commercial banking row by
+  // mentioning the word "investment" once; the corporate-finance pattern is
+  // excluded here for the same reason in reverse, since every job description
+  // written at a financial firm says "financial" somewhere in the body.
+  for (const [category, pattern] of frontOffice) if (pattern.test(description)) return { category, eligible: true };
   return { category: 'Other', eligible: false, reason: 'no_finance_signal' };
 }
 
