@@ -19,6 +19,29 @@ const BROWSER_UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/
 // what avoids silently skipping results.
 const PAGE_SIZE = 10;
 
+/**
+ * One request at a time, across every LinkedIn query in the run.
+ *
+ * The guest endpoint rate-limits per address rather than per search, and the
+ * source pool runs four queries concurrently, so they were competing for a
+ * single budget: ten finance queries paging ten deep earned a 429 partway
+ * through a run, and the two queries still waiting their turn returned nothing
+ * at all. A query that yields 50 rows every run is worth more than one that
+ * yields 100 sometimes and 0 otherwise.
+ *
+ * The delay is held inside the gate, which is what makes it a floor on the
+ * interval between consecutive requests rather than a floor per query. The pace
+ * is now the same whether one query is configured or twenty.
+ */
+let requestGate: Promise<unknown> = Promise.resolve();
+export function paced<T>(work: () => Promise<T>): Promise<T> {
+  const result = requestGate.then(work, work);
+  // A failed request must not wedge the queue, so the gate tracks completion
+  // rather than success.
+  requestGate = result.then(() => new Promise(done => setTimeout(done, config.LINKEDIN_REQUEST_DELAY_MS)), () => undefined);
+  return result;
+}
+
 const linkedinConfigSchema = z.object({
   linkedin: z.array(z.object({
     name: z.string(),
@@ -28,7 +51,16 @@ const linkedinConfigSchema = z.object({
     // A query belongs to one digest: "software engineer intern" returns nothing
     // the finance rules accept, and "equity research internship" returns
     // nothing the technical rules do.
-    profile: z.enum(['technical', 'finance']).default('technical')
+    profile: z.enum(['technical', 'finance']).default('technical'),
+    // How deep to page, when LINKEDIN_PAGES_PER_QUERY is the wrong depth for
+    // this particular search. That default is five, measured against the
+    // technical queries, where relevance decays sharply with depth because the
+    // keywords match loosely. The finance searches do not behave that way:
+    // counted over a 24-hour window, "equity research internship" has 79
+    // distinct postings, "investment analyst intern" has 98 and "private equity
+    // internship" 63, so five pages was discarding about half of every one of
+    // them before the digest's own rules ever saw a row.
+    pages: z.coerce.number().int().min(1).max(40).optional()
   })).default([])
 });
 export type LinkedInQuery = z.infer<typeof linkedinConfigSchema>['linkedin'][number];
@@ -70,15 +102,16 @@ export class LinkedInGuestSource extends SafeSource {
     let firstPageBytes = 0;
     let throttled = false;
 
-    for (let page = 0; page < config.LINKEDIN_PAGES_PER_QUERY; page += 1) {
+    const pageBudget = this.query.pages ?? config.LINKEDIN_PAGES_PER_QUERY;
+    for (let page = 0; page < pageBudget; page += 1) {
       const url = `${GUEST_SEARCH}?keywords=${encodeURIComponent(this.query.keywords)}`
         + `&location=${encodeURIComponent(this.query.location)}`
         + `&f_TPR=r${config.LINKEDIN_RECENCY_SECONDS}`
         + `&start=${page * PAGE_SIZE}`;
-      const response = await fetch(url, {
+      const response = await paced(() => fetch(url, {
         signal: AbortSignal.timeout(config.SOURCE_TIMEOUT_MS),
         headers: { 'user-agent': BROWSER_UA, accept: 'text/html,application/xhtml+xml' }
-      });
+      }));
       // A 429 means back off for the rest of this run rather than push harder.
       // Egress here is one fixed address, so earning a block costs every source.
       if (response.status === 429) { throttled = true; break; }
@@ -95,9 +128,6 @@ export class LinkedInGuestSource extends SafeSource {
       // Short page means the result set is exhausted; stop rather than spend
       // requests on pages that repeat the tail.
       if (added === 0 || parsed.length < PAGE_SIZE) break;
-      if (page + 1 < config.LINKEDIN_PAGES_PER_QUERY) {
-        await new Promise(done => setTimeout(done, config.LINKEDIN_REQUEST_DELAY_MS));
-      }
     }
 
     // An undocumented endpoint changing its markup looks exactly like a quiet

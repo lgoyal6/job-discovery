@@ -112,15 +112,30 @@ function sectionsFor(sorted: DigestJob[]): Array<[string, DigestJob[]]> {
   ];
 }
 
-function sortForDigest(jobs: DigestJob[]): DigestJob[] {
-  // Newest first for finance, which is what its reader asked for: an
-  // application window that opened today outranks a better-scoring role that
-  // has been public for three weeks. Score still breaks ties, so rows posted on
-  // the same day are ordered by how well they match.
+/**
+ * Which roles matter most, in one place, because two things ask the question.
+ *
+ * The digest asks it to order the rows it prints. The cap in the pipeline asks
+ * it to decide which roles are printed at all, and a run now finds around 800
+ * eligible roles against a cap of 100. Answering it differently in the two
+ * places is what made "newest first" cosmetic: the cap kept the 100
+ * highest-scoring roles and the email then sorted those by date, so a role
+ * posted this morning was dropped in favour of a better-scoring one from three
+ * weeks ago and never appeared at all.
+ *
+ * Newest first for finance, which is what its reader asked for. Score still
+ * breaks ties, so roles posted on the same day are ordered by how well they
+ * match. The technical digest is unchanged and still leads with its best match.
+ */
+export function digestOrder(a: DigestJob, b: DigestJob): number {
   if (activeProfile === 'finance') {
-    return [...jobs].sort((a, b) => postedAtMillis(b) - postedAtMillis(a) || b.score - a.score || a.company.localeCompare(b.company));
+    return postedAtMillis(b) - postedAtMillis(a) || b.score - a.score || a.company.localeCompare(b.company);
   }
-  return [...jobs].sort((a, b) => b.score - a.score || a.company.localeCompare(b.company));
+  return b.score - a.score || a.company.localeCompare(b.company);
+}
+
+function sortForDigest(jobs: DigestJob[]): DigestJob[] {
+  return [...jobs].sort(digestOrder);
 }
 
 export interface ProgramChange { company: string; label: string; url: string }

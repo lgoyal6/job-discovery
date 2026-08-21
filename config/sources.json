@@ -988,43 +988,71 @@
       "name": "linkedin:equity-research",
       "keywords": "equity research internship",
       "location": "United States",
-      "profile": "finance"
+      "profile": "finance",
+      "pages": 8
     },
     {
       "name": "linkedin:investment-management",
       "keywords": "investment management internship",
       "location": "United States",
-      "profile": "finance"
+      "profile": "finance",
+      "pages": 8
     },
     {
       "name": "linkedin:asset-management",
       "keywords": "asset management summer analyst",
       "location": "United States",
-      "profile": "finance"
+      "profile": "finance",
+      "pages": 8
     },
     {
       "name": "linkedin:investment-analyst",
       "keywords": "investment analyst intern",
       "location": "United States",
-      "profile": "finance"
+      "profile": "finance",
+      "pages": 8
     },
     {
       "name": "linkedin:private-equity",
       "keywords": "private equity internship",
       "location": "United States",
-      "profile": "finance"
+      "profile": "finance",
+      "pages": 8
     },
     {
       "name": "linkedin:wealth-management",
       "keywords": "wealth management internship",
       "location": "United States",
-      "profile": "finance"
+      "profile": "finance",
+      "pages": 8
     },
     {
       "name": "linkedin:investment-banking",
       "keywords": "investment banking summer analyst",
       "location": "United States",
-      "profile": "finance"
+      "profile": "finance",
+      "pages": 8
+    },
+    {
+      "name": "linkedin:sales-and-trading",
+      "keywords": "sales and trading summer analyst",
+      "location": "United States",
+      "profile": "finance",
+      "pages": 8
+    },
+    {
+      "name": "linkedin:hedge-fund",
+      "keywords": "hedge fund analyst intern",
+      "location": "United States",
+      "profile": "finance",
+      "pages": 8
+    },
+    {
+      "name": "linkedin:portfolio-management",
+      "keywords": "portfolio management internship",
+      "location": "United States",
+      "profile": "finance",
+      "pages": 8
     }
   ],
   "watchPages": [
