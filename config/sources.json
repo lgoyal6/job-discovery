@@ -956,6 +956,90 @@
       "board": "dimensional",
       "company": "Dimensional Fund Advisors",
       "profile": "finance"
+    },
+    {
+      "type": "greenhouse",
+      "board": "squarepointcapital",
+      "company": "Squarepoint Capital",
+      "profile": "finance"
+    },
+    {
+      "type": "ashby",
+      "board": "voleon",
+      "company": "Voleon Group",
+      "profile": "finance"
+    },
+    {
+      "type": "greenhouse",
+      "board": "mangroup",
+      "company": "Man Group",
+      "profile": "finance"
+    },
+    {
+      "type": "greenhouse",
+      "board": "williamblair",
+      "company": "William Blair",
+      "profile": "finance"
+    },
+    {
+      "type": "greenhouse",
+      "board": "lincolninternational",
+      "company": "Lincoln International",
+      "profile": "finance"
+    },
+    {
+      "type": "greenhouse",
+      "board": "akunacapital",
+      "company": "Akuna Capital",
+      "profile": "finance"
+    },
+    {
+      "type": "greenhouse",
+      "board": "pathstone",
+      "company": "Pathstone",
+      "profile": "finance"
+    },
+    {
+      "type": "greenhouse",
+      "board": "eqtpartners",
+      "company": "EQT Partners",
+      "profile": "finance"
+    },
+    {
+      "type": "lever",
+      "site": "capital",
+      "company": "Capital Group",
+      "profile": "finance"
+    },
+    {
+      "type": "lever",
+      "site": "gmo",
+      "company": "GMO",
+      "profile": "finance"
+    },
+    {
+      "type": "greenhouse",
+      "board": "bessemerventurepartners",
+      "company": "Bessemer Venture Partners",
+      "profile": "finance"
+    },
+    {
+      "type": "greenhouse",
+      "board": "exoduspoint",
+      "company": "ExodusPoint",
+      "profile": "finance"
+    },
+    {
+      "type": "greenhouse",
+      "board": "arielinvestments",
+      "company": "Ariel Investments",
+      "profile": "finance"
+    },
+    {
+      "type": "greenhouse",
+      "board": "generalcatalyst",
+      "company": "General Catalyst",
+      "profile": "finance"
     }
   ],
   "linkedin": [

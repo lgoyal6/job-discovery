@@ -210,7 +210,19 @@ function profileEnv(): Record<string, string | undefined> {
   // The whole point of this profile is that it mails someone else. Falling back
   // to EMAIL_TO would send their digest to the technical recipient instead.
   if (!process.env.FINANCE_EMAIL_TO) throw new Error('JOB_PROFILE=finance requires FINANCE_EMAIL_TO');
-  return { ...process.env, EMAIL_TO: process.env.FINANCE_EMAIL_TO, DATABASE_URL: process.env.FINANCE_DATABASE_URL ?? process.env.DATABASE_URL };
+  return {
+    ...process.env,
+    EMAIL_TO: process.env.FINANCE_EMAIL_TO,
+    DATABASE_URL: process.env.FINANCE_DATABASE_URL ?? process.env.DATABASE_URL,
+    // Its own Apify account, and no fallback, for the same reason the recipient
+    // has none: the free plan grants $5 a month, does not roll it over, and
+    // blocks the account for the rest of the cycle once it is spent. Falling
+    // back to APIFY_TOKEN would mean this digest quietly spending the technical
+    // reader's budget, and one profile could take the other's paid sources down
+    // with it. Absent the variable the Apify sources skip themselves, which they
+    // already know how to do.
+    APIFY_TOKEN: process.env.FINANCE_APIFY_TOKEN
+  };
 }
 
 export const config: AppConfig = envSchema.parse(profileEnv());

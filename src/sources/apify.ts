@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { config } from '../config.js';
+import { activeProfile, config, type Profile } from '../config.js';
 import { fetchWithPolicy } from '../http.js';
 import type { RawJob, SourceResult } from '../types.js';
 import { SafeSource, skippedSource } from './base.js';
@@ -43,6 +43,33 @@ export function normalizeApifyItems(payload: unknown[], board: string, now: stri
   return jobs;
 }
 
+/**
+ * What each digest asks a paid actor to search for.
+ *
+ * These strings were hardcoded to the technical digest, which is the other half
+ * of why the finance profile could not use a paid source: even given a token, an
+ * actor asked for "software engineering intern 2027" returns nothing the finance
+ * rules accept, so every result would have been paid for and dropped.
+ *
+ * The wording matters more than the source does. Measured on Monster at 150
+ * results a run, "finance internship summer 2027" returned 87 rows the finance
+ * rules accept, 84 of them internships, none from a staffing agency, and 18
+ * carrying a sponsorship policy the rules could read off the description.
+ * "investment analyst intern 2027" returned four out of ten on the same actor
+ * and the rest were senior FP&A roles. At a tenth of a cent per result, that
+ * difference is the whole value of the source.
+ */
+const SEARCHES: Record<Profile, { primary: string; secondary: string }> = {
+  technical: {
+    primary: 'software engineering intern 2027',
+    secondary: 'machine learning data engineering intern 2027'
+  },
+  finance: {
+    primary: 'finance internship summer 2027',
+    secondary: 'investment banking summer analyst internship 2027'
+  }
+};
+
 export class ApifySource extends SafeSource {
   readonly name: string;
   constructor(private readonly board: 'linkedin' | 'indeed' | 'monster', private readonly actorId: string, private readonly maxResults: number, private readonly watchlistCompanies: string[] = []) { super(); this.name = `apify:${board}`; }
@@ -53,7 +80,7 @@ export class ApifySource extends SafeSource {
   }
   protected async collect(): Promise<RawJob[]> {
     if (!config.APIFY_TOKEN) return [];
-    const query = 'software engineering intern 2027';
+    const { primary: query, secondary } = SEARCHES[activeProfile];
     const companyQueries = Array.from({ length: Math.ceil(this.watchlistCompanies.length / 5) }, (_, index) => this.watchlistCompanies.slice(index * 5, index * 5 + 5).join(' OR ')).filter(Boolean);
     const input = this.board === 'linkedin' ? {
       urls: [query, ...companyQueries].slice(0, 8).map(keywords => `https://www.linkedin.com/jobs/search/?keywords=${encodeURIComponent(`${keywords} intern 2027`)}&location=United%20States&f_E=1&f_TPR=r86400`),
@@ -61,13 +88,13 @@ export class ApifySource extends SafeSource {
       scrapeCompany: false
     } : this.board === 'indeed' ? {
       searches: [
-        { query: 'software engineering intern 2027', location: 'United States', country: 'us', postedWithinDays: 1 },
-        { query: 'machine learning data engineering intern 2027', location: 'United States', country: 'us', postedWithinDays: 1 }
+        { query, location: 'United States', country: 'us', postedWithinDays: 1 },
+        { query: secondary, location: 'United States', country: 'us', postedWithinDays: 1 }
       ],
       maxItems: this.maxResults,
       includeFullDescription: true
     } : {
-      query: 'software engineer intern 2027', address: 'United States', country: 'US', radius: 100,
+      query, address: 'United States', country: 'US', radius: 100,
       maxPages: Math.max(1, Math.ceil(this.maxResults / 50)), pageSize: Math.min(50, this.maxResults), scrapeAllPages: false
     };
     const actor = this.actorId.replace('/', '~');

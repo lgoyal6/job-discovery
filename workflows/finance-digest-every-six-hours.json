@@ -1,195 +1,195 @@
 {
-  "id": "FinanceJobDigest6h",
-  "name": "Finance Job Digest \u2014 Every Six Hours",
-  "nodes": [
-    {
-      "parameters": {
-        "rule": {
-          "interval": [
-            {
-              "field": "hours",
-              "hoursInterval": 6,
-              "triggerAtMinute": 37
-            }
-          ]
-        }
-      },
-      "id": "16d61b25-8199-43bf-b682-660d39086d2d",
-      "name": "Every Six Hours",
-      "type": "n8n-nodes-base.scheduleTrigger",
-      "typeVersion": 1.2,
-      "position": [
-        -620,
-        0
-      ]
-    },
-    {
-      "parameters": {
-        "command": "cd /opt/job-pipeline && JOB_PROFILE=finance node dist/cli.js pipeline"
-      },
-      "id": "98231974-ec35-4ab5-abff-776c88a3be46",
-      "name": "Run Deterministic Pipeline",
-      "type": "n8n-nodes-base.executeCommand",
-      "typeVersion": 1,
-      "position": [
-        -380,
-        0
-      ],
-      "retryOnFail": true,
-      "maxTries": 2,
-      "waitBetweenTries": 5000
-    },
-    {
-      "parameters": {
-        "jsCode": "const report = JSON.parse($json.stdout); return [{ json: report }];"
-      },
-      "id": "9286397e-b275-4db0-bd36-d9efc8fd8e31",
-      "name": "Parse Pipeline Report",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        -140,
-        0
-      ]
-    },
-    {
-      "parameters": {
-        "conditions": {
-          "options": {
-            "caseSensitive": true,
-            "leftValue": "",
-            "typeValidation": "strict"
-          },
-          "conditions": [
-            {
-              "id": "975c7d12-ffaf-4454-ab08-85baa8871651",
-              "leftValue": "={{ $json.shouldSend }}",
-              "rightValue": true,
-              "operator": {
-                "type": "boolean",
-                "operation": "true",
-                "singleValue": true
-              }
-            }
-          ],
-          "combinator": "and"
-        }
-      },
-      "id": "ce03f8bb-4dde-40ce-bb69-e280e179932f",
-      "name": "Has Claimed New Roles?",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2.2,
-      "position": [
-        100,
-        0
-      ]
-    },
-    {
-      "parameters": {
-        "resource": "message",
-        "operation": "send",
-        "sendTo": "={{ $json.emailTo }}",
-        "subject": "={{ $json.subject }}",
-        "emailType": "html",
-        "message": "={{ $json.html }}",
-        "options": {
-          "appendAttribution": false
-        }
-      },
-      "id": "58647ab3-d344-4dfb-92d8-4b2ed4375a45",
-      "name": "Send Gmail Digest",
-      "type": "n8n-nodes-base.gmail",
-      "typeVersion": 2.1,
-      "position": [
-        340,
-        -100
-      ],
-      "retryOnFail": false
-    },
-    {
-      "parameters": {
-        "command": "=cd /opt/job-pipeline && JOB_PROFILE=finance node dist/cli.js batch-sent --batch-key '{{ $('Parse Pipeline Report').item.json.batchKey }}' --message-id '{{ $json.id || $json.messageId || '' }}'"
-      },
-      "id": "47626038-ebdc-4df2-8dc3-a6a970a49b35",
-      "name": "Confirm Email Batch",
-      "type": "n8n-nodes-base.executeCommand",
-      "typeVersion": 1,
-      "position": [
-        580,
-        -100
-      ]
+ "id": "FinanceJobDigest6h",
+ "name": "Finance Job Digest \u2014 Every Six Hours",
+ "nodes": [
+  {
+   "parameters": {
+    "rule": {
+     "interval": [
+      {
+       "field": "hours",
+       "hoursInterval": 6,
+       "triggerAtMinute": 37
+      }
+     ]
     }
-  ],
-  "pinData": {},
-  "connections": {
-    "Every Six Hours": {
-      "main": [
-        [
-          {
-            "node": "Run Deterministic Pipeline",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Run Deterministic Pipeline": {
-      "main": [
-        [
-          {
-            "node": "Parse Pipeline Report",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Parse Pipeline Report": {
-      "main": [
-        [
-          {
-            "node": "Has Claimed New Roles?",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Has Claimed New Roles?": {
-      "main": [
-        [
-          {
-            "node": "Send Gmail Digest",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        []
-      ]
-    },
-    "Send Gmail Digest": {
-      "main": [
-        [
-          {
-            "node": "Confirm Email Batch",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
+   },
+   "id": "16d61b25-8199-43bf-b682-660d39086d2d",
+   "name": "Every Six Hours",
+   "type": "n8n-nodes-base.scheduleTrigger",
+   "typeVersion": 1.2,
+   "position": [
+    -620,
+    0
+   ]
+  },
+  {
+   "parameters": {
+    "command": "cd /opt/job-pipeline && JOB_PROFILE=finance APIFY_ENABLED=true APIFY_MONSTER_MAX_RESULTS=120 node dist/cli.js pipeline"
+   },
+   "id": "98231974-ec35-4ab5-abff-776c88a3be46",
+   "name": "Run Deterministic Pipeline",
+   "type": "n8n-nodes-base.executeCommand",
+   "typeVersion": 1,
+   "position": [
+    -380,
+    0
+   ],
+   "retryOnFail": true,
+   "maxTries": 2,
+   "waitBetweenTries": 5000
+  },
+  {
+   "parameters": {
+    "jsCode": "const report = JSON.parse($json.stdout); return [{ json: report }];"
+   },
+   "id": "9286397e-b275-4db0-bd36-d9efc8fd8e31",
+   "name": "Parse Pipeline Report",
+   "type": "n8n-nodes-base.code",
+   "typeVersion": 2,
+   "position": [
+    -140,
+    0
+   ]
+  },
+  {
+   "parameters": {
+    "conditions": {
+     "options": {
+      "caseSensitive": true,
+      "leftValue": "",
+      "typeValidation": "strict"
+     },
+     "conditions": [
+      {
+       "id": "975c7d12-ffaf-4454-ab08-85baa8871651",
+       "leftValue": "={{ $json.shouldSend }}",
+       "rightValue": true,
+       "operator": {
+        "type": "boolean",
+        "operation": "true",
+        "singleValue": true
+       }
+      }
+     ],
+     "combinator": "and"
     }
+   },
+   "id": "ce03f8bb-4dde-40ce-bb69-e280e179932f",
+   "name": "Has Claimed New Roles?",
+   "type": "n8n-nodes-base.if",
+   "typeVersion": 2.2,
+   "position": [
+    100,
+    0
+   ]
   },
-  "active": false,
-  "settings": {
-    "executionOrder": "v1",
-    "timezone": "America/Los_Angeles",
-    "saveManualExecutions": true,
-    "callerPolicy": "workflowsFromSameOwner",
-    "errorWorkflow": "LakshJobDiscoveryErrorAlert"
+  {
+   "parameters": {
+    "resource": "message",
+    "operation": "send",
+    "sendTo": "={{ $json.emailTo }}",
+    "subject": "={{ $json.subject }}",
+    "emailType": "html",
+    "message": "={{ $json.html }}",
+    "options": {
+     "appendAttribution": false
+    }
+   },
+   "id": "58647ab3-d344-4dfb-92d8-4b2ed4375a45",
+   "name": "Send Gmail Digest",
+   "type": "n8n-nodes-base.gmail",
+   "typeVersion": 2.1,
+   "position": [
+    340,
+    -100
+   ],
+   "retryOnFail": false
   },
-  "versionId": "finance-digest-v1",
-  "meta": {
-    "templateCredsSetupCompleted": false
+  {
+   "parameters": {
+    "command": "=cd /opt/job-pipeline && JOB_PROFILE=finance node dist/cli.js batch-sent --batch-key '{{ $('Parse Pipeline Report').item.json.batchKey }}' --message-id '{{ $json.id || $json.messageId || '' }}'"
+   },
+   "id": "47626038-ebdc-4df2-8dc3-a6a970a49b35",
+   "name": "Confirm Email Batch",
+   "type": "n8n-nodes-base.executeCommand",
+   "typeVersion": 1,
+   "position": [
+    580,
+    -100
+   ]
+  }
+ ],
+ "pinData": {},
+ "connections": {
+  "Every Six Hours": {
+   "main": [
+    [
+     {
+      "node": "Run Deterministic Pipeline",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
   },
-  "tags": []
+  "Run Deterministic Pipeline": {
+   "main": [
+    [
+     {
+      "node": "Parse Pipeline Report",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Parse Pipeline Report": {
+   "main": [
+    [
+     {
+      "node": "Has Claimed New Roles?",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Has Claimed New Roles?": {
+   "main": [
+    [
+     {
+      "node": "Send Gmail Digest",
+      "type": "main",
+      "index": 0
+     }
+    ],
+    []
+   ]
+  },
+  "Send Gmail Digest": {
+   "main": [
+    [
+     {
+      "node": "Confirm Email Batch",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  }
+ },
+ "active": false,
+ "settings": {
+  "executionOrder": "v1",
+  "timezone": "America/Los_Angeles",
+  "saveManualExecutions": true,
+  "callerPolicy": "workflowsFromSameOwner",
+  "errorWorkflow": "LakshJobDiscoveryErrorAlert"
+ },
+ "versionId": "finance-digest-v1",
+ "meta": {
+  "templateCredsSetupCompleted": false
+ },
+ "tags": []
 }

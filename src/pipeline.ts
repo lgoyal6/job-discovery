@@ -76,12 +76,21 @@ async function collectSources(options: RunOptions, watchlistCohort: WatchlistCom
       deferred.push({ ...skippedSource(source.name, `not due: runs every ${config.LINKEDIN_MIN_INTERVAL_HOURS}h`), metrics: { skippedDueToCadence: true, minimumIntervalHours: config.LINKEDIN_MIN_INTERVAL_HOURS } });
     }
   }
-  if (!options.liveFree && activeProfile === 'technical') {
-    const apify = [
-      new ApifySource('linkedin', config.APIFY_LINKEDIN_ACTOR, config.APIFY_LINKEDIN_MAX_RESULTS, watchlistCohort.map(company => company.parent)),
-      new ApifySource('indeed', config.APIFY_INDEED_ACTOR, config.APIFY_INDEED_MAX_RESULTS),
-      new ApifySource('monster', config.APIFY_MONSTER_ACTOR, config.APIFY_MONSTER_MAX_RESULTS)
-    ];
+  if (!options.liveFree) {
+    // Monster only, for the finance digest, and it is the economics that decide
+    // that rather than the yield. Every one of these actors is priced per event:
+    // Monster charges $0.001 a result, so 120 results once a day is $3.72
+    // against a $5 monthly credit, while the Indeed actor charges $0.50 per
+    // search plus $0.01 a described job, which is one run of a few hundred rows
+    // and the month is gone. The LinkedIn actor would buy a fifth copy of what
+    // the free guest endpoint already returns 723 of.
+    const apify = activeProfile === 'technical'
+      ? [
+        new ApifySource('linkedin', config.APIFY_LINKEDIN_ACTOR, config.APIFY_LINKEDIN_MAX_RESULTS, watchlistCohort.map(company => company.parent)),
+        new ApifySource('indeed', config.APIFY_INDEED_ACTOR, config.APIFY_INDEED_MAX_RESULTS),
+        new ApifySource('monster', config.APIFY_MONSTER_ACTOR, config.APIFY_MONSTER_MAX_RESULTS)
+      ]
+      : [new ApifySource('monster', config.APIFY_MONSTER_ACTOR, config.APIFY_MONSTER_MAX_RESULTS)];
     for (const source of apify.slice(0, config.APIFY_MAX_ACTOR_RUNS_PER_PIPELINE)) {
       const due = !options.persistent || await isSourceDue(source.name, config.APIFY_MIN_INTERVAL_HOURS);
       if (due) sources.push(source);
