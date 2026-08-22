@@ -220,7 +220,14 @@ export function collapseByRequisition(jobs: DigestJob[]): RequisitionGroup[] {
     if (members) members.push(job); else groups.set(key, [job]);
   });
   return [...groups.values()].map(members => {
-    const ranked = [...members].sort((a, b) => b.score - a.score);
+    // Which copy speaks for the group. A role open in nine cities can have one
+    // source saying it cannot sponsor and another saying nothing, and the row
+    // the reader sees decides which section the whole group lands in. The more
+    // permissive verdict wins, because sending a role to the sponsorship
+    // section on the strength of one location's evidence buries it.
+    const permissiveness = (job: DigestJob): number =>
+      job.sponsorshipStatus === 'SUPPORTED' ? 2 : job.sponsorshipStatus === 'UNKNOWN' ? 1 : 0;
+    const ranked = [...members].sort((a, b) => permissiveness(b) - permissiveness(a) || b.score - a.score);
     const best = ranked[0]!;
     const location = mergedLocation(ranked);
     return { display: location === best.location ? best : { ...best, location }, members: ranked };
@@ -486,8 +493,16 @@ async function execute(options: RunOptions): Promise<PipelineReport> {
   // some of these companies do sponsor, so the judgement belongs to the reader.
   // They ride in their own section under their own cap: 139 defense postings
   // must never be able to crowd out the roles that are open.
-  const unlikely = digestJobs.filter(job => job.sponsorshipStatus === 'UNSUPPORTED');
-  const open = digestJobs.filter(job => job.sponsorshipStatus !== 'UNSUPPORTED');
+  // Collapse first, split second. Splitting first meant one requisition could
+  // collapse twice, once inside each half, and print twice: RTX carries 19 rows
+  // of the same Summer 2027 software internship across nine locations, 14 of
+  // them reading UNKNOWN and 5 reading UNSUPPORTED because different sources
+  // carry different evidence, so it appeared in the main section and again
+  // under sponsorship with an identical title. A requisition is one row in one
+  // email, whichever verdicts its copies disagree on.
+  const allRequisitions = collapseByRequisition(digestJobs);
+  const unlikely = allRequisitions.filter(group => group.display.sponsorshipStatus === 'UNSUPPORTED');
+  const open = allRequisitions.filter(group => group.display.sponsorshipStatus !== 'UNSUPPORTED');
   // Group first, then cap, so the cap counts requisitions rather than spending
   // itself on one employer's six cities.
   const capGroups = (rows: RequisitionGroup[], limit: number): RequisitionGroup[] => {
@@ -495,8 +510,8 @@ async function execute(options: RunOptions): Promise<PipelineReport> {
     const keep = new Set(diversifiedTop(rows.map(group => group.display), limit).map(job => job.canonicalKey));
     return rows.filter(group => keep.has(group.display.canonicalKey));
   };
-  const groups = capGroups(collapseByRequisition(open), config.DIGEST_MAX_ROLES);
-  const unlikelyGroups = capGroups(collapseByRequisition(unlikely), config.DIGEST_MAX_SPONSORSHIP_UNLIKELY);
+  const groups = capGroups(open, config.DIGEST_MAX_ROLES);
+  const unlikelyGroups = capGroups(unlikely, config.DIGEST_MAX_SPONSORSHIP_UNLIKELY);
   const allGroups = [...groups, ...unlikelyGroups];
   // Every member goes into the batch even though one row represents them, so
   // each city still gets sent_at stamped. Dropping them here would leave them
