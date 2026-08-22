@@ -37,6 +37,17 @@ if [ "${N8N_IMPORT_WORKFLOWS_ON_START:-false}" = "true" ]; then
   # 404 and the Mark applied link in every digest row would be dead. It is safe
   # active: it refuses anything without a valid HMAC of a job id, and refuses
   # everything at all while MARK_APPLIED_SECRET is unset.
+  # The failure alert, which nothing imported until now: the deployed copy and
+  # the one in this repository were free to drift, and they did. Its Discord
+  # message embedded the pipeline's whole stderr, which is 10,933 characters on
+  # a real failure against a 4,000 character limit, so every alert was rejected
+  # with "Invalid Form Body" and eighteen hours of failures announced nothing.
+  # Activated on its own line for the same reason as the webhook below:
+  # --activeState takes only "false" or "fromJson", and this one has to be on.
+  n8n import:workflow --input=/opt/job-pipeline/workflows/job-discovery-error-alert.json --activeState=false
+  n8n update:workflow --id=LakshJobDiscoveryErrorAlert --active=true
+  printf '%s\n' '{"level":"info","event":"n8n_workflow_import_complete","workflow_id":"LakshJobDiscoveryErrorAlert","active":true}'
+
   n8n import:workflow --input=/opt/job-pipeline/workflows/mark-applied-webhook.json --activeState=false
   n8n update:workflow --id=LakshMarkApplied --active=true
   printf '%s\n' '{"level":"info","event":"n8n_workflow_import_complete","workflow_id":"LakshMarkApplied","active":true}'
