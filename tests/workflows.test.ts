@@ -66,6 +66,15 @@ describe('exported n8n workflows', () => {
     const entrypoint = await readFile(resolve(process.cwd(), 'scripts/railway-entrypoint.sh'), 'utf8');
     expect(entrypoint).toContain('workflows/job-discovery-error-alert.json');
     expect(entrypoint).toContain('--id=LakshJobDiscoveryErrorAlert --active=true');
+    // Outside the N8N_IMPORT_WORKFLOWS_ON_START guard, which is false in
+    // production: inside it, this import would never run and the deployed alert
+    // would go on differing from this one. There has to be a closing `fi`
+    // between the guard and the import for that to be true.
+    const guard = entrypoint.indexOf('if [ "${N8N_IMPORT_WORKFLOWS_ON_START');
+    const alertImport = entrypoint.indexOf('workflows/job-discovery-error-alert.json');
+    expect(guard).toBeGreaterThan(-1);
+    expect(alertImport).toBeGreaterThan(guard);
+    expect(entrypoint.slice(guard, alertImport)).toContain('\nfi\n');
   });
 
   it('has a two-hour inactive schedule, email guard, and batch confirmation', async () => {
