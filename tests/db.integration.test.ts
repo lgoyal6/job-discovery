@@ -120,7 +120,7 @@ suite('a source row migrating between job rows', () => {
 });
 
 suite('a fingerprint that flip-flops between sources', () => {
-  it('does not mail the role again inside the cooldown', async () => {
+  it('does not mail the role again at all', async () => {
     // Production had material_version 83 on one Netic internship, 55 and 54 on
     // Belvedere's, 30 on Anduril's, every one of them fed by more than one
     // source. Each source writes its own spelling of the title and location to
@@ -142,8 +142,14 @@ suite('a fingerprint that flip-flops between sources', () => {
     const batch = await db.prepareEmailBatch(randomUUID(), [first.job], `churn ${suffix}`);
     await db.markBatchSent(batch.batchKey, `msg-${suffix}`);
 
-    // A second source describing the same role in its own words.
+    // A second source describing the same role in its own words, twice, and a
+    // send that is already older than any cooldown would have been: the seven
+    // day window is what the previous attempt relied on, and the migration that
+    // restored erased send state wrote timestamps weeks old, so every restored
+    // row was past its own window the moment it was written.
     await db.upsertJob({ ...base, sourceName: `list:${suffix}`, title: 'Software Engineer Intern - Summer 2027', location: 'SF' });
+    await db.pool.query(`UPDATE jobs SET sent_at = now() - interval '60 days' WHERE id = $1`, [first.job.id]);
+    await db.upsertJob({ ...base, sourceName: `other:${suffix}`, title: 'SWE Intern (Summer 2027)', location: 'San Francisco' });
     const unsent = await db.getUnsentJobIds([first.job.id!]);
     expect(unsent.has(first.job.id!)).toBe(false);
     await db.pool.end();
