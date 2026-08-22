@@ -329,3 +329,57 @@ describe('US-only, read strictly enough for a banking list', () => {
     }
   });
 });
+
+describe('a role this reader has already applied to', () => {
+  it('matches a ledger row worded the way a person words it', async () => {
+    const { titlesDescribeOneRole } = await import('../src/notion.js');
+    // The complaint that started this: American Express arrived in digest after
+    // digest while sitting in the Notion ledger as applied. Exact title
+    // equality was the only test that fired, and a hand-filed row is almost
+    // never worded exactly as the board words it.
+    expect(titlesDescribeOneRole(
+      'campus undergraduate summer internship program 2027 software engineer',
+      'campus undergraduate summer internship 2027 software engineer')).toBe(true);
+    expect(titlesDescribeOneRole('ai software engineer intern edge', 'ai software engineer intern')).toBe(true);
+    expect(titlesDescribeOneRole('quantitative research intern', 'quantitative research intern')).toBe(true);
+  });
+
+  it('will not hide a role nobody applied to', async () => {
+    const { titlesDescribeOneRole } = await import('../src/notion.js');
+    // Measured against the real ledger: comparing only against the smaller set
+    // let a short generic title match every longer specific one at the same
+    // employer. Hiding a role this reader never applied to is the more
+    // expensive mistake, so the overlap has to hold in both directions.
+    expect(titlesDescribeOneRole('software engineer intern spring 2027', 'enterprise systems software engineer intern')).toBe(false);
+    expect(titlesDescribeOneRole('machine learning engineer intern', 'agent evaluation evolution machine learning engineer intern')).toBe(false);
+    expect(titlesDescribeOneRole('software engineer intern', 'software engineer intern tiktok search data infrastructure')).toBe(false);
+    expect(titlesDescribeOneRole('deep learning computer architecture intern', 'nvidia 2027 internships computer architecture')).toBe(false);
+  });
+});
+
+describe('which link the digest keeps when one role arrives twice', () => {
+  it('ranks an employer form above a listing page', async () => {
+    const { applyLinkRank } = await import('../src/normalization.js');
+    expect(applyLinkRank('https://boards.greenhouse.io/x/jobs/1')).toBeGreaterThan(applyLinkRank('https://www.intern-list.com/x/role_1'));
+    expect(applyLinkRank('https://ms.wd5.myworkdayjobs.com/en-US/External/job/x')).toBeGreaterThan(applyLinkRank('https://jobright.ai/jobs/info/abc'));
+    expect(applyLinkRank('https://www.linkedin.com/jobs/view/123')).toBeGreaterThan(applyLinkRank('https://raw.githubusercontent.com/x/README.md'));
+    expect(applyLinkRank(undefined)).toBe(0);
+  });
+
+  it('keeps the row that can be applied through, not merely the higher-scoring one', async () => {
+    const { localDedupe } = await import('../src/pipeline.js');
+    const base = {
+      sourceName: 'x', company: 'Acme', location: 'Remote', scrapedAt: '2026-08-22T00:00:00.000Z',
+      normalizedCompany: 'acme', normalizedTitle: 'software engineer intern', normalizedLocation: 'remote',
+      category: 'SWE' as const, cycle: 'Summer 2027' as const, sponsorshipStatus: 'UNKNOWN' as const,
+      sponsorshipEvidence: '', graduationEligible: true, graduationEvidence: '', requiredSkills: [], summary: ''
+    };
+    const listing = { ...base, title: 'Software Engineer Intern', sourceUrl: 'https://www.intern-list.com/swe/role_1',
+      directApplyUrl: undefined, canonicalUrl: 'https://www.intern-list.com/swe/role_1', canonicalKey: 'a', score: 99 };
+    const employer = { ...base, title: 'Software Engineer Intern', sourceUrl: 'https://example.test/list',
+      directApplyUrl: 'https://boards.greenhouse.io/acme/jobs/42', canonicalUrl: 'https://boards.greenhouse.io/acme/jobs/42', canonicalKey: 'b', score: 10 };
+    const { unique } = localDedupe([listing, employer]);
+    expect(unique).toHaveLength(1);
+    expect(unique[0]?.directApplyUrl).toBe('https://boards.greenhouse.io/acme/jobs/42');
+  });
+});

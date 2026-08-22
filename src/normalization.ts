@@ -151,6 +151,28 @@ export function materialFingerprint(input: { title: string; location: string; cy
   ].join('|')).digest('hex');
 }
 
+/**
+ * How much an apply URL is worth to somebody trying to apply.
+ *
+ * One requisition arrives from several sources, and they do not link to it
+ * equally: a board links to the employer's own form, a community list links to
+ * the same form, and intern-list links to its own write-up whose apply button
+ * leads to an account wall. Dedupe kept whichever row scored highest, and score
+ * knows nothing about links, so half the finance digest linked to a listing
+ * while a row carrying the employer's form was discarded as the duplicate.
+ */
+const EMPLOYER_ATS = /greenhouse\.io|lever\.co|ashbyhq\.com|myworkdayjobs\.com|myworkdaysite\.com|smartrecruiters\.com|icims\.com|workable\.com|jobvite\.com|taleo\.net|oraclecloud\.com|successfactors|avature\.net|phenompeople|eightfold\.ai|applytojob\.com|breezy\.hr|recruitee\.com|paylocity|dayforcehcm|ultipro|myworkday/i;
+// A listing rather than an application: the row exists, but applying from it
+// takes another search.
+const LISTING_ONLY = /intern-list\.com|jobright\.ai|simplify\.jobs\/c\/|github\.com|githubusercontent\.com/i;
+
+export function applyLinkRank(url: string | undefined): number {
+  if (!url || !url.startsWith('http')) return 0;
+  if (LISTING_ONLY.test(url)) return 1;
+  if (EMPLOYER_ATS.test(url)) return 3;
+  return 2;
+}
+
 export function extractSourceJobId(url: string): string | undefined {
   const patterns = [
     /greenhouse\.io\/(?:[^/]+\/)?jobs\/(\d+)/i,

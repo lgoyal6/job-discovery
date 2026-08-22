@@ -72,7 +72,12 @@ const envSchema = z.object({
   // Four, because the run is network-bound rather than CPU-bound and a smaller
   // pool costs nothing in wall clock. Drop to 2 if the container is tight.
   SOURCE_CONCURRENCY: z.coerce.number().int().min(1).max(32).default(4),
-  COMMUNITY_MAX_RESULTS_PER_SOURCE: z.coerce.number().int().positive().max(2000).default(300),
+  // 300 truncated every list it was applied to, and silently: the rows are
+  // already downloaded and parsed by the time this cuts them, so the cost of a
+  // higher number is classification, not bandwidth. DereC4's list is 1,270 rows
+  // and aprameyak's 2,946, and at 300 the pipeline was reading the first
+  // quarter of one and the first tenth of the other.
+  COMMUNITY_MAX_RESULTS_PER_SOURCE: z.coerce.number().int().positive().max(4000).default(1500),
   // intern-list holds its roles in the markup but its list page carries no
   // location and no prose, so each row that can still qualify costs a second
   // request to the posting's own page. About 130 pages a list a pass, which is
