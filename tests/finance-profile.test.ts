@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { classifyCategory, classifyFinanceCategory, classifyLocation, rolePolicies } from '../src/classification.js';
 
@@ -400,6 +402,36 @@ describe('quant, split between the two digests', () => {
     for (const title of ['Quantitative Researcher Intern', 'Quantitative Trader Intern', 'Quantitative Trading Internship',
       'Quantitative Analyst Intern', 'Quantitative Risk Intern', 'Algorithmic Trading Intern']) {
       expect(classifyFinanceCategory(title), title).toMatchObject({ category: 'Quant', eligible: true });
+    }
+  });
+});
+
+describe('which boards the finance reader gets', () => {
+  const boards = JSON.parse(readFileSync(resolve(process.cwd(), 'config/sources.json'), 'utf8')).ats as Array<{ company: string; profile?: string }>;
+
+  // PIMCO sat in the config tagged technical-only, so the finance run never
+  // opened one of the largest asset managers there is, and its whole 2027
+  // summer analyst class was invisible. Five more were tagged the same way.
+  // A board's profile decides whether it is fetched at all, so a wrong tag
+  // cannot be recovered downstream however good the classifier is.
+  it('fetches the investment managers and trading firms for the finance reader', () => {
+    const investors = ['PIMCO', 'LPL Financial Holdings', 'Optiver', 'Maven Securities',
+      'Encephalo Investments', 'VWH Capital Management', 'Garda Capital Partners', 'Morningstar'];
+    for (const company of investors) {
+      const board = boards.find(entry => entry.company === company);
+      expect(board, `${company} is missing from config/sources.json`).toBeDefined();
+      expect(board?.profile, `${company} must be fetched for the finance reader`).not.toBe('technical');
+    }
+  });
+
+  // The other half of the judgement: these are payments and consumer-fintech
+  // companies, and between them they post 1,249 roles and not one the finance
+  // digest wants. They stay technical so the finance run does not spend five
+  // fetches to find nothing.
+  it('leaves the fintechs to the technical reader', () => {
+    for (const company of ['Stripe', 'Coinbase', 'Robinhood', 'Affirm', 'Plaid']) {
+      const board = boards.find(entry => entry.company === company);
+      if (board) expect(board.profile ?? 'technical', company).toBe('technical');
     }
   });
 });

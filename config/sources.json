@@ -1531,7 +1531,7 @@
       "type": "greenhouse",
       "board": "gardacp",
       "company": "Garda Capital Partners",
-      "profile": "technical"
+      "profile": "both"
     },
     {
       "type": "greenhouse",
@@ -1585,7 +1585,7 @@
       "type": "greenhouse",
       "board": "mavensecuritiesholdingltd",
       "company": "Maven Securities",
-      "profile": "technical"
+      "profile": "both"
     },
     {
       "type": "greenhouse",
@@ -1603,7 +1603,7 @@
       "type": "greenhouse",
       "board": "optiverus",
       "company": "Optiver",
-      "profile": "technical"
+      "profile": "both"
     },
     {
       "type": "greenhouse",
@@ -2066,7 +2066,7 @@
       "type": "smartrecruiters",
       "companyId": "EncephaloInvestments",
       "company": "Encephalo Investments",
-      "profile": "technical"
+      "profile": "both"
     },
     {
       "type": "workday",
@@ -2390,7 +2390,7 @@
       "tenant": "lplfinancial",
       "site": "university",
       "company": "LPL Financial Holdings",
-      "profile": "technical"
+      "profile": "both"
     },
     {
       "type": "workday",
@@ -2476,7 +2476,7 @@
       "tenant": "morningstar",
       "site": "confidential",
       "company": "Morningstar",
-      "profile": "technical"
+      "profile": "both"
     },
     {
       "type": "workday",
@@ -2632,7 +2632,7 @@
       "tenant": "pimco",
       "site": "pimco-careers",
       "company": "PIMCO",
-      "profile": "technical"
+      "profile": "both"
     },
     {
       "type": "workday",
@@ -2824,7 +2824,7 @@
       "type": "smartrecruiters",
       "companyId": "VWHCapitalManagementLP",
       "company": "VWH Capital Management",
-      "profile": "technical"
+      "profile": "both"
     },
     {
       "type": "workday",
