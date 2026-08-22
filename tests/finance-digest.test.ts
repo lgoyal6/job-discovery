@@ -107,9 +107,10 @@ describe('the finance digest', () => {
 
   it('falls back to the listing when a source has no application link of its own', async () => {
     // intern-list rows, whose apply button leads to an account wall rather than
-    // to the employer. The row still has to be clickable.
+    // to the employer. The row still has to be clickable, and is named for
+    // where it actually goes rather than labelled Apply like the rest.
     const digest = await financeDigest([role({ sourceUrl: 'https://www.intern-list.com/x/role_1', directApplyUrl: undefined })]);
-    expect(digest.text).toContain('Apply: https://www.intern-list.com/x/role_1');
+    expect(digest.text).toContain('View listing: https://www.intern-list.com/x/role_1');
     expect(digest.html).toContain('href="https://www.intern-list.com/x/role_1"');
   });
 });
@@ -238,5 +239,37 @@ describe('the order the reader sees', () => {
       role({ company: 'Newer', title: 'Newer', postedAt: '2026-08-21T00:00:00.000Z', score: 10 })
     ], []);
     expect(digest.text.indexOf('Newer')).toBeLessThan(digest.text.indexOf('Older'));
+  });
+});
+
+describe('a row whose only link is a write-up', () => {
+  afterEach(() => { vi.unstubAllEnvs(); vi.resetModules(); });
+
+  it('says View listing rather than pretending to be an application', async () => {
+    vi.resetModules();
+    vi.stubEnv('JOB_PROFILE', 'finance');
+    vi.stubEnv('FINANCE_EMAIL_TO', 'someone@example.edu');
+    const { buildDigest } = await import('../src/digest.js');
+    const listing = buildDigest([role({ sourceUrl: 'https://www.intern-list.com/x/role_1', directApplyUrl: undefined })], []);
+    expect(listing.text).toContain('View listing: https://www.intern-list.com/x/role_1');
+    expect(listing.text).not.toContain('Apply: https://www.intern-list.com');
+
+    const form = buildDigest([role({ sourceUrl: 'https://boards.greenhouse.io/x/jobs/1', directApplyUrl: 'https://boards.greenhouse.io/x/jobs/1' })], []);
+    expect(form.text).toContain('Apply: https://boards.greenhouse.io/x/jobs/1');
+  });
+
+  it('only matches a posting that is the same role and the same kind of role', async () => {
+    const { describesSameRole } = await import('../src/apply-links.js');
+    // Loose matching resolved two thirds of these rows and sent one in four to
+    // the wrong requisition: Allegiant's intern matched a "Sr Analyst, Office of
+    // the CEO" posting. A link to the wrong job is worse than a link to a
+    // write-up of the right one, because the digest gives the reader no way to
+    // tell.
+    expect(describesSameRole('Finance Intern - Supply Chain Finance', 'Finance Intern - Supply Chain Finance')).toBe(true);
+    expect(describesSameRole('Finance Transformation Intern', 'Finance Transformation Intern')).toBe(true);
+    expect(describesSameRole('Sr Analyst, Office of the CEO', 'Intern, Financial Analyst (Fall 2026)')).toBe(false);
+    expect(describesSameRole('Enterprise Systems Software Engineer', 'Software Engineer Intern')).toBe(false);
+    // An experienced posting is never the answer for an internship.
+    expect(describesSameRole('Financial Analyst', 'Financial Analyst Intern')).toBe(false);
   });
 });

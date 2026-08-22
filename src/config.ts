@@ -137,6 +137,12 @@ const envSchema = z.object({
   ENRICHMENT_ENABLED: z.enum(['true', 'false']).default('true').transform(v => v === 'true'),
   ENRICHMENT_MAX_JOBS: z.coerce.number().int().min(0).max(400).default(90),
   ENRICHMENT_CONCURRENCY: z.coerce.number().int().min(1).max(16).default(6),
+  // A digest row whose only link is a write-up of the role gets one LinkedIn
+  // search to find the posting itself. Bounded because it is one request per
+  // row through the same gate the searches use, and only the rows that survive
+  // the cap are worth spending it on: about twenty-six a finance run.
+  APPLY_LINK_RESOLUTION_ENABLED: z.enum(['true', 'false']).default('true').transform(v => v === 'true'),
+  APPLY_LINK_RESOLUTION_MAX: z.coerce.number().int().min(0).max(200).default(40),
   ENRICHMENT_TIMEOUT_MS: z.coerce.number().int().min(1000).max(30000).default(10000),
   // Watch program and early-careers pages for change. Daily by default: these
   // announce a cycle weeks ahead, so the signal is measured in days, and a
