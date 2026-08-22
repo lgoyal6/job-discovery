@@ -301,6 +301,23 @@ describe('collapsing rows must never lose a posting', () => {
     expect(groups[0]!.display.score).toBe(91);
   });
 
+  // RTX carried 19 rows of one Summer 2027 software internship, 14 reading
+  // UNKNOWN and 5 UNSUPPORTED, and the pipeline split on sponsorship before
+  // collapsing. So the requisition collapsed once inside each half and the
+  // reader got the same title twice, once in each section.
+  it('speaks for a requisition with its most permissive verdict', () => {
+    const groups = collapseByRequisition([
+      posting({ location: 'Aurora, CO', score: 88, sponsorshipStatus: 'UNSUPPORTED' }),
+      posting({ location: 'Tucson, AZ', score: 70, sponsorshipStatus: 'UNKNOWN' }),
+      posting({ location: 'Dallas, TX', score: 60, sponsorshipStatus: 'UNSUPPORTED' })
+    ]);
+    expect(groups).toHaveLength(1);
+    // The permissive row leads even though a barred one scores higher: one
+    // location's evidence must not bury the whole requisition.
+    expect(groups[0]!.display.sponsorshipStatus).toBe('UNKNOWN');
+    expect(groups[0]!.members).toHaveLength(3);
+  });
+
   // The cap counts rows. If the collapse ever moves after it, one employer's
   // cities eat the whole digest again, which is the bug it was written for.
   it('spends the cap on requisitions, not on one employer’s cities', () => {
