@@ -244,10 +244,52 @@ function encodeProperty(definition: { type: string; [key: string]: unknown }, va
   return undefined;
 }
 
+// Words that carry no identity, so that a title differing only in these still
+// matches the row filed against it.
+const FILLER = /^(intern|interns|internship|internships|co|op|coop|summer|fall|winter|spring|20\d\d|program|programme|the|and|or|a|an|of|for|at|in|to|new|grad|graduate|student|campus|university|undergrad|undergraduate|masters|phd)$/;
+
+function identityWords(title: string): Set<string> {
+  return new Set(title.split(' ').filter(word => word.length > 2 && !FILLER.test(word)));
+}
+
+/**
+ * Whether a role is one this reader has already applied to.
+ *
+ * Exact title equality was the only test that ever fired, and a Notion row is
+ * almost never worded exactly as a board words it. The ledger says "Campus
+ * Undergraduate Summer Internship 2027 Software" where American Express posts
+ * "Campus Undergraduate Summer Internship Program - 2027 Software Engineer",
+ * so the row was filed, the role was excluded from nothing, and it arrived
+ * again in the next digest and the one after that.
+ *
+ * So the titles are compared on the words that carry identity, ignoring the
+ * ones every internship title contains. The threshold is deliberately high and
+ * measured against the smaller of the two sets, so "Software Engineer Intern,
+ * Search" matches the ledger's "Software Engineer Intern" while NVIDIA's "Deep
+ * Learning Computer Architecture Intern" stays distinct from its "Computer
+ * Architecture" row: a false match silently hides a role this reader never
+ * applied to, which is the more expensive mistake of the two.
+ */
+export function titlesDescribeOneRole(a: string, b: string): boolean {
+  if (a === b) return true;
+  const left = identityWords(a);
+  const right = identityWords(b);
+  if (!left.size || !right.size) return false;
+  let shared = 0;
+  for (const word of left) if (right.has(word)) shared += 1;
+  // Both directions. Against the smaller set alone, a short title matched every
+  // longer one that contained it: Zipline's "Software Engineer Intern" matched
+  // the ledger's "Enterprise Systems Software Engineer Intern", and TikTok's
+  // plain "Machine Learning Engineer Intern" matched its "Agent Evaluation and
+  // Evolution" row. Neither is the same job, and hiding a role nobody applied
+  // to is the expensive mistake here.
+  return shared / Math.min(left.size, right.size) >= 0.8 && shared / Math.max(left.size, right.size) >= 0.6;
+}
+
 export function isApplied(job: { normalizedCompany: string; normalizedTitle: string; canonicalUrl: string; sourceJobId?: string }, exclusions: AppliedExclusion[]): boolean {
   return exclusions.some(exclusion =>
     (Boolean(job.sourceJobId) && job.sourceJobId === exclusion.sourceJobId) ||
     (job.canonicalUrl.startsWith('http') && job.canonicalUrl === exclusion.canonicalUrl) ||
-    (job.normalizedCompany === exclusion.companyNormalized && job.normalizedTitle === exclusion.titleNormalized)
+    (job.normalizedCompany === exclusion.companyNormalized && titlesDescribeOneRole(job.normalizedTitle, exclusion.titleNormalized))
   );
 }

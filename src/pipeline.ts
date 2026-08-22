@@ -3,7 +3,7 @@ import { resolve } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import { config, loadCompanyAliases, loadSponsorshipPatterns, projectRoot, watchlistPath, activeProfile } from './config.js';
-import { buildAliasMap, canonicalizeUrl, canonicalKey, canonicalLocation, extractSourceJobId, locationBucket, normalizeCompany, normalizeText, requisitionSignature, titleSignature } from './normalization.js';
+import { applyLinkRank, buildAliasMap, canonicalizeUrl, canonicalKey, canonicalLocation, extractSourceJobId, locationBucket, normalizeCompany, normalizeText, requisitionSignature, titleSignature } from './normalization.js';
 import { classifyCycle, classifyEarlyCareer, classifyGraduation, classifyLocation, classifySponsorship, extractSkills, scoreJob, STUDENT_ROLE, rolePolicies } from './classification.js';
 import { parseWatchlist, rotateWatchlist, type WatchlistCompany } from './watchlist.js';
 import type { ClassifiedJob, DigestJob, PipelineReport, RawJob, SourceAdapter, SourceResult } from './types.js';
@@ -307,7 +307,13 @@ export function localDedupe(jobs: ClassifiedJob[]): { unique: ClassifiedJob[]; c
   const seen = new Set<string>();
   const unique: ClassifiedJob[] = [];
   let count = 0;
-  for (const job of jobs.sort((a, b) => b.score - a.score)) {
+  // Link quality first, then score. Both rows describe the same requisition, so
+  // the one that can be applied through is the one to keep; score is about the
+  // role and cannot tell a form from a write-up.
+  const ranked = [...jobs].sort((a, b) =>
+    applyLinkRank(b.directApplyUrl ?? b.canonicalUrl) - applyLinkRank(a.directApplyUrl ?? a.canonicalUrl)
+    || b.score - a.score);
+  for (const job of ranked) {
     const signature = titleSignature(job.normalizedTitle);
     const keys = [
       `key:${job.canonicalKey}`,

@@ -119,4 +119,35 @@ suite('a source row migrating between job rows', () => {
   });
 });
 
+suite('a fingerprint that flip-flops between sources', () => {
+  it('does not mail the role again inside the cooldown', async () => {
+    // Production had material_version 83 on one Netic internship, 55 and 54 on
+    // Belvedere's, 30 on Anduril's, every one of them fed by more than one
+    // source. Each source writes its own spelling of the title and location to
+    // the same row, so the fingerprint flipped every run, sent_at was cleared,
+    // and the role was mailed again. That is 83 copies of one role.
+    process.env.DATABASE_URL = process.env.TEST_DATABASE_URL;
+    const db = await import('../src/db.js');
+    const suffix = randomUUID();
+    const base: ClassifiedJob = {
+      sourceName: `board:${suffix}`, sourceJobId: suffix, title: 'Software Engineer Intern', company: `Churn ${suffix}`,
+      location: 'San Francisco, CA', sourceUrl: `https://example.test/${suffix}`, directApplyUrl: `https://example.test/${suffix}`,
+      scrapedAt: new Date().toISOString(), canonicalKey: suffix.replaceAll('-', '').padEnd(64, 'b').slice(0, 64),
+      canonicalUrl: `https://example.test/${suffix}`, normalizedCompany: `churn ${suffix}`,
+      normalizedTitle: 'software engineer intern', normalizedLocation: 'san francisco ca', category: 'SWE', cycle: 'Summer 2027',
+      sponsorshipStatus: 'UNKNOWN', sponsorshipEvidence: '', graduationEligible: true, graduationEvidence: '',
+      requiredSkills: [], score: 50, summary: '', status: 'OPEN'
+    };
+    const first = await db.upsertJob(base);
+    const batch = await db.prepareEmailBatch(randomUUID(), [first.job], `churn ${suffix}`);
+    await db.markBatchSent(batch.batchKey, `msg-${suffix}`);
+
+    // A second source describing the same role in its own words.
+    await db.upsertJob({ ...base, sourceName: `list:${suffix}`, title: 'Software Engineer Intern - Summer 2027', location: 'SF' });
+    const unsent = await db.getUnsentJobIds([first.job.id!]);
+    expect(unsent.has(first.job.id!)).toBe(false);
+    await db.pool.end();
+  });
+});
+
 afterAll(() => undefined);

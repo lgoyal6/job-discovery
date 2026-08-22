@@ -55,6 +55,30 @@
       "url": "https://www.intern-list.com/accounting-and-finance-intern-list",
       "format": "intern-list",
       "profile": "finance"
+    },
+    {
+      "name": "derec4-internships",
+      "url": "https://raw.githubusercontent.com/DereC4/internships-and-newgrad/main/README.md",
+      "format": "markdown",
+      "profile": "technical"
+    },
+    {
+      "name": "aprameyak-tech-jobs",
+      "url": "https://raw.githubusercontent.com/aprameyak/2027-tech-jobs/main/README.md",
+      "format": "markdown",
+      "profile": "technical"
+    },
+    {
+      "name": "derec4-internships-finance",
+      "url": "https://raw.githubusercontent.com/DereC4/internships-and-newgrad/main/README.md",
+      "format": "markdown",
+      "profile": "finance"
+    },
+    {
+      "name": "aprameyak-tech-jobs-finance",
+      "url": "https://raw.githubusercontent.com/aprameyak/2027-tech-jobs/main/README.md",
+      "format": "markdown",
+      "profile": "finance"
     }
   ],
   "ats": [
@@ -1046,27 +1070,32 @@
     {
       "name": "linkedin:swe-internship",
       "keywords": "software engineering internship",
-      "location": "United States"
+      "location": "United States",
+      "pages": 8
     },
     {
       "name": "linkedin:swe-intern",
       "keywords": "software engineer intern",
-      "location": "United States"
+      "location": "United States",
+      "pages": 8
     },
     {
       "name": "linkedin:backend-internship",
       "keywords": "backend engineering internship",
-      "location": "United States"
+      "location": "United States",
+      "pages": 8
     },
     {
       "name": "linkedin:quant-internship",
       "keywords": "quantitative analyst internship",
-      "location": "United States"
+      "location": "United States",
+      "pages": 8
     },
     {
       "name": "linkedin:software-developer-internship",
       "keywords": "software developer internship",
-      "location": "United States"
+      "location": "United States",
+      "pages": 8
     },
     {
       "name": "linkedin:equity-research",
