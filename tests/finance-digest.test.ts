@@ -273,3 +273,30 @@ describe('a row whose only link is a write-up', () => {
     expect(describesSameRole('Financial Analyst', 'Financial Analyst Intern')).toBe(false);
   });
 });
+
+describe('the source failures section', () => {
+  afterEach(() => { vi.unstubAllEnvs(); vi.resetModules(); });
+
+  it('reports failures, and not sources that were simply not due', async () => {
+    // The reader's digest listed four Greenhouse boards under "Source failures
+    // or degraded coverage", each saying "not due: runs every 6h". That is the
+    // scheduler working. Listing it as a failure teaches the reader to ignore
+    // the section that exists to be read.
+    vi.resetModules();
+    vi.stubEnv('JOB_PROFILE', 'finance');
+    vi.stubEnv('FINANCE_EMAIL_TO', 'someone@example.edu');
+    const { buildDigest } = await import('../src/digest.js');
+    const at = new Date().toISOString();
+    const run = (sourceName: string, status: 'SUCCESS' | 'FAILED' | 'DEGRADED' | 'SKIPPED', error?: string) =>
+      ({ sourceName, status, jobs: [], startedAt: at, finishedAt: at, durationMs: 0, costUnits: 0, error });
+    const digest = buildDigest([role({})], [
+      run('greenhouse:anduril', 'SKIPPED', 'not due: runs every 6h'),
+      run('greenhouse:affirm', 'SKIPPED', 'not due: runs every 6h'),
+      run('apify:indeed', 'FAILED', 'HTTP 402: not-enough-usage-to-run-paid-actor'),
+      run('greenhouse:stripe', 'SUCCESS')
+    ]);
+    expect(digest.text).toContain('apify:indeed');
+    expect(digest.text).not.toContain('not due');
+    expect(digest.text).not.toContain('greenhouse:anduril');
+  });
+});
