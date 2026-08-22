@@ -163,8 +163,10 @@ export function materialFingerprint(input: { title: string; location: string; cy
  */
 const EMPLOYER_ATS = /greenhouse\.io|lever\.co|ashbyhq\.com|myworkdayjobs\.com|myworkdaysite\.com|smartrecruiters\.com|icims\.com|workable\.com|jobvite\.com|taleo\.net|oraclecloud\.com|successfactors|avature\.net|phenompeople|eightfold\.ai|applytojob\.com|breezy\.hr|recruitee\.com|paylocity|dayforcehcm|ultipro|myworkday/i;
 // A listing rather than an application: the row exists, but applying from it
-// takes another search.
-const LISTING_ONLY = /intern-list\.com|jobright\.ai|simplify\.jobs\/c\/|github\.com|githubusercontent\.com/i;
+// takes another search. dreamworkhq is here for the same reason jobright is:
+// its list looks like the others and reads well, and every one of its 736 rows
+// routes through a page on its own domain that asks the reader to sign in.
+const LISTING_ONLY = /intern-list\.com|jobright\.ai|dreamworkhq\.com|simplify\.jobs\/c\/|github\.com|githubusercontent\.com/i;
 
 export function applyLinkRank(url: string | undefined): number {
   if (!url || !url.startsWith('http')) return 0;
