@@ -82,9 +82,16 @@ export class ApifySource extends SafeSource {
     if (!config.APIFY_TOKEN) return [];
     const { primary: query, secondary } = SEARCHES[activeProfile];
     const companyQueries = Array.from({ length: Math.ceil(this.watchlistCompanies.length / 5) }, (_, index) => this.watchlistCompanies.slice(index * 5, index * 5 + 5).join(' OR ')).filter(Boolean);
+    const linkedinUrls = [query, ...companyQueries].slice(0, 8).map(keywords => `https://www.linkedin.com/jobs/search/?keywords=${encodeURIComponent(`${keywords} intern 2027`)}&location=United%20States&f_E=1&f_TPR=r86400`);
     const input = this.board === 'linkedin' ? {
-      urls: [query, ...companyQueries].slice(0, 8).map(keywords => `https://www.linkedin.com/jobs/search/?keywords=${encodeURIComponent(`${keywords} intern 2027`)}&location=United%20States&f_E=1&f_TPR=r86400`),
-      limitPerSource: this.maxResults,
+      // Per source, and this actor is given eight of them, so passing the whole
+      // budget here bought eight times it. Measured on the account: ten runs
+      // returned 245 rows each and charged $0.49 each, $3.40 of a $5 monthly
+      // credit, and `slice(0, maxResults)` below then kept 35 of those 245. The
+      // other 210 were paid for and dropped on the floor. Divided across the
+      // sources, the actor returns about what the cap keeps.
+      urls: linkedinUrls,
+      limitPerSource: Math.max(1, Math.ceil(this.maxResults / Math.max(1, linkedinUrls.length))),
       scrapeCompany: false
     } : this.board === 'indeed' ? {
       searches: [
