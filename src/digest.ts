@@ -24,11 +24,27 @@ function formatMoment(iso: string): string | undefined {
   return /T00:00:00(?:\.000)?Z$/.test(iso) ? DAY_ONLY.format(parsed) : DAY_AND_TIME.format(parsed);
 }
 
-/** What the digest prints on the "Posted" line, and what it sorts on. */
-export function postedAtMillis(job: Pick<DigestJob, 'postedAt' | 'firstSeenAt'>): number {
-  // NaN is falsy, so an unreadable date falls through to the next candidate
-  // rather than poisoning the comparison it is used in.
-  return Date.parse(job.postedAt ?? '') || Date.parse(job.firstSeenAt ?? '') || 0;
+/**
+ * The day a row is dated, as the reader sees it, expressed as a number that
+ * sorts.
+ *
+ * Absolute time was the wrong thing to sort on, because the two kinds of value
+ * are printed in different zones. A list that dates by the day writes midnight
+ * UTC and is printed in UTC; a board that dates to the second is printed in
+ * Pacific. So a row printed "Aug 20, 10:39 PM" is genuinely later than one
+ * printed "Aug 21", and sorting on the instant put them in that order, which
+ * reads as broken to anyone looking at the dates on the page. Sorting on the
+ * printed day makes the order agree with what is printed.
+ */
+const PACIFIC_YMD = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Los_Angeles', year: 'numeric', month: '2-digit', day: '2-digit' });
+const UTC_YMD = new Intl.DateTimeFormat('en-CA', { timeZone: 'UTC', year: 'numeric', month: '2-digit', day: '2-digit' });
+
+export function postedDayKey(job: Pick<DigestJob, 'postedAt' | 'firstSeenAt'>): number {
+  const iso = job.postedAt ?? job.firstSeenAt ?? '';
+  const parsed = Date.parse(iso);
+  if (Number.isNaN(parsed)) return 0;
+  const printed = (/T00:00:00(?:\.000)?Z$/.test(iso) ? UTC_YMD : PACIFIC_YMD).format(parsed);
+  return Number(printed.replace(/-/g, ''));
 }
 
 export function postedLabel(job: Pick<DigestJob, 'postedAt' | 'firstSeenAt'>): string {
@@ -134,7 +150,9 @@ function sectionsFor(sorted: DigestJob[]): Array<[string, DigestJob[]]> {
  */
 export function digestOrder(a: DigestJob, b: DigestJob): number {
   if (activeProfile === 'finance') {
-    return postedAtMillis(b) - postedAtMillis(a) || b.score - a.score || a.company.localeCompare(b.company);
+    // Same printed day, then best match first: within a day the clock time is
+    // not shown, so ordering by it would be invisible and arbitrary.
+    return postedDayKey(b) - postedDayKey(a) || b.score - a.score || a.company.localeCompare(b.company);
   }
   return b.score - a.score || a.company.localeCompare(b.company);
 }

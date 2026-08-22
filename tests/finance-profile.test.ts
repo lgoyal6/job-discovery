@@ -122,11 +122,13 @@ describe('finance role rules', () => {
       'Summer Intern 2027 - Software Developer', 'Hardware Engineering Intern']) {
       expect(classifyFinanceCategory(title, description), title).toMatchObject({ eligible: false, reason: 'not_a_finance_discipline' });
     }
-    // A quant title is not another discipline: the quant patterns name their
-    // own discipline, so they are the only ones allowed to keep a title that
-    // another discipline also claims.
-    expect(classifyFinanceCategory('Quantitative Developer Intern - Summer 2027', description)).toMatchObject({ category: 'Quant', eligible: true });
+    // A quant title that names a markets role is not another discipline: those
+    // patterns name their own discipline, so they are the only ones allowed to
+    // keep a title another discipline also claims. A Quantitative Developer is
+    // not one of them, and falls to this reject on the word "developer".
+    expect(classifyFinanceCategory('Quantitative Developer Intern - Summer 2027', description)).toMatchObject({ eligible: false, reason: 'not_a_finance_discipline' });
     expect(classifyFinanceCategory('Campus Quantitative Researcher (Intern)', description)).toMatchObject({ category: 'Quant', eligible: true });
+    expect(classifyFinanceCategory('Quantitative Trading Intern - Summer 2027', description)).toMatchObject({ category: 'Quant', eligible: true });
     // A software role that merely sits on an equities desk is still a software
     // role, even though "fundamental equities" is a buy-side phrase.
     expect(classifyFinanceCategory('Software Engineer - Fundamental Equities'))
@@ -381,5 +383,23 @@ describe('which link the digest keeps when one role arrives twice', () => {
     const { unique } = localDedupe([listing, employer]);
     expect(unique).toHaveLength(1);
     expect(unique[0]?.directApplyUrl).toBe('https://boards.greenhouse.io/acme/jobs/42');
+  });
+});
+
+describe('quant, split between the two digests', () => {
+  it('sends a quantitative developer to the technical digest and not this one', () => {
+    // A Quantitative Developer at a trading firm writes software. The reader of
+    // this digest asked for roles that invest or research what to invest in.
+    for (const title of ['Quantitative Developer Intern', 'Quantitative Engineer Intern', 'Quant Developer - Summer 2027']) {
+      expect(classifyFinanceCategory(title), title).toMatchObject({ eligible: false, reason: 'not_a_finance_discipline' });
+      expect(classifyCategory(title), title).toMatchObject({ category: 'Quant', eligible: true });
+    }
+  });
+
+  it('keeps the quant roles that decide or study what to trade', () => {
+    for (const title of ['Quantitative Researcher Intern', 'Quantitative Trader Intern', 'Quantitative Trading Internship',
+      'Quantitative Analyst Intern', 'Quantitative Risk Intern', 'Algorithmic Trading Intern']) {
+      expect(classifyFinanceCategory(title), title).toMatchObject({ category: 'Quant', eligible: true });
+    }
   });
 });

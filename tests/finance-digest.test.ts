@@ -205,3 +205,38 @@ describe('the cap and the email agree on what matters', () => {
     expect(diversifiedTop(jobs, 1).map(job => job.company)).toEqual(['Old But Strong']);
   });
 });
+
+describe('the order the reader sees', () => {
+  afterEach(() => { vi.unstubAllEnvs(); vi.resetModules(); });
+
+  it('sorts on the printed day, not the underlying instant', async () => {
+    // The two kinds of value print in different zones: a list that dates by the
+    // day writes midnight UTC and prints in UTC, a board that dates to the
+    // second prints in Pacific. So a row printed "Aug 20, 10:39 PM" holds a
+    // later instant than one printed "Aug 21", and sorting on the instant put
+    // it first, which reads as broken to anyone looking at the dates.
+    vi.resetModules();
+    vi.stubEnv('JOB_PROFILE', 'finance');
+    vi.stubEnv('FINANCE_EMAIL_TO', 'someone@example.edu');
+    const { buildDigest } = await import('../src/digest.js');
+    const digest = buildDigest([
+      role({ company: 'Timestamped', title: 'Timestamped', postedAt: '2026-08-21T05:39:00.000Z' }),
+      role({ company: 'DateOnly', title: 'DateOnly', postedAt: '2026-08-21T00:00:00.000Z' })
+    ], []);
+    // Both print as their own day; the one printing the later day comes first.
+    expect(digest.text).toContain('Posted: Aug 21, 2026');
+    expect(digest.text.indexOf('DateOnly')).toBeLessThan(digest.text.indexOf('Timestamped'));
+  });
+
+  it('still puts a genuinely older role below a newer one', async () => {
+    vi.resetModules();
+    vi.stubEnv('JOB_PROFILE', 'finance');
+    vi.stubEnv('FINANCE_EMAIL_TO', 'someone@example.edu');
+    const { buildDigest } = await import('../src/digest.js');
+    const digest = buildDigest([
+      role({ company: 'Older', title: 'Older', postedAt: '2026-07-30T00:00:00.000Z', score: 200 }),
+      role({ company: 'Newer', title: 'Newer', postedAt: '2026-08-21T00:00:00.000Z', score: 10 })
+    ], []);
+    expect(digest.text.indexOf('Newer')).toBeLessThan(digest.text.indexOf('Older'));
+  });
+});
