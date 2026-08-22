@@ -1736,6 +1736,1100 @@
       "site": "solopulseco",
       "company": "SoloPulse",
       "profile": "technical"
+    },
+    {
+      "type": "smartrecruiters",
+      "companyId": "AbbVie",
+      "company": "AbbVie Inc",
+      "profile": "technical"
+    },
+    {
+      "type": "workday",
+      "host": "https://ameren.wd1.myworkdayjobs.com",
+      "tenant": "ameren",
+      "site": "External",
+      "company": "Ameren",
+      "profile": "technical"
+    },
+    {
+      "type": "workday",
+      "host": "https://americanfidelity.wd5.myworkdayjobs.com",
+      "tenant": "americanfidelity",
+      "site": "External",
+      "company": "American Fidelity",
+      "profile": "technical"
+    },
+    {
+      "type": "workday",
+      "host": "https://amgen.wd1.myworkdayjobs.com",
+      "tenant": "amgen",
+      "site": "careers",
+      "company": "Amgen",
+      "profile": "technical"
+    },
+    {
+      "type": "workday",
+      "host": "https://analogdevices.wd1.myworkdayjobs.com",
+      "tenant": "analogdevices",
+      "site": "External",
+      "company": "Analog Devices",
+      "profile": "technical"
+    },
+    {
+      "type": "workday",
+      "host": "https://amainc.wd12.myworkdayjobs.com",
+      "tenant": "amainc",
+      "site": "ama_careers",
+      "company": "Analytical Mechanics Associates",
+      "profile": "technical"
+    },
+    {
+      "type": "workday",
+      "host": "https://argonne.wd1.myworkdayjobs.com",
+      "tenant": "argonne",
+      "site": "EDU_PUB",
+      "company": "Argonne National Laboratory",
+      "profile": "technical"
+    },
+    {
+      "type": "workday",
+      "host": "https://arrowstreetcapital.wd5.myworkdayjobs.com",
+      "tenant": "arrowstreetcapital",
+      "site": "Campus_Careers",
+      "company": "Arrowstreet Capital",
+      "profile": "both"
+    },
+    {
+      "type": "workday",
+      "host": "https://autodesk.wd1.myworkdayjobs.com",
+      "tenant": "autodesk",
+      "site": "uni",
+      "company": "Autodesk",
+      "profile": "technical"
+    },
+    {
+      "type": "workday",
+      "host": "https://autodesk.wd1.myworkdayjobs.com",
+      "tenant": "autodesk",
+      "site": "Ext",
+      "company": "Autodesk",
+      "profile": "technical"
+    },
+    {
+      "type": "workday",
+      "host": "https://availity.wd1.myworkdayjobs.com",
+      "tenant": "availity",
+      "site": "availity_careers_us",
+      "company": "Availity",
+      "profile": "technical"
+    },
+    {
+      "type": "workday",
+      "host": "https://baxter.wd1.myworkdayjobs.com",
+      "tenant": "baxter",
+      "site": "baxter",
+      "company": "Baxter International",
+      "profile": "finance"
+    },
+    {
+      "type": "workday",
+      "host": "https://blueorigin.wd5.myworkdayjobs.com",
+      "tenant": "blueorigin",
+      "site": "BlueOrigin",
+      "company": "Blue Origin",
+      "profile": "technical"
+    },
+    {
+      "type": "workday",
+      "host": "https://boeing.wd1.myworkdayjobs.com",
+      "tenant": "boeing",
+      "site": "external_careers",
+      "company": "Boeing",
+      "profile": "technical"
+    },
+    {
+      "type": "smartrecruiters",
+      "companyId": "BoschGroup",
+      "company": "Bosch",
+      "profile": "both"
+    },
+    {
+      "type": "workday",
+      "host": "https://brunswick.wd1.myworkdayjobs.com",
+      "tenant": "brunswick",
+      "site": "search",
+      "company": "Brunswick",
+      "profile": "technical"
+    },
+    {
+      "type": "workday",
+      "host": "https://cadence.wd1.myworkdayjobs.com",
+      "tenant": "cadence",
+      "site": "external_careers",
+      "company": "Cadence",
+      "profile": "technical"
+    },
+    {
+      "type": "workday",
+      "host": "https://cadence.wd1.myworkdayjobs.com",
+      "tenant": "cadence",
+      "site": "Univ_Careers",
+      "company": "Cadence Design Systems",
+      "profile": "technical"
+    },
+    {
+      "type": "workday",
+      "host": "https://campbellsoup.wd5.myworkdayjobs.com",
+      "tenant": "campbellsoup",
+      "site": "externalcareers_globalsite",
+      "company": "Campbell Soup",
+      "profile": "technical"
+    },
+    {
+      "type": "smartrecruiters",
+      "companyId": "Canva",
+      "company": "Canva",
+      "profile": "technical"
+    },
+    {
+      "type": "workday",
+      "host": "https://capitalone.wd12.myworkdayjobs.com",
+      "tenant": "capitalone",
+      "site": "Capital_One",
+      "company": "Capital One",
+      "profile": "technical"
+    },
+    {
+      "type": "workday",
+      "host": "https://cat.wd5.myworkdayjobs.com",
+      "tenant": "cat",
+      "site": "caterpillarcareers",
+      "company": "Caterpillar",
+      "profile": "finance"
+    },
+    {
+      "type": "workday",
+      "host": "https://cccis.wd1.myworkdayjobs.com",
+      "tenant": "cccis",
+      "site": "broadbean_external",
+      "company": "CCC Intelligent Solutions",
+      "profile": "technical"
+    },
+    {
+      "type": "workday",
+      "host": "https://centific.wd1.myworkdayjobs.com",
+      "tenant": "centific",
+      "site": "centific_global",
+      "company": "Centific",
+      "profile": "technical"
+    },
+    {
+      "type": "workday",
+      "host": "https://chevron.wd5.myworkdayjobs.com",
+      "tenant": "chevron",
+      "site": "university",
+      "company": "Chevron",
+      "profile": "technical"
+    },
+    {
+      "type": "workday",
+      "host": "https://ciena.wd5.myworkdayjobs.com",
+      "tenant": "ciena",
+      "site": "Careers",
+      "company": "Ciena",
+      "profile": "technical"
+    },
+    {
+      "type": "workday",
+      "host": "https://cmegroup.wd1.myworkdayjobs.com",
+      "tenant": "cmegroup",
+      "site": "cme_careers",
+      "company": "CME Group",
+      "profile": "both"
+    },
+    {
+      "type": "workday",
+      "host": "https://cnoinc.wd5.myworkdayjobs.com",
+      "tenant": "cnoinc",
+      "site": "careers",
+      "company": "CNO Financial Group",
+      "profile": "both"
+    },
+    {
+      "type": "workday",
+      "host": "https://conagrabrands.wd1.myworkdayjobs.com",
+      "tenant": "conagrabrands",
+      "site": "careers_us",
+      "company": "Conagra Brands",
+      "profile": "technical"
+    },
+    {
+      "type": "workday",
+      "host": "https://clr.wd5.myworkdayjobs.com",
+      "tenant": "clr",
+      "site": "clr_careers",
+      "company": "Continental Resources",
+      "profile": "technical"
+    },
+    {
+      "type": "workday",
+      "host": "https://copart.wd12.myworkdayjobs.com",
+      "tenant": "copart",
+      "site": "copart",
+      "company": "Copart",
+      "profile": "technical"
+    },
+    {
+      "type": "workday",
+      "host": "https://coreandmain.wd1.myworkdayjobs.com",
+      "tenant": "coreandmain",
+      "site": "coreandmain",
+      "company": "Core & Main",
+      "profile": "technical"
+    },
+    {
+      "type": "workday",
+      "host": "https://crowe.wd12.myworkdayjobs.com",
+      "tenant": "crowe",
+      "site": "external_careers",
+      "company": "Crowe",
+      "profile": "technical"
+    },
+    {
+      "type": "workday",
+      "host": "https://deezee.wd108.myworkdayjobs.com",
+      "tenant": "deezee",
+      "site": "DeeZee_Careers",
+      "company": "Dee Zee",
+      "profile": "technical"
+    },
+    {
+      "type": "workday",
+      "host": "https://draper.wd5.myworkdayjobs.com",
+      "tenant": "draper",
+      "site": "draper_careers",
+      "company": "Draper",
+      "profile": "technical"
+    },
+    {
+      "type": "oracle",
+      "host": "https://ebxr.fa.us2.oraclecloud.com",
+      "site": "CX_1",
+      "company": "DTCC",
+      "profile": "technical"
+    },
+    {
+      "type": "workday",
+      "host": "https://elanco.wd5.myworkdayjobs.com",
+      "tenant": "elanco",
+      "site": "External_Career",
+      "company": "Elanco",
+      "profile": "finance"
+    },
+    {
+      "type": "smartrecruiters",
+      "companyId": "EncephaloInvestments",
+      "company": "Encephalo Investments",
+      "profile": "technical"
+    },
+    {
+      "type": "workday",
+      "host": "https://ensemblehp.wd5.myworkdayjobs.com",
+      "tenant": "ensemblehp",
+      "site": "ensemblehealthpartnerscareers",
+      "company": "Ensemble Health Partners",
+      "profile": "technical"
+    },
+    {
+      "type": "smartrecruiters",
+      "companyId": "Eurofins",
+      "company": "Eurofins",
+      "profile": "finance"
+    },
+    {
+      "type": "workday",
+      "host": "https://lthc.wd1.myworkdayjobs.com",
+      "tenant": "lthc",
+      "site": "ExcellusBCBSCareers",
+      "company": "Excellus BCBS",
+      "profile": "technical"
+    },
+    {
+      "type": "workday",
+      "host": "https://fanniemae.wd1.myworkdayjobs.com",
+      "tenant": "fanniemae",
+      "site": "fanniemaecareers",
+      "company": "Fannie Mae",
+      "profile": "technical"
+    },
+    {
+      "type": "smartrecruiters",
+      "companyId": "LuxeMediaLLC",
+      "company": "Felix Magazine",
+      "profile": "technical"
+    },
+    {
+      "type": "workday",
+      "host": "https://fifththird.wd5.myworkdayjobs.com",
+      "tenant": "fifththird",
+      "site": "53careers",
+      "company": "Fifth Third Bank",
+      "profile": "technical"
+    },
+    {
+      "type": "workday",
+      "host": "https://firstam.wd1.myworkdayjobs.com",
+      "tenant": "firstam",
+      "site": "firstamericancareers",
+      "company": "First American",
+      "profile": "technical"
+    },
+    {
+      "type": "workday",
+      "host": "https://bankeasy.wd5.myworkdayjobs.com",
+      "tenant": "bankeasy",
+      "site": "bank-easy-job-openings",
+      "company": "First Bank & Trust",
+      "profile": "technical"
+    },
+    {
+      "type": "workday",
+      "host": "https://fticonsulting.wd108.myworkdayjobs.com",
+      "tenant": "fticonsulting",
+      "site": "FTIConsultingCareers",
+      "company": "FTI Consulting",
+      "profile": "finance"
+    },
+    {
+      "type": "workday",
+      "host": "https://gresearch.wd103.myworkdayjobs.com",
+      "tenant": "gresearch",
+      "site": "G-Research",
+      "company": "G-Research",
+      "profile": "technical"
+    },
+    {
+      "type": "workday",
+      "host": "https://gartner.wd5.myworkdayjobs.com",
+      "tenant": "gartner",
+      "site": "ext",
+      "company": "Gartner",
+      "profile": "technical"
+    },
+    {
+      "type": "oracle",
+      "host": "https://edqv.fa.us2.oraclecloud.com",
+      "site": "CX",
+      "company": "GCI",
+      "profile": "technical"
+    },
+    {
+      "type": "workday",
+      "host": "https://gdit.wd5.myworkdayjobs.com",
+      "tenant": "gdit",
+      "site": "external_career_site",
+      "company": "GDIT",
+      "profile": "technical"
+    },
+    {
+      "type": "workday",
+      "host": "https://geaerospace.wd5.myworkdayjobs.com",
+      "tenant": "geaerospace",
+      "site": "ge_externalsite",
+      "company": "GE Aerospace",
+      "profile": "technical"
+    },
+    {
+      "type": "workday",
+      "host": "https://haier.wd3.myworkdayjobs.com",
+      "tenant": "haier",
+      "site": "GE_Appliances",
+      "company": "GE Appliances",
+      "profile": "technical"
+    },
+    {
+      "type": "workday",
+      "host": "https://gevernova.wd5.myworkdayjobs.com",
+      "tenant": "gevernova",
+      "site": "only_confidential_executive_recruiting",
+      "company": "GE Vernova",
+      "profile": "both"
+    },
+    {
+      "type": "workday",
+      "host": "https://gevernova.wd5.myworkdayjobs.com",
+      "tenant": "gevernova",
+      "site": "Vernova_ExternalSite",
+      "company": "GE Vernova Inc",
+      "profile": "finance"
+    },
+    {
+      "type": "workday",
+      "host": "https://generac.wd5.myworkdayjobs.com",
+      "tenant": "generac",
+      "site": "external",
+      "company": "Generac",
+      "profile": "technical"
+    },
+    {
+      "type": "workday",
+      "host": "https://harriscomputer.wd3.myworkdayjobs.com",
+      "tenant": "harriscomputer",
+      "site": "1",
+      "company": "Harris Computer",
+      "profile": "technical"
+    },
+    {
+      "type": "oracle",
+      "host": "https://efet.fa.us2.oraclecloud.com",
+      "site": "CX_1009",
+      "company": "Hilton Worldwide",
+      "profile": "technical"
+    },
+    {
+      "type": "workday",
+      "host": "https://hitachi.wd1.myworkdayjobs.com",
+      "tenant": "hitachi",
+      "site": "hitachi",
+      "company": "Hitachi",
+      "profile": "technical"
+    },
+    {
+      "type": "oracle",
+      "host": "https://efsp.fa.us6.oraclecloud.com",
+      "site": "CX",
+      "company": "Hoffman Construction",
+      "profile": "technical"
+    },
+    {
+      "type": "workday",
+      "host": "https://hp.wd5.myworkdayjobs.com",
+      "tenant": "hp",
+      "site": "externalcareersite",
+      "company": "HP",
+      "profile": "technical"
+    },
+    {
+      "type": "workday",
+      "host": "https://humana.wd5.myworkdayjobs.com",
+      "tenant": "humana",
+      "site": "Humana_External_Career_Site",
+      "company": "Humana",
+      "profile": "technical"
+    },
+    {
+      "type": "workday",
+      "host": "https://iko.wd3.myworkdayjobs.com",
+      "tenant": "iko",
+      "site": "iko_careers",
+      "company": "IKO",
+      "profile": "technical"
+    },
+    {
+      "type": "smartrecruiters",
+      "companyId": "InbulksCorp",
+      "company": "Inbulks",
+      "profile": "technical"
+    },
+    {
+      "type": "smartrecruiters",
+      "companyId": "InfiniteQuant",
+      "company": "InfiniteQuant",
+      "profile": "both"
+    },
+    {
+      "type": "workday",
+      "host": "https://ing.wd3.myworkdayjobs.com",
+      "tenant": "ing",
+      "site": "icsgblcor",
+      "company": "ING",
+      "profile": "technical"
+    },
+    {
+      "type": "workday",
+      "host": "https://intel.wd1.myworkdayjobs.com",
+      "tenant": "intel",
+      "site": "external",
+      "company": "Intel",
+      "profile": "technical"
+    },
+    {
+      "type": "smartrecruiters",
+      "companyId": "Interco",
+      "company": "Interco",
+      "profile": "technical"
+    },
+    {
+      "type": "workday",
+      "host": "https://interdigital.wd5.myworkdayjobs.com",
+      "tenant": "interdigital",
+      "site": "InterDigital_Intern",
+      "company": "Interdigital",
+      "profile": "technical"
+    },
+    {
+      "type": "workday",
+      "host": "https://jj.wd5.myworkdayjobs.com",
+      "tenant": "jj",
+      "site": "JJ",
+      "company": "Johnson & Johnson",
+      "profile": "technical"
+    },
+    {
+      "type": "oracle",
+      "host": "https://jpmc.fa.oraclecloud.com",
+      "site": "CX_1001",
+      "company": "JP Morgan Chase",
+      "profile": "both"
+    },
+    {
+      "type": "oracle",
+      "host": "https://jpmc.fa.oraclecloud.com",
+      "site": "CX_1",
+      "company": "JPMorganChase",
+      "profile": "both"
+    },
+    {
+      "type": "oracle",
+      "host": "https://jpmc.fa.oraclecloud.com",
+      "site": "CX_2001",
+      "company": "JPMorganChase",
+      "profile": "finance"
+    },
+    {
+      "type": "workday",
+      "host": "https://kbr.wd5.myworkdayjobs.com",
+      "tenant": "kbr",
+      "site": "kbr_careers",
+      "company": "KBR",
+      "profile": "technical"
+    },
+    {
+      "type": "smartrecruiters",
+      "companyId": "KOSTALGroup",
+      "company": "KOSTAL Group",
+      "profile": "technical"
+    },
+    {
+      "type": "workday",
+      "host": "https://heinz.wd1.myworkdayjobs.com",
+      "tenant": "heinz",
+      "site": "kraftheinz_careers_ur",
+      "company": "Kraft Heinz",
+      "profile": "finance"
+    },
+    {
+      "type": "workday",
+      "host": "https://leidos.wd5.myworkdayjobs.com",
+      "tenant": "leidos",
+      "site": "External",
+      "company": "Kudu Dynamics",
+      "profile": "technical"
+    },
+    {
+      "type": "smartrecruiters",
+      "companyId": "LLNL",
+      "company": "Lawrence Livermore National Laboratory (LLNL)",
+      "profile": "technical"
+    },
+    {
+      "type": "workday",
+      "host": "https://liveramp.wd5.myworkdayjobs.com",
+      "tenant": "liveramp",
+      "site": "LiveRampCareers",
+      "company": "LiveRamp",
+      "profile": "technical"
+    },
+    {
+      "type": "workday",
+      "host": "https://myview.wd3.myworkdayjobs.com",
+      "tenant": "myview",
+      "site": "paradox_careers",
+      "company": "Loblaw Companies",
+      "profile": "technical"
+    },
+    {
+      "type": "workday",
+      "host": "https://lplfinancial.wd1.myworkdayjobs.com",
+      "tenant": "lplfinancial",
+      "site": "university",
+      "company": "LPL Financial Holdings",
+      "profile": "technical"
+    },
+    {
+      "type": "workday",
+      "host": "https://magna.wd3.myworkdayjobs.com",
+      "tenant": "magna",
+      "site": "magna",
+      "company": "Magna",
+      "profile": "technical"
+    },
+    {
+      "type": "workday",
+      "host": "https://manh.wd5.myworkdayjobs.com",
+      "tenant": "manh",
+      "site": "campus",
+      "company": "Manhattan Associates",
+      "profile": "technical"
+    },
+    {
+      "type": "workday",
+      "host": "https://marvell.wd1.myworkdayjobs.com",
+      "tenant": "marvell",
+      "site": "marvellcareers2",
+      "company": "Marvell",
+      "profile": "technical"
+    },
+    {
+      "type": "workday",
+      "host": "https://mckesson.wd3.myworkdayjobs.com",
+      "tenant": "mckesson",
+      "site": "External_Careers",
+      "company": "McKesson",
+      "profile": "technical"
+    },
+    {
+      "type": "workday",
+      "host": "https://medline.wd5.myworkdayjobs.com",
+      "tenant": "medline",
+      "site": "Medline",
+      "company": "Medline",
+      "profile": "finance"
+    },
+    {
+      "type": "workday",
+      "host": "https://medtronic.wd1.myworkdayjobs.com",
+      "tenant": "medtronic",
+      "site": "redeploymentmedtroniccareers",
+      "company": "Medtronic",
+      "profile": "technical"
+    },
+    {
+      "type": "workday",
+      "host": "https://microchiphr.wd5.myworkdayjobs.com",
+      "tenant": "microchiphr",
+      "site": "external",
+      "company": "Microchip",
+      "profile": "technical"
+    },
+    {
+      "type": "oracle",
+      "host": "https://hcor.fa.us2.oraclecloud.com",
+      "site": "CX_1",
+      "company": "Midmark",
+      "profile": "technical"
+    },
+    {
+      "type": "oracle",
+      "host": "https://fa-esgu-saasfaprod1.fa.ocs.oraclecloud.com",
+      "site": "CX_1",
+      "company": "Montenson",
+      "profile": "both"
+    },
+    {
+      "type": "workday",
+      "host": "https://moog.wd5.myworkdayjobs.com",
+      "tenant": "moog",
+      "site": "moog_external_career_site",
+      "company": "Moog",
+      "profile": "technical"
+    },
+    {
+      "type": "workday",
+      "host": "https://morningstar.wd5.myworkdayjobs.com",
+      "tenant": "morningstar",
+      "site": "confidential",
+      "company": "Morningstar",
+      "profile": "technical"
+    },
+    {
+      "type": "workday",
+      "host": "https://motorolasolutions.wd5.myworkdayjobs.com",
+      "tenant": "motorolasolutions",
+      "site": "Careers",
+      "company": "Motorola",
+      "profile": "technical"
+    },
+    {
+      "type": "workday",
+      "host": "https://nrel.wd5.myworkdayjobs.com",
+      "tenant": "nrel",
+      "site": "NLR",
+      "company": "National Laboratory of the Rockies",
+      "profile": "technical"
+    },
+    {
+      "type": "oracle",
+      "host": "https://fa-etbx-saasfaprod1.fa.ocs.oraclecloud.com",
+      "site": "nfcu",
+      "company": "Navy Federal",
+      "profile": "technical"
+    },
+    {
+      "type": "workday",
+      "host": "https://nelnet.wd1.myworkdayjobs.com",
+      "tenant": "nelnet",
+      "site": "mynelnet",
+      "company": "Nelnet",
+      "profile": "technical"
+    },
+    {
+      "type": "workday",
+      "host": "https://ntst.wd1.myworkdayjobs.com",
+      "tenant": "ntst",
+      "site": "careers",
+      "company": "Netsmart",
+      "profile": "technical"
+    },
+    {
+      "type": "workday",
+      "host": "https://newbalance.wd1.myworkdayjobs.com",
+      "tenant": "newbalance",
+      "site": "careers",
+      "company": "New Balance",
+      "profile": "technical"
+    },
+    {
+      "type": "workday",
+      "host": "https://nidec.wd1.myworkdayjobs.com",
+      "tenant": "nidec",
+      "site": "nidec",
+      "company": "Nidec",
+      "profile": "technical"
+    },
+    {
+      "type": "workday",
+      "host": "https://nwis.wd12.myworkdayjobs.com",
+      "tenant": "nwis",
+      "site": "nw",
+      "company": "Nightwing",
+      "profile": "technical"
+    },
+    {
+      "type": "workday",
+      "host": "https://ngc.wd1.myworkdayjobs.com",
+      "tenant": "ngc",
+      "site": "northrop_grumman_external_site",
+      "company": "Northrop Grumman",
+      "profile": "technical"
+    },
+    {
+      "type": "workday",
+      "host": "https://northwesternmutual.wd5.myworkdayjobs.com",
+      "tenant": "northwesternmutual",
+      "site": "corporate-careers",
+      "company": "Northwestern Mutual",
+      "profile": "both"
+    },
+    {
+      "type": "workday",
+      "host": "https://nvidia.wd5.myworkdayjobs.com",
+      "tenant": "nvidia",
+      "site": "NVIDIAExternalCareerSite",
+      "company": "NVIDIA",
+      "profile": "technical"
+    },
+    {
+      "type": "oracle",
+      "host": "https://hctz.fa.us2.oraclecloud.com",
+      "site": "CX_1001",
+      "company": "onsemi",
+      "profile": "technical"
+    },
+    {
+      "type": "oracle",
+      "host": "https://eeho.fa.us2.oraclecloud.com",
+      "site": "CX_45001",
+      "company": "Oracle",
+      "profile": "technical"
+    },
+    {
+      "type": "workday",
+      "host": "https://oshkoshcorporation.wd5.myworkdayjobs.com",
+      "tenant": "oshkoshcorporation",
+      "site": "Oshkosh",
+      "company": "Oshkosh Corporation",
+      "profile": "finance"
+    },
+    {
+      "type": "workday",
+      "host": "https://peak6group.wd1.myworkdayjobs.com",
+      "tenant": "peak6group",
+      "site": "CapMan",
+      "company": "PEAK6",
+      "profile": "technical"
+    },
+    {
+      "type": "workday",
+      "host": "https://pentair.wd5.myworkdayjobs.com",
+      "tenant": "pentair",
+      "site": "Pentair_Careers",
+      "company": "Pentair Plc",
+      "profile": "finance"
+    },
+    {
+      "type": "workday",
+      "host": "https://pru.wd5.myworkdayjobs.com",
+      "tenant": "pru",
+      "site": "pgim_careers",
+      "company": "PGIM",
+      "profile": "finance"
+    },
+    {
+      "type": "workday",
+      "host": "https://philips.wd3.myworkdayjobs.com",
+      "tenant": "philips",
+      "site": "jobs-and-careers",
+      "company": "Philips",
+      "profile": "technical"
+    },
+    {
+      "type": "oracle",
+      "host": "https://fa-ertb-saasfaprod1.fa.ocs.oraclecloud.com",
+      "site": "CX_2",
+      "company": "Photon",
+      "profile": "technical"
+    },
+    {
+      "type": "workday",
+      "host": "https://pimco.wd1.myworkdayjobs.com",
+      "tenant": "pimco",
+      "site": "pimco-careers",
+      "company": "PIMCO",
+      "profile": "technical"
+    },
+    {
+      "type": "workday",
+      "host": "https://pru.wd5.myworkdayjobs.com",
+      "tenant": "pru",
+      "site": "Careers",
+      "company": "Prudential Financial",
+      "profile": "finance"
+    },
+    {
+      "type": "workday",
+      "host": "https://globalhr.wd5.myworkdayjobs.com",
+      "tenant": "globalhr",
+      "site": "rec_rtx_ext_gateway",
+      "company": "Raytheon",
+      "profile": "technical"
+    },
+    {
+      "type": "smartrecruiters",
+      "companyId": "RedBull",
+      "company": "Red Bull",
+      "profile": "technical"
+    },
+    {
+      "type": "smartrecruiters",
+      "companyId": "RegDeskInc",
+      "company": "RegDesk",
+      "profile": "technical"
+    },
+    {
+      "type": "workday",
+      "host": "https://revvity.wd103.myworkdayjobs.com",
+      "tenant": "revvity",
+      "site": "External",
+      "company": "Revvity",
+      "profile": "technical"
+    },
+    {
+      "type": "workday",
+      "host": "https://rfcuny.wd108.myworkdayjobs.com",
+      "tenant": "rfcuny",
+      "site": "RFCUNY",
+      "company": "RFCUNY",
+      "profile": "technical"
+    },
+    {
+      "type": "workday",
+      "host": "https://rockwellautomation.wd1.myworkdayjobs.com",
+      "tenant": "rockwellautomation",
+      "site": "external_rockwell_automation",
+      "company": "Rockwell Automation",
+      "profile": "technical"
+    },
+    {
+      "type": "smartrecruiters",
+      "companyId": "RRSGroup",
+      "company": "RRS Group",
+      "profile": "both"
+    },
+    {
+      "type": "workday",
+      "host": "https://globalhr.wd5.myworkdayjobs.com",
+      "tenant": "globalhr",
+      "site": "Private_Posting_No_TMP",
+      "company": "RTX",
+      "profile": "technical"
+    },
+    {
+      "type": "workday",
+      "host": "https://salesforce.wd12.myworkdayjobs.com",
+      "tenant": "salesforce",
+      "site": "External_Career_Site",
+      "company": "Salesforce",
+      "profile": "technical"
+    },
+    {
+      "type": "workday",
+      "host": "https://selinc.wd1.myworkdayjobs.com",
+      "tenant": "selinc",
+      "site": "SEL",
+      "company": "Schweitzer Engineering Laboratories",
+      "profile": "technical"
+    },
+    {
+      "type": "oracle",
+      "host": "https://ejhp.fa.us6.oraclecloud.com",
+      "site": "CX_2",
+      "company": "Sherwin-Williams",
+      "profile": "technical"
+    },
+    {
+      "type": "smartrecruiters",
+      "companyId": "SightCall",
+      "company": "SightCall",
+      "profile": "technical"
+    },
+    {
+      "type": "workday",
+      "host": "https://sonyglobal.wd1.myworkdayjobs.com",
+      "tenant": "sonyglobal",
+      "site": "sonyglobalcareers",
+      "company": "Sony",
+      "profile": "technical"
+    },
+    {
+      "type": "workday",
+      "host": "https://son.wd108.myworkdayjobs.com",
+      "tenant": "son",
+      "site": "NebraskaStateCareers",
+      "company": "State of Nebraska",
+      "profile": "technical"
+    },
+    {
+      "type": "workday",
+      "host": "https://synchronyfinancial.wd5.myworkdayjobs.com",
+      "tenant": "synchronyfinancial",
+      "site": "university",
+      "company": "Synchrony Bank",
+      "profile": "technical"
+    },
+    {
+      "type": "workday",
+      "host": "https://flir.wd1.myworkdayjobs.com",
+      "tenant": "flir",
+      "site": "flircareers",
+      "company": "Teledyne",
+      "profile": "technical"
+    },
+    {
+      "type": "workday",
+      "host": "https://tencent.wd1.myworkdayjobs.com",
+      "tenant": "tencent",
+      "site": "tencent_careers",
+      "company": "Tencent",
+      "profile": "technical"
+    },
+    {
+      "type": "workday",
+      "host": "https://mosaic.wd5.myworkdayjobs.com",
+      "tenant": "mosaic",
+      "site": "mosaic",
+      "company": "The Mosaic Company",
+      "profile": "technical"
+    },
+    {
+      "type": "workday",
+      "host": "https://uline.wd1.myworkdayjobs.com",
+      "tenant": "uline",
+      "site": "uline_careers",
+      "company": "Uline",
+      "profile": "both"
+    },
+    {
+      "type": "workday",
+      "host": "https://lthc.wd1.myworkdayjobs.com",
+      "tenant": "lthc",
+      "site": "univerahealthcarecareers",
+      "company": "Univera Healthcare",
+      "profile": "technical"
+    },
+    {
+      "type": "smartrecruiters",
+      "companyId": "UniversityOfNotreDame",
+      "company": "University of Notre Dame",
+      "profile": "technical"
+    },
+    {
+      "type": "workday",
+      "host": "https://valeo.wd3.myworkdayjobs.com",
+      "tenant": "valeo",
+      "site": "valeo_jobs",
+      "company": "Valeo",
+      "profile": "technical"
+    },
+    {
+      "type": "greenhouse",
+      "board": "veeamsoftware",
+      "company": "Veeam Software",
+      "profile": "technical"
+    },
+    {
+      "type": "oracle",
+      "host": "https://egup.fa.us2.oraclecloud.com",
+      "site": "CX",
+      "company": "Vertiv",
+      "profile": "technical"
+    },
+    {
+      "type": "smartrecruiters",
+      "companyId": "VWHCapitalManagementLP",
+      "company": "VWH Capital Management",
+      "profile": "technical"
+    },
+    {
+      "type": "workday",
+      "host": "https://wf.wd1.myworkdayjobs.com",
+      "tenant": "wf",
+      "site": "WellsFargoJobs",
+      "company": "Wells Fargo",
+      "profile": "finance"
+    },
+    {
+      "type": "smartrecruiters",
+      "companyId": "WesternDigital",
+      "company": "Western Digital",
+      "profile": "technical"
+    },
+    {
+      "type": "smartrecruiters",
+      "companyId": "Wabtec",
+      "company": "Westinghouse Air Brake Technologies Corp",
+      "profile": "finance"
+    },
+    {
+      "type": "oracle",
+      "host": "https://emit.fa.ca3.oraclecloud.com",
+      "site": "CX_2001",
+      "company": "WSP",
+      "profile": "technical"
+    },
+    {
+      "type": "workday",
+      "host": "https://zebra.wd501.myworkdayjobs.com",
+      "tenant": "zebra",
+      "site": "Zebra_careers",
+      "company": "Zebra Technologies Corp.",
+      "profile": "finance"
+    },
+    {
+      "type": "smartrecruiters",
+      "companyId": "CustomShow",
+      "company": "Zoomifier",
+      "profile": "technical"
     }
   ],
   "linkedin": [

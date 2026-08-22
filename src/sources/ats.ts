@@ -203,8 +203,8 @@ export class AtsSource extends SafeSource {
       // the first run that configured one. Postings come back newest first, so
       // the per-source cap spends itself on the most recent week rather than on
       // an arbitrary slice.
-      for (let offset = 0; offset < config.ATS_MAX_RESULTS_PER_SOURCE; offset += WORKDAY_PAGE_SIZE) {
-        const limit = Math.min(WORKDAY_PAGE_SIZE, config.ATS_MAX_RESULTS_PER_SOURCE - offset);
+      for (let offset = 0; offset < config.WORKDAY_MAX_RESULTS_PER_SOURCE; offset += WORKDAY_PAGE_SIZE) {
+        const limit = Math.min(WORKDAY_PAGE_SIZE, config.WORKDAY_MAX_RESULTS_PER_SOURCE - offset);
         const response = await fetchWithPolicy(endpoint, { sourceName: this.name, timeoutMs: config.SOURCE_TIMEOUT_MS, retries: config.SOURCE_RETRIES, method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ appliedFacets: {}, limit, offset, searchText: '' }) });
         const items = genericItems(await response.json());
         jobs.push(...items.map(item => {
@@ -214,7 +214,7 @@ export class AtsSource extends SafeSource {
         }).filter(job => job.title));
         if (items.length < limit) break;
       }
-      return jobs;
+      return jobs.slice(0, config.WORKDAY_MAX_RESULTS_PER_SOURCE);
     }
     if (this.source.type === 'oracle') {
       const oracle = this.source;

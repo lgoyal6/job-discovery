@@ -51,13 +51,19 @@ async function main(): Promise<void> {
     const { readFile } = await import('node:fs/promises');
     const { resolve } = await import('node:path');
     const { projectRoot } = await import('./config.js');
-    const cfg = JSON.parse(await readFile(resolve(projectRoot, 'config/sources.json'), 'utf8')) as { ats?: Array<{ type: string; board?: string; site?: string }> };
-    const configured = new Set((cfg.ats ?? []).map(a => `${a.type}:${(a.board ?? a.site ?? '').toLowerCase()}`));
+    const cfg = JSON.parse(await readFile(resolve(projectRoot, 'config/sources.json'), 'utf8')) as { ats?: Array<Record<string, string>> };
+    const { boardKey } = await import('./discovery.js');
+    const configured = new Set((cfg.ats ?? []).map(a => {
+      if (a.type === 'lever') return `lever:${(a.site ?? '').toLowerCase()}`;
+      if (a.type === 'smartrecruiters') return `smartrecruiters:${(a.companyId ?? '').toLowerCase()}`;
+      if (a.type === 'workday') return `workday:${a.tenant}:${a.site}`;
+      if (a.type === 'oracle') return `oracle:${a.host}:${a.site}`;
+      return `${a.type}:${(a.board ?? '').toLowerCase()}`;
+    }));
     const hits = await harvestBoardsFromSeenUrls(await getSeenApplyUrls(), configured);
-    const entries = hits.map(h => h.ats === 'lever'
-      ? { type: h.ats, site: h.board, company: h.company }
-      : { type: h.ats, board: h.board, company: h.company });
+    const entries = hits.map(h => ({ ...h.board, type: h.board.ats, ats: undefined, company: h.company, postings: h.jobs }));
     process.stdout.write(`${JSON.stringify({ newBoards: hits.length, entries }, null, 2)}\n`);
+    void boardKey;
     return;
   }
   if (command === 'mark-applied') {

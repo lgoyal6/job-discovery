@@ -85,6 +85,12 @@ const envSchema = z.object({
   // is also well inside the 72-hour window closeStaleJobs closes against.
   INTERN_LIST_MIN_INTERVAL_HOURS: z.coerce.number().int().min(1).max(168).default(6),
   INTERN_LIST_DETAIL_CONCURRENCY: z.coerce.number().int().min(1).max(16).default(4),
+  // Workday's own cap on a page is 20, so the shared per-source ceiling costs 13
+  // requests a board, and there are now 138 Workday boards: 1,794 requests a
+  // run for postings mostly nobody wants. Its listings come back newest first,
+  // so a smaller ceiling costs recent coverage rather than random coverage. 60
+  // is three requests a board and covers about a week on a big employer.
+  WORKDAY_MAX_RESULTS_PER_SOURCE: z.coerce.number().int().positive().max(1000).default(60),
   // Applies to boards fetched page by page (Lever, SmartRecruiters, Workday),
   // where it genuinely limits how many requests are made.
   ATS_MAX_RESULTS_PER_SOURCE: z.coerce.number().int().positive().max(1000).default(250),
