@@ -177,23 +177,28 @@ export interface UpsertResult { job: DigestJob; isNew: boolean; stateChanged: bo
 const REPOST_AFTER_DAYS = 30;
 
 /**
- * How long a role stays quiet after it has been mailed, whatever its
- * fingerprint does.
+ * A changed fingerprint no longer re-mails a role. Only a genuine repost does.
  *
  * The fingerprint is title, location and cycle, and every source writes its own
- * spelling of all three to the same job row. A requisition carried by three
- * lists therefore flipped between three fingerprints, and each flip cleared
- * sent_at and mailed the role again on the next run. Measured in production:
- * material_version 83 on one Netic internship, 55 and 54 on Belvedere's, 30 on
- * Anduril's, and every one of them fed by more than one source. That is 83
- * copies of one role.
+ * spelling of all three to the same job row, so a requisition carried by three
+ * lists flips between three fingerprints forever. Two attempts to keep that
+ * from re-mailing the role both failed, and the second failed instructively: a
+ * seven-day cooldown protects a row for seven days, and the migration that
+ * restored erased send state set sent_at to when each email actually went out,
+ * which for most rows was weeks ago. Every restored row was therefore past its
+ * own cooldown the moment it was written, and the next flip mailed it again.
+ * The digest that followed carried 26 roles the reader had already been sent.
  *
- * A genuine change inside the window is not announced, which is the trade being
- * made: an applicant who has already been told about a role does not need to
- * hear that its list moved the city string from "SF" to "San Francisco, CA",
- * and would rather not hear it eighty-three times.
+ * The lesson is that no window is short enough while the trigger keeps firing,
+ * so the trigger is gone. A role is re-mailed when it was closed and genuinely
+ * reopened, which is unambiguous and rare, and not otherwise. material_version
+ * still counts the flips, because that count is what made the problem legible.
+ *
+ * What this gives up: a role whose title or cycle is corrected after it was
+ * mailed is not mailed again. The reader has already been told about the role,
+ * and the correction is usually one list catching up with another rather than
+ * anything the employer did.
  */
-const RESEND_COOLDOWN_DAYS = 7;
 
 export async function upsertJob(job: ClassifiedJob): Promise<UpsertResult> {
   const client = await pool.connect();
@@ -240,10 +245,10 @@ export async function upsertJob(job: ClassifiedJob): Promise<UpsertResult> {
         `UPDATE jobs SET company=$2,normalized_company=$3,title=$4,normalized_title=$5,location=$6,normalized_location=$7,cycle=$8,category=$9,sponsorship_status=$10,sponsorship_evidence=$11,description=COALESCE($12,description),employment_type=COALESCE($13,employment_type),required_skills=$14,score=$15,last_seen_at=now(),last_verified_at=now(),status=$16,
           closed_at=CASE WHEN $16='CLOSED' THEN COALESCE(closed_at,now()) ELSE NULL END,
           reopened_at=CASE WHEN status='CLOSED' AND $16='OPEN' THEN now() ELSE reopened_at END,
-          sent_at=CASE WHEN (status='CLOSED' AND $16='OPEN' AND closed_at < now() - make_interval(days => $18::int)) OR (material_fingerprint<>'' AND material_fingerprint<>$17 AND (sent_at IS NULL OR sent_at < now() - make_interval(days => $19::int))) THEN NULL ELSE sent_at END,
+          sent_at=CASE WHEN status='CLOSED' AND $16='OPEN' AND closed_at < now() - make_interval(days => $18::int) THEN NULL ELSE sent_at END,
           material_version=CASE WHEN (status='CLOSED' AND $16='OPEN' AND closed_at < now() - make_interval(days => $18::int)) OR (material_fingerprint<>'' AND material_fingerprint<>$17) THEN material_version+1 ELSE material_version END,
           material_fingerprint=$17,updated_at=now() WHERE id=$1`,
-        [id, job.company, job.normalizedCompany, job.title, job.normalizedTitle, job.location ?? 'Unspecified', job.normalizedLocation, job.cycle, job.category, job.sponsorshipStatus, job.sponsorshipEvidence, job.description ?? null, job.employmentType ?? null, JSON.stringify(job.requiredSkills), job.score, job.status ?? 'OPEN', fingerprint, REPOST_AFTER_DAYS, RESEND_COOLDOWN_DAYS]);
+        [id, job.company, job.normalizedCompany, job.title, job.normalizedTitle, job.location ?? 'Unspecified', job.normalizedLocation, job.cycle, job.category, job.sponsorshipStatus, job.sponsorshipEvidence, job.description ?? null, job.employmentType ?? null, JSON.stringify(job.requiredSkills), job.score, job.status ?? 'OPEN', fingerprint, REPOST_AFTER_DAYS]);
     }
     await client.query(
       `INSERT INTO job_sources(job_id,source_name,source_job_id,source_url,direct_apply_url,posted_at,scraped_at,verification_status,raw_payload)
