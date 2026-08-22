@@ -276,7 +276,13 @@ const frontOffice: Array<[Category, RegExp]> = [
   ['PE/VC', /\b(private equity|venture capital|growth equity|buyout|private credit|private debt|private markets?|private investments?|private capital|principal investment|direct investment|real assets|infrastructure investments?|secondaries|co-?investments?)\b/i],
   // Quant is the one category both profiles share, and the technical digest
   // already earns its keep on these titles.
-  ['Quant', /\b(quantitative|quant)\s+(developer|research(?:er)?|trading|trader|analyst|risk|strategist|engineer)\b|\balgorithmic trading\b|\btrading intern(?:ship)?\b/i],
+  // Developer and engineer are deliberately absent, where the technical digest's
+  // copy of this pattern keeps them: a Quantitative Developer at a trading firm
+  // writes software, and belongs in that digest rather than this one. Researcher,
+  // trader, analyst, risk and strategist are the roles that decide or study what
+  // to trade. A title left behind here falls to the other-discipline reject on
+  // the word "developer", which is exactly where it should land.
+  ['Quant', /\b(quantitative|quant)\s+(research(?:er)?|trading|trader|analyst|risk|strategist|portfolio)\b|\balgorithmic trading\b|\btrading intern(?:ship)?\b/i],
   ['AM/WM', /\b(asset management|wealth management|investment management|investment analy(?:st|sis|tics)|portfolio management|portfolio manager|portfolio analy(?:st|sis)|equity analyst|research analyst|research associate|investment research|credit research|securities research|fundamental (?:equit\w+|research)|public markets?|public investments?|public equit\w+|public credit|private client|private bank(?:ing)?|financial advis\w+|financial planner|financial planning(?!\s*(?:&|and)\s*analysis)|fund management|multi-?asset|hedge fund|endowment|pension investments?|investment strateg\w+|buy[ -]side)\b/i],
   ['IB', /\b(investment bank(?:ing|er)?|bank(?:ing)? (?:analyst|associate|intern(?:ship)?|summer)|capital markets|m&a|mergers (?:&|and) acquisitions|summer analyst|sales (?:&|and) trading|equity research|equity capital markets|debt capital markets|leveraged finance|restructuring|global markets|coverage banking|sell[ -]side)\b/i]
 ];
