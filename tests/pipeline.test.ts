@@ -13,8 +13,14 @@ describe('fixture dry run', () => {
     expect(report.jobs.map(job => job.sponsorshipStatus).sort()).toEqual(['SUPPORTED', 'SUPPORTED', 'UNKNOWN', 'UNSUPPORTED']);
     expect(report.rejectionReasons.sponsorship_unsupported).toBeUndefined();
     expect(report.subject).toContain('4 roles');
-    expect(report.degradedSources).toEqual(expect.arrayContaining(['notion-applied', 'apify:linkedin', 'apify:indeed', 'apify:monster']));
-    const order = ['Strong Summer 2027 matches', 'Other target-cycle matches', 'Sponsorship unclear', 'Says no sponsorship, decide for yourself', 'Source failures or degraded coverage']
+    // The report still records every source that did not succeed, which is what
+    // a diagnostic field is for.
+    expect(report.degradedSources).toEqual(expect.arrayContaining(['notion-applied', 'apify:linkedin', 'apify:monster']));
+    // The email does not, unless one of them actually failed. In fixture mode
+    // they are all skipped on purpose, and a reader told that a deliberately
+    // disabled credential is "degraded coverage" learns to skip the section.
+    expect(report.html).not.toContain('Source failures or degraded coverage');
+    const order = ['Strong Summer 2027 matches', 'Other target-cycle matches', 'Sponsorship unclear', 'Says no sponsorship, decide for yourself']
       .map(heading => report.html!.indexOf(heading));
     expect(order.every(position => position >= 0)).toBe(true);
     expect([...order].sort((a, b) => a - b)).toEqual(order);

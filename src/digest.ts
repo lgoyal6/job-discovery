@@ -171,7 +171,13 @@ export interface ProgramChange { company: string; label: string; url: string }
 export function buildDigest(jobs: DigestJob[], sourceRuns: SourceResult[], timestamp = new Date(), programChanges: ProgramChange[] = []): { subject: string; html: string; text: string } {
   const sorted = sortForDigest(jobs);
   const sections = sectionsFor(sorted);
-  const degraded = sourceRuns.filter(run => run.status !== 'SUCCESS').map(run => `${run.sourceName}: ${run.error ?? run.status}`);
+  // FAILED and DEGRADED only. SKIPPED was in here too, so every board waiting
+  // for its six-hour cadence, and every credentialed source deliberately turned
+  // off, was reported to the reader under "Source failures or degraded
+  // coverage". Four Greenhouse boards saying "not due: runs every 6h" is the
+  // scheduler working, and listing it as a failure teaches the reader to ignore
+  // the section that exists to be read.
+  const degraded = sourceRuns.filter(run => run.status === 'FAILED' || run.status === 'DEGRADED').map(run => `${run.sourceName}: ${run.error ?? run.status}`);
   const displayTime = timestamp.toLocaleString('en-US', { timeZone: 'America/Los_Angeles', dateStyle: 'medium', timeStyle: 'short' });
   // A change with no new roles still deserves its own subject: an email titled
   // "0 roles" reads as noise and gets ignored, which defeats the point of

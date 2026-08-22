@@ -85,10 +85,16 @@ async function collectSources(options: RunOptions, watchlistCohort: WatchlistCom
     // search plus $0.01 a described job, which is one run of a few hundred rows
     // and the month is gone. The LinkedIn actor would buy a fifth copy of what
     // the free guest endpoint already returns 723 of.
+    // Indeed is gone from both. Its actor charges $0.50 for each search entry
+    // before a single row is written, plus $0.01 a job with the description
+    // this asks for, so the two searches configured here cost $1.15 a run and
+    // $34 a month against a $5 plan. It has not completed a run in weeks: every
+    // one answers HTTP 402 "not enough usage to run paid actor", which spends no
+    // money but reports a failed source to the reader every two hours. LinkedIn
+    // and Monster both charge per result and both fit.
     const apify = activeProfile === 'technical'
       ? [
         new ApifySource('linkedin', config.APIFY_LINKEDIN_ACTOR, config.APIFY_LINKEDIN_MAX_RESULTS, watchlistCohort.map(company => company.parent)),
-        new ApifySource('indeed', config.APIFY_INDEED_ACTOR, config.APIFY_INDEED_MAX_RESULTS),
         new ApifySource('monster', config.APIFY_MONSTER_ACTOR, config.APIFY_MONSTER_MAX_RESULTS)
       ]
       : [new ApifySource('monster', config.APIFY_MONSTER_ACTOR, config.APIFY_MONSTER_MAX_RESULTS)];
