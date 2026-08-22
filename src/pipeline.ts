@@ -8,6 +8,7 @@ import { classifyCycle, classifyEarlyCareer, classifyGraduation, classifyLocatio
 import { parseWatchlist, rotateWatchlist, type WatchlistCompany } from './watchlist.js';
 import type { ClassifiedJob, DigestJob, PipelineReport, RawJob, SourceAdapter, SourceResult } from './types.js';
 import { enrichSponsorship } from './enrichment.js';
+import { resolveListingLinks } from './apply-links.js';
 import { mirrorNewPostings } from './mirror.js';
 import { loadCommunitySources } from './sources/community.js';
 import { loadInternListSources } from './sources/intern-list.js';
@@ -494,7 +495,13 @@ async function execute(options: RunOptions): Promise<PipelineReport> {
   if (digestCandidates > digestJobs.length) {
     log('info', 'digest_capped', { runId, sending: digestJobs.length, rows: allGroups.length, deferred: digestCandidates - digestJobs.length, sponsorshipUnlikely: unlikelyGroups.length });
   }
-  const digest = buildDigest(allGroups.map(group => group.display), sourceRuns, new Date(), programChanges);
+  // Last thing before the email is written, and only on the rows it will
+  // print: identity is settled by now, and none of canonicalUrl, the canonical
+  // key or the material fingerprint reads the apply link, so a row that gets a
+  // better one is still the same row to dedupe and to the send state.
+  const displayed = allGroups.map(group => group.display);
+  if (options.persistent) await resolveListingLinks(displayed);
+  const digest = buildDigest(displayed, sourceRuns, new Date(), programChanges);
   if ((digestJobs.length > 0 || programChanges.length > 0) && options.persistent && config.SEND_EMAIL_ENABLED) {
     // Program-change URLs join the batch key so a change is emailed once, the
     // same way a role is, instead of re-sending every run while the page stays

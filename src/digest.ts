@@ -1,6 +1,7 @@
 import { activeProfile } from './config.js';
 import { markAppliedUrl } from './applied.js';
 import { INVESTING_CATEGORIES } from './classification.js';
+import { applyLinkRank } from './normalization.js';
 import type { DigestJob, SourceResult } from './types.js';
 
 function escapeHtml(value: string): string {
@@ -63,7 +64,11 @@ export function postedLabel(job: Pick<DigestJob, 'postedAt' | 'firstSeenAt'>): s
 // per role and one of them broken.
 function applyLinks(job: DigestJob): Array<{ label: string; url: string }> {
   const apply = job.directApplyUrl ?? job.sourceUrl;
-  const links = [{ label: 'Apply', url: apply }];
+  // Named for where it goes. A row whose only link is a write-up of the role
+  // was labelled "Apply" like every other, so the reader learned it was not an
+  // application form by clicking it. Link resolution finds a real posting for
+  // some of these; the ones it cannot find say so instead of pretending.
+  const links = [{ label: applyLinkRank(apply) === 1 ? 'View listing' : 'Apply', url: apply }];
   if (job.sourceUrl && job.sourceUrl !== apply) links.push({ label: 'Listing', url: job.sourceUrl });
   return links;
 }
