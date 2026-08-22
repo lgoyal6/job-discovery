@@ -26,6 +26,48 @@ describe('exported n8n workflows', () => {
     expect(value.nodes.find((node: any) => node.name === 'Send Gmail Digest').credentials).toBeUndefined();
   });
 
+  it('keeps the failure alert inside the length Discord will accept', async () => {
+    // Every alert for eighteen hours was rejected with
+    //   400 {"message":"Invalid Form Body","code":50035,
+    //        "errors":{"content":{"_errors":[{"code":"BASE_TYPE_MAX_LENGTH",
+    //                  "message":"Must be 4000 or fewer in length."}]}}}
+    // because the message embedded the pipeline's whole stderr, which is 10,933
+    // characters on a real failure: seventy-odd source_complete lines, the one
+    // line that matters, and a stack. So the digest failed and the thing whose
+    // job it was to say so failed too, silently.
+    const value = await workflow('job-discovery-error-alert.json');
+    const body: string = value.nodes.find((node: any) => node.name === 'DM Discord').parameters.jsonBody;
+    expect(body).toContain('slice(0, 3800)');
+    // The noise is dropped before the tail is taken, or the eight lines kept
+    // would all be source_complete and the actual error would not survive.
+    expect(body).toContain('source_complete');
+
+    // Run what the node runs, against a failure shaped like the real one.
+    const noise = Array.from({ length: 70 }, (_, index) =>
+      `{"timestamp":"2026-08-21T15:07:${String(index).padStart(2, '0')}.472Z","level":"info","event":"source_complete","source":"board-${index}","fetched":184}`);
+    const failure = '{"level":"error","event":"cli_failed","error":"duplicate key value violates unique constraint"}';
+    const message = [...noise, failure, ...Array.from({ length: 6 }, (_, index) => `    at frame${index}`)].join('\n');
+    const json = { workflow: { name: 'Laksh Job Discovery' }, execution: { id: 353, lastNodeExecuted: 'Run Deterministic Pipeline', error: { message } } };
+    const rendered = new Function('$json', `return ${body.replace(/^=\{\{/, '').replace(/\}\}$/, '')}`)(json);
+    const content = JSON.parse(rendered).content as string;
+
+    expect(message.length).toBeGreaterThan(4000);
+    expect(content.length).toBeLessThanOrEqual(4000);
+    expect(content).toContain('cli_failed');
+    expect(content).not.toContain('source_complete');
+
+    // A single unbroken line cannot be split, so the final clamp is what has to
+    // hold, and it is the one guarantee that matters here.
+    const oneLine = new Function('$json', `return ${body.replace(/^=\{\{/, '').replace(/\}\}$/, '')}`)({ workflow: { name: 'W' }, execution: { id: 1, error: { message: 'x'.repeat(50_000) } } });
+    expect((JSON.parse(oneLine).content as string).length).toBeLessThanOrEqual(4000);
+
+    // Imported by the entrypoint now, and activated, because nothing imported it
+    // before: the deployed copy and this one were free to drift, and they did.
+    const entrypoint = await readFile(resolve(process.cwd(), 'scripts/railway-entrypoint.sh'), 'utf8');
+    expect(entrypoint).toContain('workflows/job-discovery-error-alert.json');
+    expect(entrypoint).toContain('--id=LakshJobDiscoveryErrorAlert --active=true');
+  });
+
   it('has a two-hour inactive schedule, email guard, and batch confirmation', async () => {
     const value = await workflow('job-discovery-every-two-hours.json');
     expect(value.active).toBe(false);
