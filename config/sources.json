@@ -1064,6 +1064,678 @@
       "board": "generalcatalyst",
       "company": "General Catalyst",
       "profile": "finance"
+    },
+    {
+      "type": "ashby",
+      "board": "abridge",
+      "company": "Abridge",
+      "profile": "technical"
+    },
+    {
+      "type": "ashby",
+      "board": "ambrook",
+      "company": "Ambrook",
+      "profile": "technical"
+    },
+    {
+      "type": "ashby",
+      "board": "anthelioncap",
+      "company": "Anthelion Capital",
+      "profile": "both"
+    },
+    {
+      "type": "ashby",
+      "board": "astera",
+      "company": "Astera Institute",
+      "profile": "technical"
+    },
+    {
+      "type": "ashby",
+      "board": "auctor",
+      "company": "Auctor",
+      "profile": "technical"
+    },
+    {
+      "type": "ashby",
+      "board": "base-power",
+      "company": "Base Power Company",
+      "profile": "technical"
+    },
+    {
+      "type": "ashby",
+      "board": "beaconsoftware",
+      "company": "Beacon Software",
+      "profile": "technical"
+    },
+    {
+      "type": "ashby",
+      "board": "bild-ai",
+      "company": "Bild AI",
+      "profile": "technical"
+    },
+    {
+      "type": "ashby",
+      "board": "blackstar",
+      "company": "Blackstar Computers",
+      "profile": "technical"
+    },
+    {
+      "type": "ashby",
+      "board": "blockhouse",
+      "company": "Blockhouse",
+      "profile": "technical"
+    },
+    {
+      "type": "ashby",
+      "board": "bloxd",
+      "company": "Bloxd",
+      "profile": "technical"
+    },
+    {
+      "type": "ashby",
+      "board": "centerfield",
+      "company": "Centerfield",
+      "profile": "technical"
+    },
+    {
+      "type": "ashby",
+      "board": "circleback",
+      "company": "Circleback",
+      "profile": "technical"
+    },
+    {
+      "type": "ashby",
+      "board": "composio",
+      "company": "Composio",
+      "profile": "technical"
+    },
+    {
+      "type": "ashby",
+      "board": "constellationspace",
+      "company": "Constellation Space",
+      "profile": "technical"
+    },
+    {
+      "type": "ashby",
+      "board": "ctgt",
+      "company": "CTGT",
+      "profile": "technical"
+    },
+    {
+      "type": "ashby",
+      "board": "dexmate",
+      "company": "Dexmate",
+      "profile": "technical"
+    },
+    {
+      "type": "ashby",
+      "board": "droyd",
+      "company": "Droyd Robotics",
+      "profile": "technical"
+    },
+    {
+      "type": "ashby",
+      "board": "eragon",
+      "company": "Eragon",
+      "profile": "technical"
+    },
+    {
+      "type": "ashby",
+      "board": "exa",
+      "company": "Metaphor",
+      "profile": "technical"
+    },
+    {
+      "type": "ashby",
+      "board": "genmd",
+      "company": "GenMD",
+      "profile": "technical"
+    },
+    {
+      "type": "ashby",
+      "board": "gritt",
+      "company": "Gritt Robotics",
+      "profile": "technical"
+    },
+    {
+      "type": "ashby",
+      "board": "h3x-technologies",
+      "company": "H3X Technologies",
+      "profile": "technical"
+    },
+    {
+      "type": "ashby",
+      "board": "heliux",
+      "company": "Heliux",
+      "profile": "technical"
+    },
+    {
+      "type": "ashby",
+      "board": "hypercubic",
+      "company": "Hypercubic",
+      "profile": "technical"
+    },
+    {
+      "type": "ashby",
+      "board": "junior",
+      "company": "Junior AI",
+      "profile": "technical"
+    },
+    {
+      "type": "ashby",
+      "board": "kastle",
+      "company": "Kastle",
+      "profile": "technical"
+    },
+    {
+      "type": "ashby",
+      "board": "kirin",
+      "company": "Kirin",
+      "profile": "technical"
+    },
+    {
+      "type": "ashby",
+      "board": "kognitos",
+      "company": "Kognitos",
+      "profile": "technical"
+    },
+    {
+      "type": "ashby",
+      "board": "latent",
+      "company": "Latent Defense",
+      "profile": "technical"
+    },
+    {
+      "type": "ashby",
+      "board": "n1",
+      "company": "N1",
+      "profile": "technical"
+    },
+    {
+      "type": "ashby",
+      "board": "nationgraph",
+      "company": "NationGraph",
+      "profile": "technical"
+    },
+    {
+      "type": "ashby",
+      "board": "oligo",
+      "company": "Oligo Space",
+      "profile": "technical"
+    },
+    {
+      "type": "ashby",
+      "board": "opusclip",
+      "company": "OpusClip",
+      "profile": "technical"
+    },
+    {
+      "type": "ashby",
+      "board": "pear-vc",
+      "company": "Pear VC",
+      "profile": "technical"
+    },
+    {
+      "type": "ashby",
+      "board": "persona",
+      "company": "Persona AI",
+      "profile": "technical"
+    },
+    {
+      "type": "ashby",
+      "board": "phoebe-work",
+      "company": "Phoebe",
+      "profile": "technical"
+    },
+    {
+      "type": "ashby",
+      "board": "phonely",
+      "company": "Phonely",
+      "profile": "technical"
+    },
+    {
+      "type": "ashby",
+      "board": "phonic",
+      "company": "Phonic",
+      "profile": "technical"
+    },
+    {
+      "type": "ashby",
+      "board": "poshmark",
+      "company": "Poshmark",
+      "profile": "technical"
+    },
+    {
+      "type": "ashby",
+      "board": "pylon-labs",
+      "company": "Pylon",
+      "profile": "technical"
+    },
+    {
+      "type": "ashby",
+      "board": "reliable-robotics",
+      "company": "Reliable Robotics",
+      "profile": "technical"
+    },
+    {
+      "type": "ashby",
+      "board": "rho",
+      "company": "Rho",
+      "profile": "both"
+    },
+    {
+      "type": "ashby",
+      "board": "rilla",
+      "company": "Rilla",
+      "profile": "technical"
+    },
+    {
+      "type": "ashby",
+      "board": "saronic",
+      "company": "Saronic Technologies",
+      "profile": "technical"
+    },
+    {
+      "type": "ashby",
+      "board": "sentilink",
+      "company": "SentiLink",
+      "profile": "finance"
+    },
+    {
+      "type": "ashby",
+      "board": "serval",
+      "company": "Serval",
+      "profile": "technical"
+    },
+    {
+      "type": "ashby",
+      "board": "spacial",
+      "company": "Spacial AI",
+      "profile": "technical"
+    },
+    {
+      "type": "ashby",
+      "board": "terminal",
+      "company": "Terminal",
+      "profile": "technical"
+    },
+    {
+      "type": "ashby",
+      "board": "terranova",
+      "company": "Terranova",
+      "profile": "technical"
+    },
+    {
+      "type": "ashby",
+      "board": "vital-lyfe",
+      "company": "Vital Lyfe",
+      "profile": "technical"
+    },
+    {
+      "type": "ashby",
+      "board": "weave",
+      "company": "Weave",
+      "profile": "technical"
+    },
+    {
+      "type": "ashby",
+      "board": "windborne-systems",
+      "company": "WindBorne Systems",
+      "profile": "technical"
+    },
+    {
+      "type": "ashby",
+      "board": "yotta",
+      "company": "Yotta Labs",
+      "profile": "technical"
+    },
+    {
+      "type": "ashby",
+      "board": "zuru",
+      "company": "Zuru",
+      "profile": "technical"
+    },
+    {
+      "type": "greenhouse",
+      "board": "alphataraxia",
+      "company": "Alphataraxia",
+      "profile": "finance"
+    },
+    {
+      "type": "greenhouse",
+      "board": "appian",
+      "company": "Appian",
+      "profile": "technical"
+    },
+    {
+      "type": "greenhouse",
+      "board": "apptronik",
+      "company": "Apptronik",
+      "profile": "technical"
+    },
+    {
+      "type": "greenhouse",
+      "board": "arevonenergyimpltest",
+      "company": "Arevon",
+      "profile": "technical"
+    },
+    {
+      "type": "greenhouse",
+      "board": "asm",
+      "company": "ASM",
+      "profile": "technical"
+    },
+    {
+      "type": "greenhouse",
+      "board": "assuredguaranty",
+      "company": "Assured Guaranty",
+      "profile": "technical"
+    },
+    {
+      "type": "greenhouse",
+      "board": "astranis",
+      "company": "Astranis Space Technologies",
+      "profile": "technical"
+    },
+    {
+      "type": "greenhouse",
+      "board": "blackedgecapital",
+      "company": "BlackEdge Capital",
+      "profile": "both"
+    },
+    {
+      "type": "greenhouse",
+      "board": "botauto",
+      "company": "Bot Auto",
+      "profile": "technical"
+    },
+    {
+      "type": "greenhouse",
+      "board": "cresta",
+      "company": "Cresta",
+      "profile": "technical"
+    },
+    {
+      "type": "greenhouse",
+      "board": "cssmerge",
+      "company": "Atoms",
+      "profile": "technical"
+    },
+    {
+      "type": "greenhouse",
+      "board": "detroitlions",
+      "company": "Detroit Lions",
+      "profile": "both"
+    },
+    {
+      "type": "greenhouse",
+      "board": "drweng",
+      "company": "DRW",
+      "profile": "both"
+    },
+    {
+      "type": "greenhouse",
+      "board": "eulerity",
+      "company": "Eulerity",
+      "profile": "technical"
+    },
+    {
+      "type": "greenhouse",
+      "board": "figureai",
+      "company": "Figure AI",
+      "profile": "technical"
+    },
+    {
+      "type": "greenhouse",
+      "board": "freeformfuturecorp",
+      "company": "Freeform",
+      "profile": "technical"
+    },
+    {
+      "type": "greenhouse",
+      "board": "gardacp",
+      "company": "Garda Capital Partners",
+      "profile": "technical"
+    },
+    {
+      "type": "greenhouse",
+      "board": "generalmatter",
+      "company": "General Matter",
+      "profile": "technical"
+    },
+    {
+      "type": "greenhouse",
+      "board": "hyannisportresearch",
+      "company": "HPR (Hyannis Port Research)",
+      "profile": "technical"
+    },
+    {
+      "type": "greenhouse",
+      "board": "impact",
+      "company": "Impact",
+      "profile": "technical"
+    },
+    {
+      "type": "greenhouse",
+      "board": "incidentiq",
+      "company": "Incident IQ",
+      "profile": "technical"
+    },
+    {
+      "type": "greenhouse",
+      "board": "instalilyai",
+      "company": "InstaLILY",
+      "profile": "technical"
+    },
+    {
+      "type": "greenhouse",
+      "board": "integra",
+      "company": "Integra FEC",
+      "profile": "technical"
+    },
+    {
+      "type": "greenhouse",
+      "board": "later",
+      "company": "Later",
+      "profile": "technical"
+    },
+    {
+      "type": "greenhouse",
+      "board": "lilasciences",
+      "company": "Lila Sciences",
+      "profile": "technical"
+    },
+    {
+      "type": "greenhouse",
+      "board": "mavensecuritiesholdingltd",
+      "company": "Maven Securities",
+      "profile": "technical"
+    },
+    {
+      "type": "greenhouse",
+      "board": "momentenergy",
+      "company": "Moment Energy",
+      "profile": "technical"
+    },
+    {
+      "type": "greenhouse",
+      "board": "msfcareers",
+      "company": "Medecins Sans Frontieres (Doctors Without Borders) - United States",
+      "profile": "technical"
+    },
+    {
+      "type": "greenhouse",
+      "board": "optiverus",
+      "company": "Optiver",
+      "profile": "technical"
+    },
+    {
+      "type": "greenhouse",
+      "board": "queracomputinginc",
+      "company": "QuEra Computing",
+      "profile": "technical"
+    },
+    {
+      "type": "greenhouse",
+      "board": "redwoodmaterials",
+      "company": "Redwood Materials",
+      "profile": "technical"
+    },
+    {
+      "type": "greenhouse",
+      "board": "rendezvousrobotics",
+      "company": "Rendezvous Robotics",
+      "profile": "technical"
+    },
+    {
+      "type": "greenhouse",
+      "board": "sevenresearch",
+      "company": "Seven Research",
+      "profile": "both"
+    },
+    {
+      "type": "greenhouse",
+      "board": "syskahennessy",
+      "company": "Syska Hennessy Group",
+      "profile": "technical"
+    },
+    {
+      "type": "greenhouse",
+      "board": "tenstorrentuniversity",
+      "company": "Tenstorrent",
+      "profile": "technical"
+    },
+    {
+      "type": "greenhouse",
+      "board": "toshibaglobalcommercesolutions",
+      "company": "Toshiba Global Commerce",
+      "profile": "technical"
+    },
+    {
+      "type": "greenhouse",
+      "board": "transmarketgroup",
+      "company": "TransMarket Group",
+      "profile": "both"
+    },
+    {
+      "type": "greenhouse",
+      "board": "uvimco",
+      "company": "University of Virginia Investment Management Company (UVIMCO)",
+      "profile": "finance"
+    },
+    {
+      "type": "greenhouse",
+      "board": "vardaspace",
+      "company": "Varda",
+      "profile": "technical"
+    },
+    {
+      "type": "greenhouse",
+      "board": "worldquant",
+      "company": "WorldQuant",
+      "profile": "finance"
+    },
+    {
+      "type": "greenhouse",
+      "board": "xantium",
+      "company": "Xantium",
+      "profile": "finance"
+    },
+    {
+      "type": "lever",
+      "site": "acds",
+      "company": "Arkansas Center for Data Sciences",
+      "profile": "technical"
+    },
+    {
+      "type": "lever",
+      "site": "analyticpartners",
+      "company": "Analytic Partners",
+      "profile": "technical"
+    },
+    {
+      "type": "lever",
+      "site": "crestoperations",
+      "company": "Crest Industries",
+      "profile": "finance"
+    },
+    {
+      "type": "lever",
+      "site": "deuna",
+      "company": "DEUNA",
+      "profile": "technical"
+    },
+    {
+      "type": "lever",
+      "site": "diversified-automation",
+      "company": "Diversified Automation",
+      "profile": "technical"
+    },
+    {
+      "type": "lever",
+      "site": "espace",
+      "company": "E-Space",
+      "profile": "technical"
+    },
+    {
+      "type": "lever",
+      "site": "evrealty-us",
+      "company": "EV Realty",
+      "profile": "technical"
+    },
+    {
+      "type": "lever",
+      "site": "field-ai",
+      "company": "Field AI",
+      "profile": "technical"
+    },
+    {
+      "type": "lever",
+      "site": "fluxergy-2",
+      "company": "Fluxergy",
+      "profile": "technical"
+    },
+    {
+      "type": "lever",
+      "site": "hermeus",
+      "company": "Hermeus",
+      "profile": "technical"
+    },
+    {
+      "type": "lever",
+      "site": "ifm-us",
+      "company": "Institute of Foundation Models",
+      "profile": "technical"
+    },
+    {
+      "type": "lever",
+      "site": "make-rain",
+      "company": "Rainmaker",
+      "profile": "technical"
+    },
+    {
+      "type": "lever",
+      "site": "plus-2",
+      "company": "Plus",
+      "profile": "technical"
+    },
+    {
+      "type": "lever",
+      "site": "reply",
+      "company": "Reply",
+      "profile": "technical"
+    },
+    {
+      "type": "lever",
+      "site": "shyftlabs",
+      "company": "ShyftLabs",
+      "profile": "technical"
+    },
+    {
+      "type": "lever",
+      "site": "solopulseco",
+      "company": "SoloPulse",
+      "profile": "technical"
     }
   ],
   "linkedin": [

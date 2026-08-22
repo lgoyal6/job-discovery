@@ -92,12 +92,16 @@ async function collectSources(options: RunOptions, watchlistCohort: WatchlistCom
     // one answers HTTP 402 "not enough usage to run paid actor", which spends no
     // money but reports a failed source to the reader every two hours. LinkedIn
     // and Monster both charge per result and both fit.
-    const apify = activeProfile === 'technical'
-      ? [
-        new ApifySource('linkedin', config.APIFY_LINKEDIN_ACTOR, config.APIFY_LINKEDIN_MAX_RESULTS, watchlistCohort.map(company => company.parent)),
-        new ApifySource('monster', config.APIFY_MONSTER_ACTOR, config.APIFY_MONSTER_MAX_RESULTS)
-      ]
-      : [new ApifySource('monster', config.APIFY_MONSTER_ACTOR, config.APIFY_MONSTER_MAX_RESULTS)];
+    // Monster, on both profiles, and nothing else paid. Measured over the
+    // pipeline's own history: a posting published in the last ten days reaches
+    // the free LinkedIn guest endpoint in a median of 19 hours and the paid
+    // actors in 29, and when several sources carry one role the free endpoint
+    // is first 62% of the time against the actors' 13%. The actor duplicates
+    // what the guest endpoint already returns, arrives later, and cost about
+    // $2.10 a month of a $5 plan to do it. Monster earns its place on different
+    // ground: it is the only source that returns the employer's own
+    // description, which is what the sponsorship rules read.
+    const apify = [new ApifySource('monster', config.APIFY_MONSTER_ACTOR, config.APIFY_MONSTER_MAX_RESULTS)];
     for (const source of apify.slice(0, config.APIFY_MAX_ACTOR_RUNS_PER_PIPELINE)) {
       const due = !options.persistent || await isSourceDue(source.name, config.APIFY_MIN_INTERVAL_HOURS);
       if (due) sources.push(source);
