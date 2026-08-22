@@ -48,12 +48,20 @@ export function parsePostedAt(cell: string, now: string): string | undefined {
   const value = cell.trim().toLowerCase();
   const reference = new Date(now);
   if (Number.isNaN(reference.getTime())) return undefined;
-  const relative = value.match(/^(\d+)\s*(d|mo|y)$/);
+  // The newer lists write a plain date rather than an age.
+  const iso = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (iso) return new Date(Date.UTC(Number(iso[1]), Number(iso[2]) - 1, Number(iso[3]))).toISOString();
+  // zapplyjobs dates the freshest third of its rows in minutes and hours and
+  // writes months as "mo", so a bare "m" is minutes. Reading only d/mo/y left
+  // 294 of its 580 rows undated, and those were the newest ones on the list.
+  const relative = value.match(/^(\d+)\s*(mo|m|h|d|w|y)$/);
   if (relative) {
-    const amount = Number(relative[1]);
-    const days = relative[2] === 'd' ? amount : relative[2] === 'mo' ? amount * 30 : amount * 365;
-    return new Date(reference.getTime() - days * 86_400_000).toISOString();
+    const minutes = { m: 1, h: 60, d: 1440, w: 10_080, mo: 43_200, y: 525_600 }[relative[2] ?? ''] ?? 0;
+    return new Date(reference.getTime() - Number(relative[1]) * minutes * 60_000).toISOString();
   }
+  const withYear = value.match(/^([a-z]{3})[a-z]*\.?\s+(\d{1,2}),?\s+(\d{4})$/);
+  const namedMonth = withYear ? MONTHS.indexOf(withYear[1] ?? '') : -1;
+  if (withYear && namedMonth >= 0) return new Date(Date.UTC(Number(withYear[3]), namedMonth, Number(withYear[2]))).toISOString();
   const absolute = value.match(/^([a-z]{3})[a-z]*\.?\s+(\d{1,2})$/);
   const month = absolute ? MONTHS.indexOf(absolute[1] ?? '') : -1;
   if (!absolute || month < 0) return undefined;
@@ -61,6 +69,59 @@ export function parsePostedAt(cell: string, now: string): string | undefined {
   // A bare "Dec 18" read in January is last December, not eleven months out.
   if (posted.getTime() > reference.getTime()) posted.setUTCFullYear(posted.getUTCFullYear() - 1);
   return posted.toISOString();
+}
+
+export interface ListColumns { location?: number; posted?: number }
+
+/**
+ * Not every column with "date" in its name holds the posting date. aprameyak
+ * heads one table Company/Role/Location/Grad Date/Education/Application/Date
+ * Added, where Grad Date is which graduating class may apply; taking the first
+ * match dated 1,589 of its rows from a column that reads "Spring 2026". So a
+ * column that names the event outranks one that merely says "date", and an
+ * apply-link column is never a date however it is titled.
+ */
+function dateRank(name: string): number {
+  if (/apply|link|application/.test(name)) return 0;
+  if (/posted|added|age|first seen/.test(name)) return 2;
+  if (/date/.test(name) && !/grad|start|season|term|deadline|close/.test(name)) return 1;
+  return 0;
+}
+
+/**
+ * Which column holds what, read off the header row.
+ *
+ * Company and role are first and second on every list in use, but the rest is
+ * not agreed on: speedyapply writes Company/Position/Location/Salary/Posting/Age,
+ * zapplyjobs writes Company/Role/Location/Posted/Visa/Apply, and Chieler writes
+ * Company/Role/Posted/Applied/Link with no location column at all. Assuming
+ * position three was the location and the last cell was the date put a date in
+ * Chieler's location field on all 1,396 of its rows, and lost the posting date
+ * on zapplyjobs' 580, where the date is fourth and the last cell is a link.
+ *
+ * Read per table rather than per document, and wherever the header appears. A
+ * README holds more than one: speedyapply publishes its salaried roles under
+ * Company/Position/Location/Salary/Posting/Age and the rest under the same
+ * header minus Salary, so one document-wide mapping put the age column one
+ * place to the right on 156 of its 251 rows. And the header is often not near
+ * the top: zshah101 opens with a two-column feature table and heads its jobs
+ * table 55 rows later, with Category where every other list puts Location,
+ * which labelled all 189 of its rows "Software" or "Security" instead of a city.
+ *
+ * Rows before any header, and lists whose header does not name its columns,
+ * keep the positional reading, which is what they had before.
+ */
+export function readColumns(cells: string[]): ListColumns | undefined {
+  const names = cells.map(cell => cleanCell(cell).toLowerCase());
+  if (!/^company/.test(names[0] ?? '') || !/^(role|position|title|job)/.test(names[1] ?? '')) return undefined;
+  const location = names.findIndex(name => /location|city|office/.test(name));
+  let posted: number | undefined;
+  let best = 0;
+  names.forEach((name, index) => {
+    const rank = index > 1 ? dateRank(name) : 0;
+    if (rank > best) { best = rank; posted = index; }
+  });
+  return { location: location > 1 ? location : undefined, posted };
 }
 
 // Simplify replaced its pipe table with a real <table>. Rows are <tr> with <td>
@@ -84,9 +145,13 @@ function tableRows(document: string): string[][] {
 export function parseMarkdownJobs(markdown: string, source: Pick<CommunityConfig, 'name' | 'url' | 'cycle'>, now = new Date().toISOString()): RawJob[] {
   const jobs: RawJob[] = [];
   let previousCompany = '';
+  let columns: ListColumns | undefined;
   for (const cells of tableRows(markdown)) {
     const line = cells.join(' | ');
-    if (cells.length < 3 || /company/i.test(cells[0] ?? '') && /role|position/i.test(cells[1] ?? '')) continue;
+    if (cells.length < 3) continue;
+    const header = readColumns(cells);
+    if (header) { columns = header; continue; }
+    if (/company/i.test(cells[0] ?? '') && /role|position/i.test(cells[1] ?? '')) continue;
     // Simplify prefixes newly-added rows with 🔥. It normalizes away for identity
     // but would otherwise show up verbatim in the digest.
     let company = cleanCell(cells[0] ?? '').replace(/^[^\p{L}\p{N}(]+/u, '').trim();
@@ -109,12 +174,27 @@ export function parseMarkdownJobs(markdown: string, source: Pick<CommunityConfig
       ?? allLinks.find(link => !/simplify\.jobs\/c\//i.test(link.url))
       ?? allLinks[0];
     if (!applyLink) continue;
-    const location = cleanCell(cells[2] ?? 'Unspecified') || 'Unspecified';
+    const location = (columns
+      ? (columns.location === undefined ? '' : cleanCell(cells[columns.location] ?? ''))
+      : cleanCell(cells[2] ?? '')) || 'Unspecified';
     const sourceJobId = extractSourceJobId(applyLink.url);
-    const postedAt = parsePostedAt(cleanCell(cells[cells.length - 1] ?? ''), now);
+    // The header can be wrong about its own table: Simplify's off-season page
+    // heads one of its eleven tables without the Terms column that its rows
+    // actually carry, which shifts the age one place and left 157 rows undated.
+    // So where the named column holds nothing readable, try the last cell,
+    // which is where most lists put the date. A list that ends on an apply link
+    // simply yields nothing, as it did before.
+    const named = columns?.posted === undefined ? '' : cells[columns.posted] ?? '';
+    const fromNamed = columns ? parsePostedAt(cleanCell(named), now) : undefined;
+    const fromLast = fromNamed ? undefined : parsePostedAt(cleanCell(cells[cells.length - 1] ?? ''), now);
+    const postedAt = fromNamed ?? fromLast;
     // Only drop the last cell from the description once it has been read as a
     // date; speedyapply's other trailing column is the salary, worth keeping.
-    const details = postedAt ? cells.slice(3, -1) : cells.slice(3);
+    const spoken = new Set([0, 1, columns?.location, columns?.posted, fromLast ? cells.length - 1 : undefined]
+      .filter((index): index is number => index !== undefined));
+    const details = columns
+      ? cells.filter((_, index) => !spoken.has(index))
+      : (postedAt ? cells.slice(3, -1) : cells.slice(3));
     jobs.push({
       sourceName: source.name, sourceJobId, title, company, location, postedAt,
       sourceUrl: source.url, directApplyUrl: applyLink.url, scrapedAt: now, cycleHint: source.cycle,

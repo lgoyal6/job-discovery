@@ -41,6 +41,80 @@ describe('community list posting dates', () => {
     expect(job?.description).not.toContain('9d');
   });
 
+  it('reads ages given in minutes, hours and weeks', () => {
+    // zapplyjobs dates its freshest rows this way and writes months as "mo",
+    // so a bare "m" is minutes. Reading only d/mo/y left 294 of its 580 rows
+    // undated, and those were the newest ones on the list.
+    expect(parsePostedAt('11m', now)?.slice(0, 16)).toBe('2026-08-12T19:49');
+    expect(parsePostedAt('3h', now)?.slice(0, 16)).toBe('2026-08-12T17:00');
+    expect(parsePostedAt('2w', now)?.slice(0, 10)).toBe('2026-07-29');
+    expect(parsePostedAt('10mo', now)?.slice(0, 10)).toBe('2025-10-16');
+    expect(parsePostedAt('Aug 21, 2026', now)?.slice(0, 10)).toBe('2026-08-21');
+    expect(parsePostedAt('2026-08-22', now)?.slice(0, 10)).toBe('2026-08-22');
+  });
+
+  it('takes the location and the date from the columns the header names', () => {
+    // Chieler's table has no location column at all, so reading position three
+    // regardless put a date in the location field on all 1,396 of its rows.
+    const chieler = ['| Company | Role | Posted | Applied | Link |',
+      '| --- | --- | --- | --- | --- |',
+      '| TikTok | AI Product Manager Intern | 2026-08-22 | No | [Apply](https://lifeattiktok.com/search/1234) |'].join('\n');
+    const [job] = parseMarkdownJobs(chieler, { name: 'chieler', url: 'https://example.com/feed' }, now);
+    expect(job?.location).toBe('Unspecified');
+    expect(job?.postedAt?.slice(0, 10)).toBe('2026-08-22');
+  });
+
+  it('finds the jobs header wherever it sits, and past a column that only looks like a location', () => {
+    // zshah101 opens its README with a two-column feature table and heads its
+    // jobs table 55 rows later, with Category where every other list puts
+    // Location. That labelled all 189 of its rows "Software" or "Security".
+    const zshah = ['| | |', '|---|---|', '| Roles | Software Engineering and Data Science |', '',
+      '| Company | Role | Category | Location | Skills | Posted | Apply |',
+      '| --- | --- | --- | --- | --- | --- | --- |',
+      '| HP | Software Internship Roles | Software | Spring, Texas | Python, C++ | Aug 21, 2026 | [Apply](https://hp.wd5.myworkdayjobs.com/jobs/3) |'].join('\n');
+    const [job] = parseMarkdownJobs(zshah, { name: 'zshah101', url: 'https://example.com/feed' }, now);
+    expect(job?.location).toBe('Spring, Texas');
+    expect(job?.postedAt?.slice(0, 10)).toBe('2026-08-21');
+  });
+
+  it('maps each table in a document separately', () => {
+    // speedyapply publishes its salaried roles under one header and the rest
+    // under the same header minus Salary, which put the age column one place to
+    // the right on 156 of its 251 rows.
+    const both = ['| Company | Position | Location | Salary | Posting | Age |',
+      '| --- | --- | --- | --- | --- | --- |',
+      '| Figma | SWE Intern | SF, CA | $60/hr | [Apply](https://job-boards.greenhouse.io/figma/jobs/1) | 9d |', '',
+      '| Company | Position | Location | Posting | Age |',
+      '| --- | --- | --- | --- | --- |',
+      '| Ramp | SWE Intern | NYC | [Apply](https://job-boards.greenhouse.io/ramp/jobs/2) | 4d |'].join('\n');
+    const jobs = parseMarkdownJobs(both, { name: 'speedyapply', url: 'https://example.com/feed' }, now);
+    expect(jobs.map(job => job.postedAt?.slice(0, 10))).toEqual(['2026-08-03', '2026-08-08']);
+    expect(jobs.map(job => job.location)).toEqual(['SF, CA', 'NYC']);
+  });
+
+  it('prefers the column that names the posting over one that merely says date', () => {
+    // "Grad Date" is which graduating class may apply. Taking the first column
+    // whose name contained "date" dated 1,589 of aprameyak's rows from a cell
+    // that reads "Spring 2026".
+    const aprameyak = ['| Company | Role | Location | Grad Date | Education | Application/Link | Date Added |',
+      '| --- | --- | --- | --- | --- | --- | --- |',
+      '| Stripe | SWE Intern | Seattle, WA | Spring 2026 | Bachelors | [Apply](https://stripe.com/jobs/5) | Aug 19, 2026 |'].join('\n');
+    const [job] = parseMarkdownJobs(aprameyak, { name: 'aprameyak', url: 'https://example.com/feed' }, now);
+    expect(job?.postedAt?.slice(0, 10)).toBe('2026-08-19');
+  });
+
+  it('falls back to the last cell when the header misdescribes its own table', () => {
+    // Simplify's off-season page heads one of its eleven tables without the
+    // Terms column that its rows actually carry, which shifted the age one
+    // place along and left 157 rows undated.
+    const shifted = ['| Company | Role | Location | Application | Age |',
+      '| --- | --- | --- | --- | --- |',
+      '| Jane Street | Quant Trading Intern | New York, NY | Spring 2027 | [Apply](https://janestreet.com/jobs/7) | 6d |'].join('\n');
+    const [job] = parseMarkdownJobs(shifted, { name: 'simplify-offseason', url: 'https://example.com/feed' }, now);
+    expect(job?.postedAt?.slice(0, 10)).toBe('2026-08-06');
+    expect(job?.description).not.toContain('6d');
+  });
+
   it('keeps the last column in the description when it is not a date', () => {
     const markdown = ['| Company | Role | Location | Link | Notes |',
       '| ---- | ---- | ---- | ---- | ---- |',
