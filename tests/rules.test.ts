@@ -352,9 +352,30 @@ describe('board harvesting from observed apply URLs', () => {
   it('extracts slugs a company name could never produce', () => {
     expect(boardFromUrl('https://boards.greenhouse.io/embedxyz/jobs/123')).toEqual({ ats: 'greenhouse', board: 'embedxyz' });
     expect(boardFromUrl('https://job-boards.greenhouse.io/towerresearchcapital/jobs/9')).toEqual({ ats: 'greenhouse', board: 'towerresearchcapital' });
-    expect(boardFromUrl('https://jobs.lever.co/belvederetrading/abc')).toEqual({ ats: 'lever', board: 'belvederetrading' });
+    // lever names its slug a site, and the descriptor now carries whatever the
+    // adapter for that family actually needs.
+    expect(boardFromUrl('https://jobs.lever.co/belvederetrading/abc')).toEqual({ ats: 'lever', site: 'belvederetrading' });
     expect(boardFromUrl('https://jobs.ashbyhq.com/rivianvw/xyz')).toEqual({ ats: 'ashby', board: 'rivianvw' });
   });
+
+  it('reads a Workday tenant, a SmartRecruiters company and an Oracle site out of an apply link', () => {
+    // Workday was written off as undiscoverable: probing 44 investment firms by
+    // slug found one board, because a tenant is not derived from a company name
+    // and the site beside it is arbitrary. Both are spelled out in the link.
+    expect(boardFromUrl('https://boeing.wd1.myworkdayjobs.com/en-US/external_careers/job/Seattle/SWE-Intern_JR1'))
+      .toEqual({ ats: 'workday', host: 'https://boeing.wd1.myworkdayjobs.com', tenant: 'boeing', site: 'external_careers' });
+    // The locale is a path segment too, and is never the site.
+    expect(boardFromUrl('https://nvidia.wd5.myworkdayjobs.com/en-US/NVIDIAExternalCareerSite/job/US/Intern_JR2'))
+      .toMatchObject({ ats: 'workday', tenant: 'nvidia', site: 'NVIDIAExternalCareerSite' });
+    expect(boardFromUrl('https://jobs.smartrecruiters.com/BoschGroup/744000144612115'))
+      .toEqual({ ats: 'smartrecruiters', companyId: 'BoschGroup' });
+    expect(boardFromUrl('https://jpmc.fa.oraclecloud.com/hcmUI/CandidateExperience/en/sites/CX_1001/job/210774038'))
+      .toEqual({ ats: 'oracle', host: 'https://jpmc.fa.oraclecloud.com', site: 'CX_1001' });
+    // A posting page that is not a board tells us nothing.
+    expect(boardFromUrl('https://www.linkedin.com/jobs/view/123')).toBeNull();
+    expect(boardFromUrl('https://www.intern-list.com/swe-intern-list/role_1')).toBeNull();
+  });
+
 
   it('ignores non-board URLs and greenhouse embed paths', () => {
     expect(boardFromUrl('https://careers.google.com/jobs/results/123')).toBeNull();
