@@ -15,6 +15,7 @@ type AtsBoard =
   | { type: 'smartrecruiters'; companyId: string; company: string }
   | { type: 'workday'; host: string; tenant: string; site: string; company: string }
   | { type: 'oracle'; host: string; site: string; company: string }
+  | { type: 'phenom'; host: string; company: string }
   | { type: 'icims' | 'successfactors' | 'eightfold' | 'career-page'; company: string; endpoint: string; method?: 'GET' | 'POST'; body?: unknown };
 
 // Which digest a board is fetched for. Absent means technical, which is what
@@ -185,6 +186,46 @@ function genericItems(payload: unknown): any[] {
   return [];
 }
 
+/**
+ * Phenom runs the careers site for a large slice of the Fortune 500, and its
+ * search is one POST to /widgets with a body that reads like a form submission.
+ * Nothing about it is guessable, but the payoff is that a Phenom row already
+ * carries the employer's own ATS link: Truist's 2027 technology internship
+ * comes back with an applyUrl on truist.wd1.myworkdayjobs.com, so the row the
+ * reader clicks is the employer's form rather than a search page.
+ *
+ * The keyword search is fuzzy rather than filtering, so asking for "intern"
+ * ranks internships first without excluding anything else. Two sweeps, the
+ * searched one and the plain one, merged on the requisition id, for the same
+ * reason Workday gets two: a plain search on a large board is a window.
+ */
+const PHENOM_PAGE_SIZE = 100;
+function phenomBody(keywords: string, from: number): string {
+  return JSON.stringify({
+    lang: 'en_us', deviceType: 'desktop', country: 'us', pageName: 'search-results', ddoKey: 'refineSearch',
+    sortBy: '', subsearch: '', from, jobs: true, counts: true, all_fields: [], size: PHENOM_PAGE_SIZE,
+    clearAll: false, jdsource: 'facets', isSliderEnable: false, pageId: 'page12', siteType: 'external',
+    keywords, global: true, selected_fields: {}, locationData: {}
+  });
+}
+
+export function normalizePhenom(payload: unknown, cfg: Extract<AtsConfig, { type: 'phenom' }>, now: string, sourceName: string): RawJob[] {
+  const jobs = (payload as { refineSearch?: { data?: { jobs?: unknown[] } } })?.refineSearch?.data?.jobs;
+  if (!Array.isArray(jobs)) return [];
+  return jobs.map(entry => {
+    const job = entry as Record<string, any>;
+    const url = String(job.applyUrl ?? job.jobUrl ?? `https://${cfg.host}`);
+    return {
+      sourceName, sourceJobId: String(job.jobId ?? job.reqId ?? ''), company: cfg.company,
+      title: String(job.title ?? ''),
+      location: String(job.location ?? job.cityStateCountry ?? job.cityState ?? 'Unspecified'),
+      postedAt: isoOrUndefined(job.postedDate ?? job.dateCreated),
+      description: typeof job.descriptionTeaser === 'string' ? job.descriptionTeaser : undefined,
+      sourceUrl: url, directApplyUrl: url, scrapedAt: now, raw: job
+    };
+  }).filter(job => job.title);
+}
+
 /** Eightfold's own page size: `num` is ignored and ten come back regardless. */
 const EIGHTFOLD_PAGE_SIZE = 10;
 
@@ -211,7 +252,7 @@ export class AtsSource extends SafeSource {
   readonly name: string;
   constructor(private readonly source: AtsConfig) {
     super();
-    const identifier = source.type === 'greenhouse' ? source.board : source.type === 'lever' ? source.site : source.type === 'ashby' ? source.board : source.type === 'smartrecruiters' ? source.companyId : source.type === 'oracle' ? normalizeSlug(source.company) : source.company;
+    const identifier = source.type === 'greenhouse' ? source.board : source.type === 'lever' ? source.site : source.type === 'ashby' ? source.board : source.type === 'smartrecruiters' ? source.companyId : source.type === 'oracle' ? normalizeSlug(source.company) : source.type === 'phenom' ? source.host : source.company;
     this.name = `${source.type}:${identifier}`;
   }
   protected async collect(): Promise<RawJob[]> {
@@ -304,6 +345,21 @@ export class AtsSource extends SafeSource {
         if (page.length < limit) break;
       }
       return jobs;
+    }
+    if (this.source.type === 'phenom') {
+      const phenom = this.source;
+      const endpoint = `https://${phenom.host.replace(/^https?:\/\//, '').replace(/\/$/, '')}/widgets`;
+      const sweep = async (keywords: string): Promise<RawJob[]> => {
+        const response = await fetchWithPolicy(endpoint, {
+          sourceName: this.name, timeoutMs: config.SOURCE_TIMEOUT_MS, retries: config.SOURCE_RETRIES,
+          method: 'POST', headers: { 'content-type': 'application/json', accept: 'application/json' }, body: phenomBody(keywords, 0)
+        });
+        return normalizePhenom(await response.json(), phenom, now, this.name);
+      };
+      const jobs = await sweep('intern');
+      const seen = new Set(jobs.map(job => job.sourceJobId));
+      for (const job of await sweep('')) if (!seen.has(job.sourceJobId)) { seen.add(job.sourceJobId); jobs.push(job); }
+      return jobs.slice(0, config.ATS_MAX_RESULTS_PER_SOURCE);
     }
     // Eightfold answers with ten positions however many are asked for, so the
     // page size is fixed and the only way through the board is `start`.

@@ -4010,6 +4010,198 @@
       "tenant": "jci",
       "company": "Johnson Controls",
       "profile": "both"
+    },
+    {
+      "type": "phenom",
+      "host": "careers.cboe.com",
+      "company": "Cboe Global Markets",
+      "profile": "both"
+    },
+    {
+      "type": "phenom",
+      "host": "careers.cisco.com",
+      "company": "Cisco",
+      "profile": "technical"
+    },
+    {
+      "type": "phenom",
+      "host": "careers.mitre.org",
+      "company": "MITRE",
+      "profile": "technical"
+    },
+    {
+      "type": "phenom",
+      "host": "careers.usbank.com",
+      "company": "US Bank",
+      "profile": "both"
+    },
+    {
+      "type": "phenom",
+      "host": "careers.hpe.com",
+      "company": "HPE",
+      "profile": "technical"
+    },
+    {
+      "type": "phenom",
+      "host": "careers.statestreet.com",
+      "company": "State Street",
+      "profile": "both"
+    },
+    {
+      "type": "phenom",
+      "host": "careers.hugoboss.com",
+      "company": "HUGO BOSS",
+      "profile": "both"
+    },
+    {
+      "type": "phenom",
+      "host": "careers.regions.com",
+      "company": "Regions Bank",
+      "profile": "both"
+    },
+    {
+      "type": "phenom",
+      "host": "careers.truist.com",
+      "company": "Truist",
+      "profile": "both"
+    },
+    {
+      "type": "phenom",
+      "host": "careers.fiserv.com",
+      "company": "Fiserv",
+      "profile": "both"
+    },
+    {
+      "type": "phenom",
+      "host": "jobs.bmo.com",
+      "company": "BMO",
+      "profile": "both"
+    },
+    {
+      "type": "phenom",
+      "host": "careers.fisglobal.com",
+      "company": "FIS",
+      "profile": "both"
+    },
+    {
+      "type": "phenom",
+      "host": "careers.mastercard.com",
+      "company": "Mastercard",
+      "profile": "both"
+    },
+    {
+      "type": "phenom",
+      "host": "careers.bcg.com",
+      "company": "Boston Consulting Group",
+      "profile": "both"
+    },
+    {
+      "type": "phenom",
+      "host": "careers.adobe.com",
+      "company": "Adobe",
+      "profile": "technical"
+    },
+    {
+      "type": "phenom",
+      "host": "careers.zimmerbiomet.com",
+      "company": "Zimmer Biomet",
+      "profile": "both"
+    },
+    {
+      "type": "phenom",
+      "host": "careers.gehealthcare.com",
+      "company": "GE Healthcare",
+      "profile": "both"
+    },
+    {
+      "type": "phenom",
+      "host": "careers.siemens-healthineers.com",
+      "company": "Siemens Healthineers",
+      "profile": "both"
+    },
+    {
+      "type": "phenom",
+      "host": "jobs.baesystems.com",
+      "company": "BAE Systems",
+      "profile": "both"
+    },
+    {
+      "type": "phenom",
+      "host": "careers.gene.com",
+      "company": "Genentech",
+      "profile": "both"
+    },
+    {
+      "type": "phenom",
+      "host": "careers.itw.com",
+      "company": "Illinois Tool Works",
+      "profile": "both"
+    },
+    {
+      "type": "phenom",
+      "host": "jobs.danaher.com",
+      "company": "Danaher",
+      "profile": "both"
+    },
+    {
+      "type": "phenom",
+      "host": "jobs.thermofisher.com",
+      "company": "Thermo Fisher",
+      "profile": "both"
+    },
+    {
+      "type": "phenom",
+      "host": "jobs.merck.com",
+      "company": "Merck",
+      "profile": "both"
+    },
+    {
+      "type": "phenom",
+      "host": "careers.united.com",
+      "company": "United Airlines",
+      "profile": "both"
+    },
+    {
+      "type": "phenom",
+      "host": "careers.tranetechnologies.com",
+      "company": "Trane Technologies",
+      "profile": "both"
+    },
+    {
+      "type": "phenom",
+      "host": "careers.dupont.com",
+      "company": "DuPont",
+      "profile": "both"
+    },
+    {
+      "type": "phenom",
+      "host": "careers.ppg.com",
+      "company": "PPG",
+      "profile": "both"
+    },
+    {
+      "type": "phenom",
+      "host": "careers.cencora.com",
+      "company": "Cencora",
+      "profile": "technical"
+    },
+    {
+      "type": "phenom",
+      "host": "careers.wbd.com",
+      "company": "Warner Bros Discovery",
+      "profile": "technical"
+    },
+    {
+      "type": "phenom",
+      "host": "careers.activisionblizzard.com",
+      "company": "Activision Blizzard",
+      "profile": "technical"
+    },
+    {
+      "type": "phenom",
+      "host": "jobs.cvshealth.com",
+      "company": "CVS Health",
+      "profile": "both"
     }
   ],
   "linkedin": [

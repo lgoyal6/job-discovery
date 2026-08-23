@@ -99,6 +99,36 @@ describe('ATS adapters', () => {
     expect(greenhousePostedAt(null, null, now)).toBeUndefined();
   });
 
+  // Phenom runs the careers site for a large slice of the Fortune 500 and its
+  // search is one POST to /widgets. The payoff is that its rows already carry
+  // the employer's own ATS link: Truist's 2027 technology internship comes back
+  // pointing at truist.wd1.myworkdayjobs.com rather than at a search page.
+  it('reads a Phenom board, and keeps the employer apply link it hands back', async () => {
+    const job = (id: number, title: string) => ({
+      jobId: `R011806${id}`, title, location: 'Charlotte, North Carolina, USA',
+      postedDate: '2026-08-18T00:00:00.000+0000',
+      applyUrl: `https://truist.wd1.myworkdayjobs.com/Careers/job/Charlotte-NC/x_R011806${id}`
+    });
+    const phenomFetch = vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ refineSearch: { totalHits: 2, data: { jobs: [job(1, '2027 Technology, Data, and Operations Internship')] } } }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ refineSearch: { totalHits: 2, data: { jobs: [job(1, '2027 Technology, Data, and Operations Internship'), job(2, 'Corporate Banking Analyst')] } } }), { status: 200 }));
+    vi.stubGlobal('fetch', phenomFetch);
+    const source = await new AtsSource({ type: 'phenom', host: 'careers.truist.com', company: 'Truist' }).fetch();
+
+    // The searched sweep runs first, then the plain one, merged on requisition
+    // id so the posting both return is one row.
+    expect(JSON.parse(String((phenomFetch.mock.calls[0]?.[1] as RequestInit).body))).toMatchObject({ keywords: 'intern', from: 0 });
+    expect(JSON.parse(String((phenomFetch.mock.calls[1]?.[1] as RequestInit).body))).toMatchObject({ keywords: '' });
+    expect(source.jobs).toHaveLength(2);
+    expect(source.jobs.filter(j => j.sourceJobId === 'R0118061')).toHaveLength(1);
+
+    const [first] = source.jobs;
+    expect(first?.title).toBe('2027 Technology, Data, and Operations Internship');
+    expect(first?.location).toBe('Charlotte, North Carolina, USA');
+    expect(first?.postedAt?.slice(0, 10)).toBe('2026-08-18');
+    expect(first?.directApplyUrl).toContain('truist.wd1.myworkdayjobs.com');
+  });
+
   // Millennium's campus board is Eightfold, and Eightfold answers with ten
   // positions however many are asked for, so a single request saw six of its
   // 59 campus roles. Its 2027 quantitative internships are the reason the
