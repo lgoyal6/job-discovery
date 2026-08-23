@@ -68,6 +68,13 @@ export function parseWorkdayPostedOn(value: unknown, now: string): string | unde
 }
 
 /** Keeps a value out of `postedAt` unless it is a date something can read. */
+/** Eightfold's t_create/t_update, which are seconds rather than milliseconds. */
+export function epochSecondsToIso(value: unknown): string | undefined {
+  if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) return undefined;
+  const date = new Date(value * 1000);
+  return Number.isNaN(date.getTime()) ? undefined : date.toISOString();
+}
+
 export function isoOrUndefined(value: unknown): string | undefined {
   if (typeof value !== 'string' || Number.isNaN(Date.parse(value))) return undefined;
   return value;
@@ -158,6 +165,28 @@ function genericItems(payload: unknown): any[] {
   return [];
 }
 
+/** Eightfold's own page size: `num` is ignored and ten come back regardless. */
+const EIGHTFOLD_PAGE_SIZE = 10;
+
+// The shape-agnostic reader, for the families that are one endpoint returning
+// one array. Field names vary by vendor, so each one is tried in turn.
+function normalizeGeneric(item: any, source: AtsConfig, sourceName: string, now: string, fallbackUrl: string): RawJob {
+  return {
+    sourceName, sourceJobId: String(item.id ?? item.jobId ?? item.requisitionId ?? item.externalPath ?? ''),
+    company: source.company, title: String(item.title ?? item.jobTitle ?? item.name ?? ''),
+    location: String(item.location ?? item.locationsText ?? item.primaryLocation ?? 'Unspecified'),
+    // Eightfold dates a posting in epoch seconds and links it as
+    // canonicalPositionUrl. Without both, Millennium's campus board arrived
+    // undated and pointing at the API endpoint rather than at the job.
+    postedAt: isoOrUndefined(item.postedAt ?? item.datePosted) ?? parseWorkdayPostedOn(item.postedOn, now) ?? epochSecondsToIso(item.t_create ?? item.t_update),
+    description: item.description ?? item.jobDescription ?? item.job_description,
+    employmentType: item.employmentType ?? item.timeType,
+    sourceUrl: String(item.url ?? item.externalUrl ?? item.jobUrl ?? item.canonicalPositionUrl ?? fallbackUrl),
+    directApplyUrl: item.applyUrl ?? item.externalUrl ?? item.jobUrl ?? item.canonicalPositionUrl,
+    scrapedAt: now, raw: item
+  };
+}
+
 export class AtsSource extends SafeSource {
   readonly name: string;
   constructor(private readonly source: AtsConfig) {
@@ -195,7 +224,6 @@ export class AtsSource extends SafeSource {
     }
     if (this.source.type === 'workday') {
       const workday = this.source;
-      const jobs: RawJob[] = [];
       const endpoint = `${workday.host.replace(/\/$/, '')}/wday/cxs/${workday.tenant}/${workday.site}/jobs`;
       // Twenty, and not a page more. Workday answers HTTP 400 with an empty
       // message for any limit above 20, so asking for a hundred failed every
@@ -203,18 +231,42 @@ export class AtsSource extends SafeSource {
       // the first run that configured one. Postings come back newest first, so
       // the per-source cap spends itself on the most recent week rather than on
       // an arbitrary slice.
-      for (let offset = 0; offset < config.WORKDAY_MAX_RESULTS_PER_SOURCE; offset += WORKDAY_PAGE_SIZE) {
-        const limit = Math.min(WORKDAY_PAGE_SIZE, config.WORKDAY_MAX_RESULTS_PER_SOURCE - offset);
-        const response = await fetchWithPolicy(endpoint, { sourceName: this.name, timeoutMs: config.SOURCE_TIMEOUT_MS, retries: config.SOURCE_RETRIES, method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ appliedFacets: {}, limit, offset, searchText: '' }) });
-        const items = genericItems(await response.json());
-        jobs.push(...items.map(item => {
-          const externalPath = String(item.externalPath ?? '');
-          const sourceUrl = externalPath ? `${workday.host.replace(/\/$/, '')}/en-US/${workday.site}${externalPath}` : endpoint;
-          return { sourceName: this.name, sourceJobId: String(item.bulletFields?.[0] ?? item.id ?? externalPath), company: workday.company, title: String(item.title ?? ''), location: String(item.locationsText ?? 'Unspecified'), postedAt: parseWorkdayPostedOn(item.postedOn, now), employmentType: item.timeType, sourceUrl, directApplyUrl: sourceUrl, scrapedAt: now, raw: item };
-        }).filter(job => job.title));
-        if (items.length < limit) break;
-      }
-      return jobs.slice(0, config.WORKDAY_MAX_RESULTS_PER_SOURCE);
+      const sweep = async (searchText: string): Promise<RawJob[]> => {
+        const found: RawJob[] = [];
+        for (let offset = 0; offset < config.WORKDAY_MAX_RESULTS_PER_SOURCE; offset += WORKDAY_PAGE_SIZE) {
+          const limit = Math.min(WORKDAY_PAGE_SIZE, config.WORKDAY_MAX_RESULTS_PER_SOURCE - offset);
+          const response = await fetchWithPolicy(endpoint, { sourceName: this.name, timeoutMs: config.SOURCE_TIMEOUT_MS, retries: config.SOURCE_RETRIES, method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ appliedFacets: {}, limit, offset, searchText }) });
+          const items = genericItems(await response.json());
+          found.push(...items.map(item => {
+            const externalPath = String(item.externalPath ?? '');
+            const sourceUrl = externalPath ? `${workday.host.replace(/\/$/, '')}/en-US/${workday.site}${externalPath}` : endpoint;
+            return { sourceName: this.name, sourceJobId: String(item.bulletFields?.[0] ?? item.id ?? externalPath), company: workday.company, title: String(item.title ?? ''), location: String(item.locationsText ?? 'Unspecified'), postedAt: parseWorkdayPostedOn(item.postedOn, now), employmentType: item.timeType, sourceUrl, directApplyUrl: sourceUrl, scrapedAt: now, raw: item };
+          }).filter(job => job.title));
+          if (items.length < limit) break;
+        }
+        return found.slice(0, config.WORKDAY_MAX_RESULTS_PER_SOURCE);
+      };
+      /**
+       * The newest sixty postings, and then the same board asked for interns.
+       *
+       * A blank search returns the board newest-first, which on a small board is
+       * everything and on a large one is a recency window. Sony publishes 102
+       * postings of which 62 are internships, and Analog Devices publishes over
+       * a thousand: their student roles sit outside the window and were
+       * invisible however healthy the board looked in the logs. Workday ranks a
+       * searched sweep by relevance instead of date, so asking for "intern"
+       * surfaces exactly the postings the window hides. Measured across
+       * fourteen boards it found 67 early-career roles beyond the 94 already
+       * visible, 57 of them at Analog Devices alone.
+       *
+       * Merged on the requisition id, so a posting both sweeps return is one
+       * row and the second sweep costs nothing on the boards small enough for
+       * the first to have already read them.
+       */
+      const jobs = await sweep('');
+      const seen = new Set(jobs.map(job => job.sourceJobId));
+      for (const job of await sweep('intern')) if (!seen.has(job.sourceJobId)) { seen.add(job.sourceJobId); jobs.push(job); }
+      return jobs;
     }
     if (this.source.type === 'oracle') {
       const oracle = this.source;
@@ -233,6 +285,24 @@ export class AtsSource extends SafeSource {
       }
       return jobs;
     }
+    // Eightfold answers with ten positions however many are asked for, so the
+    // page size is fixed and the only way through the board is `start`.
+    // Millennium publishes 59 campus roles and a single request sees six of
+    // them; its 2027 quantitative internships are the reason this board is
+    // configured at all.
+    if (this.source.type === 'eightfold') {
+      const jobs: RawJob[] = [];
+      const base = this.source.endpoint;
+      for (let start = 0; start < config.ATS_MAX_RESULTS_PER_SOURCE; start += EIGHTFOLD_PAGE_SIZE) {
+        const paged = base.replace(/([?&])start=\d+/, `$1start=${start}`);
+        const response = await fetchWithPolicy(paged === base && start ? `${base}&start=${start}` : paged, { sourceName: this.name, timeoutMs: config.SOURCE_TIMEOUT_MS, retries: config.SOURCE_RETRIES });
+        const payload = await response.json() as { count?: number };
+        const items = genericItems(payload);
+        jobs.push(...items.map(item => normalizeGeneric(item, this.source, this.name, now, base)).filter(job => job.title));
+        if (items.length < EIGHTFOLD_PAGE_SIZE || jobs.length >= (payload.count ?? 0)) break;
+      }
+      return jobs;
+    }
     if (this.source.type === 'greenhouse') url = `https://boards-api.greenhouse.io/v1/boards/${encodeURIComponent(this.source.board)}/jobs?content=${config.GREENHOUSE_CONTENT_ENABLED ? 'true' : 'false'}`;
     // No includeCompensation: nothing here reads a compensation field, and on
     // OpenAI's board asking for it costs 600 KB and about 1.5 seconds per run.
@@ -247,15 +317,8 @@ export class AtsSource extends SafeSource {
     // stay sane on a huge board rather than to save bandwidth already spent.
     if (this.source.type === 'greenhouse') return normalizeGreenhouse(payload, this.source, now).slice(0, config.ATS_MAX_RESULTS_PER_BOARD);
     if (this.source.type === 'ashby') return normalizeAshby(payload, this.source, now).slice(0, config.ATS_MAX_RESULTS_PER_BOARD);
-    return genericItems(payload).slice(0, config.ATS_MAX_RESULTS_PER_SOURCE).map(item => ({
-      sourceName: this.name, sourceJobId: String(item.id ?? item.jobId ?? item.requisitionId ?? item.externalPath ?? ''),
-      company: this.source.company, title: String(item.title ?? item.jobTitle ?? item.name ?? ''),
-      location: String(item.location ?? item.locationsText ?? item.primaryLocation ?? 'Unspecified'),
-      postedAt: isoOrUndefined(item.postedAt ?? item.datePosted) ?? parseWorkdayPostedOn(item.postedOn, now), description: item.description ?? item.jobDescription,
-      employmentType: item.employmentType ?? item.timeType,
-      sourceUrl: String(item.url ?? item.externalUrl ?? item.jobUrl ?? url), directApplyUrl: item.applyUrl ?? item.externalUrl ?? item.jobUrl,
-      scrapedAt: now, raw: item
-    })).filter(job => job.title);
+    return genericItems(payload).slice(0, config.ATS_MAX_RESULTS_PER_SOURCE)
+      .map(item => normalizeGeneric(item, this.source, this.name, now, url)).filter(job => job.title);
   }
 }
 
