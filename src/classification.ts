@@ -151,7 +151,18 @@ const CANADIAN_PROVINCE = /,\s*(?:ON|QC|BC|AB|MB|SK|NS|NB|NL|PE|YT|NT|NU)\b/;
  * named no country and so counted as eligible for a digest whose whole premise
  * is a US work authorisation.
  */
-const NON_US_CITY = /\b(?:abu dhabi|dubai|toronto|vancouver|montreal|montréal|calgary|ottawa|edmonton|winnipeg|london|tel aviv|riyadh|doha|kuala lumpur|jakarta|bangkok|taipei|seoul|tokyo|osaka|mumbai|bengaluru|bangalore|hyderabad|gurgaon|gurugram|noida|shanghai|shenzhen|beijing|guangzhou|são paulo|sao paulo|rio de janeiro|buenos aires|bogotá|bogota|johannesburg|nairobi|lagos|casablanca|edinburgh|glasgow|belfast|barcelona|lisbon|brussels|copenhagen|stockholm|helsinki|oslo|warsaw|prague|budapest|bucharest|istanbul|zurich|zürich|geneva|düsseldorf|dusseldorf|sydney|brisbane|auckland)\b/i;
+/**
+ * Two-letter country codes, which postings write exactly where a US state code
+ * goes: Magna files an internship as "Nanchang, Jiangxi, CN".
+ *
+ * Every code that is also a US state code is deliberately absent, which is most
+ * of the interesting ones: IN is Indiana, DE is Delaware, CO is Colorado, IL is
+ * Illinois, AR is Arkansas, ID is Idaho, LA is Louisiana. The US test runs
+ * first regardless, so this only ever sees strings that named no state.
+ */
+const NON_US_COUNTRY_CODE = /,\s*(?:CN|NL|FR|JP|BR|MX|CH|SE|DK|FI|PL|CZ|AT|BE|IE|SG|HK|TW|KR|TH|VN|PH|MY|AE|ZA|EG|NG|KE|TR|RU|UA|GR|PT|ES|IT|GB|AU|NZ)\b/;
+
+const NON_US_CITY = /\b(?:abu dhabi|dubai|amsterdam|eindhoven|rotterdam|utrecht|nanchang|san luis potosi|monterrey|guadalajara|toronto|vancouver|montreal|montréal|calgary|ottawa|edmonton|winnipeg|london|tel aviv|riyadh|doha|kuala lumpur|jakarta|bangkok|taipei|seoul|tokyo|osaka|mumbai|bengaluru|bangalore|hyderabad|gurgaon|gurugram|noida|shanghai|shenzhen|beijing|guangzhou|são paulo|sao paulo|rio de janeiro|buenos aires|bogotá|bogota|johannesburg|nairobi|lagos|casablanca|edinburgh|glasgow|belfast|barcelona|lisbon|brussels|copenhagen|stockholm|helsinki|oslo|warsaw|prague|budapest|bucharest|istanbul|zurich|zürich|geneva|düsseldorf|dusseldorf|sydney|brisbane|auckland)\b/i;
 
 /**
  * The location field, and where it says nothing, the posting's own URL.
@@ -170,7 +181,7 @@ export function classifyLocation(location: string, context = ''): { eligible: bo
   const province = location.match(CANADIAN_PROVINCE);
   if (province) return { eligible: false, evidence: `Location is a Canadian province: ${province[0].replace(/^,\s*/, '')}.` };
   if (US_LOCATION.test(location)) return { eligible: true, evidence: 'Location names a US state, territory, or the United States.' };
-  const match = location.match(NON_US_LOCATION) ?? location.match(NON_US_CITY);
+  const match = location.match(NON_US_LOCATION) ?? location.match(NON_US_COUNTRY_CODE) ?? location.match(NON_US_CITY);
   if (match) return { eligible: false, evidence: `Location is outside the United States: ${match[0]}.` };
   const flattened = context.replace(/[^\p{L}\p{N}]+/gu, ' ');
   const fromContext = flattened.match(NON_US_LOCATION) ?? flattened.match(NON_US_CITY);
