@@ -2866,6 +2866,130 @@
       "companyId": "CustomShow",
       "company": "Zoomifier",
       "profile": "technical"
+    },
+    {
+      "type": "eightfold",
+      "company": "Millennium",
+      "endpoint": "https://campusjobs.mlp.com/api/apply/v2/jobs?domain=mlp.com&start=0&num=100",
+      "profile": "both"
+    },
+    {
+      "type": "greenhouse",
+      "board": "quberesearchandtechnologies",
+      "company": "Qube Research and Technologies",
+      "profile": "both"
+    },
+    {
+      "type": "greenhouse",
+      "board": "tpgcareers",
+      "company": "TPG",
+      "profile": "finance"
+    },
+    {
+      "type": "greenhouse",
+      "board": "grahamcapitalmanagement",
+      "company": "Graham Capital Management",
+      "profile": "both"
+    },
+    {
+      "type": "greenhouse",
+      "board": "winton",
+      "company": "Winton",
+      "profile": "both"
+    },
+    {
+      "type": "greenhouse",
+      "board": "vaticlabs",
+      "company": "Vatic Labs",
+      "profile": "both"
+    },
+    {
+      "type": "greenhouse",
+      "board": "harrisassociates",
+      "company": "Harris Associates",
+      "profile": "finance"
+    },
+    {
+      "type": "greenhouse",
+      "board": "victory",
+      "company": "Victory Capital",
+      "profile": "finance"
+    },
+    {
+      "type": "smartrecruiters",
+      "companyId": "stifel",
+      "company": "Stifel",
+      "profile": "finance"
+    },
+    {
+      "type": "smartrecruiters",
+      "companyId": "taassociates",
+      "company": "TA Associates",
+      "profile": "finance"
+    },
+    {
+      "type": "workday",
+      "host": "https://chevron.wd5.myworkdayjobs.com",
+      "tenant": "chevron",
+      "site": "University",
+      "company": "Chevron Corporation",
+      "profile": "technical"
+    },
+    {
+      "type": "workday",
+      "host": "https://synchronyfinancial.wd5.myworkdayjobs.com",
+      "tenant": "synchronyfinancial",
+      "site": "University",
+      "company": "Synchrony Financial",
+      "profile": "technical"
+    },
+    {
+      "type": "workday",
+      "host": "https://clr.wd5.myworkdayjobs.com",
+      "tenant": "clr",
+      "site": "CLR_Careers",
+      "company": "Continental Resources",
+      "profile": "technical"
+    },
+    {
+      "type": "workday",
+      "host": "https://draper.wd5.myworkdayjobs.com",
+      "tenant": "draper",
+      "site": "Draper_Careers",
+      "company": "Draper",
+      "profile": "technical"
+    },
+    {
+      "type": "workday",
+      "host": "https://lthc.wd1.myworkdayjobs.com",
+      "tenant": "lthc",
+      "site": "excellusbcbscareers",
+      "company": "Excellus BCBS",
+      "profile": "technical"
+    },
+    {
+      "type": "workday",
+      "host": "https://boeing.wd1.myworkdayjobs.com",
+      "tenant": "boeing",
+      "site": "EXTERNAL_CAREERS",
+      "company": "The Boeing Company",
+      "profile": "technical"
+    },
+    {
+      "type": "workday",
+      "host": "https://motorolasolutions.wd5.myworkdayjobs.com",
+      "tenant": "motorolasolutions",
+      "site": "careers",
+      "company": "Motorola Solutions",
+      "profile": "technical"
+    },
+    {
+      "type": "workday",
+      "host": "https://selinc.wd1.myworkdayjobs.com",
+      "tenant": "selinc",
+      "site": "sel",
+      "company": "SEL",
+      "profile": "technical"
     }
   ],
   "linkedin": [
