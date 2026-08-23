@@ -73,7 +73,7 @@ Check `error_message`, endpoint health, and the recorded duration. Schema errors
 
 ### Gmail failed after batch claim
 
-Search Gmail by the exact subject and timestamp. If it exists, run `node dist/cli.js batch-sent --batch-key 'KEY' --message-id 'ID'`. If it does not exist, mark the batch `ABANDONED` only after confirming non-delivery, then clear no job timestamps—the jobs were never marked sent. The same digest may then be claimed again.
+Search Gmail by the exact subject and timestamp. If it exists, run `node dist/cli.js batch-sent --batch-key 'KEY' --message-id 'ID'`. If it does not exist, mark the batch `ABANDONED` only after confirming non-delivery, then clear no job timestamps - the jobs were never marked sent. The same digest may then be claimed again.
 
 ### Pipeline reports overlap
 
