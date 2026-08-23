@@ -2991,6 +2991,484 @@
       "site": "sel",
       "company": "SEL",
       "profile": "technical"
+    },
+    {
+      "type": "ashby",
+      "board": "applied",
+      "company": "Applied Intuition",
+      "profile": "technical"
+    },
+    {
+      "type": "ashby",
+      "board": "cylake-inc",
+      "company": "Cylake",
+      "profile": "technical"
+    },
+    {
+      "type": "lever",
+      "site": "calstart",
+      "company": "CALSTART",
+      "profile": "technical"
+    },
+    {
+      "type": "smartrecruiters",
+      "companyId": "AveryDennison",
+      "company": "Avery Dennison",
+      "profile": "finance"
+    },
+    {
+      "type": "workday",
+      "site": "ArdianCareers",
+      "host": "https://ardian.wd103.myworkdayjobs.com",
+      "tenant": "ardian",
+      "company": "Ardian",
+      "profile": "finance"
+    },
+    {
+      "type": "workday",
+      "site": "DBE",
+      "host": "https://diamondbackenergy.wd12.myworkdayjobs.com",
+      "tenant": "diamondbackenergy",
+      "company": "Diamondback Energy",
+      "profile": "finance"
+    },
+    {
+      "type": "workday",
+      "site": "Careers",
+      "host": "https://cnoinc.wd5.myworkdayjobs.com",
+      "tenant": "cnoinc",
+      "company": "CNO Financial Group",
+      "profile": "finance"
+    },
+    {
+      "type": "greenhouse",
+      "board": "faire",
+      "company": "Faire",
+      "profile": "technical"
+    },
+    {
+      "type": "workday",
+      "site": "cignacareers",
+      "host": "https://cigna.wd5.myworkdayjobs.com",
+      "tenant": "cigna",
+      "company": "Cigna Group",
+      "profile": "finance"
+    },
+    {
+      "type": "workday",
+      "site": "External",
+      "host": "https://amat.wd1.myworkdayjobs.com",
+      "tenant": "amat",
+      "company": "Applied Materials",
+      "profile": "finance"
+    },
+    {
+      "type": "workday",
+      "site": "External",
+      "host": "https://conocophillips.wd1.myworkdayjobs.com",
+      "tenant": "conocophillips",
+      "company": "ConocoPhillips",
+      "profile": "technical"
+    },
+    {
+      "type": "workday",
+      "site": "Careers_US",
+      "host": "https://conagrabrands.wd1.myworkdayjobs.com",
+      "tenant": "conagrabrands",
+      "company": "Conagra Brands",
+      "profile": "both"
+    },
+    {
+      "type": "ashby",
+      "board": "heron-power",
+      "company": "Heron Power",
+      "profile": "technical"
+    },
+    {
+      "type": "greenhouse",
+      "board": "honehealth",
+      "company": "Hone Health",
+      "profile": "technical"
+    },
+    {
+      "type": "smartrecruiters",
+      "companyId": "HuckAdventures",
+      "company": "Huck Adventures",
+      "profile": "finance"
+    },
+    {
+      "type": "workday",
+      "site": "vernova_externalsite",
+      "host": "https://gevernova.wd5.myworkdayjobs.com",
+      "tenant": "gevernova",
+      "company": "GE Vernova",
+      "profile": "technical"
+    },
+    {
+      "type": "workday",
+      "site": "GNW",
+      "host": "https://gnw.wd1.myworkdayjobs.com",
+      "tenant": "gnw",
+      "company": "Genworth Financial",
+      "profile": "finance"
+    },
+    {
+      "type": "workday",
+      "site": "2",
+      "host": "https://citi.wd5.myworkdayjobs.com",
+      "tenant": "citi",
+      "company": "Citi",
+      "profile": "finance"
+    },
+    {
+      "type": "greenhouse",
+      "board": "integrainterns",
+      "company": "Integra FEC",
+      "profile": "finance"
+    },
+    {
+      "type": "workday",
+      "site": "FannieMaeCareers",
+      "host": "https://fanniemae.wd1.myworkdayjobs.com",
+      "tenant": "fanniemae",
+      "company": "Fannie Mae",
+      "profile": "finance"
+    },
+    {
+      "type": "workday",
+      "site": "dfa_careers",
+      "host": "https://dimensional.wd5.myworkdayjobs.com",
+      "tenant": "dimensional",
+      "company": "Dimensional Fund Advisors",
+      "profile": "finance"
+    },
+    {
+      "type": "workday",
+      "site": "ExternalSite",
+      "host": "https://eversource.wd1.myworkdayjobs.com",
+      "tenant": "eversource",
+      "company": "Eversource Energy",
+      "profile": "technical"
+    },
+    {
+      "type": "greenhouse",
+      "board": "lucidmotors",
+      "company": "Lucid Motors",
+      "profile": "technical"
+    },
+    {
+      "type": "ashby",
+      "board": "mach",
+      "company": "Mach Industries",
+      "profile": "technical"
+    },
+    {
+      "type": "ashby",
+      "board": "mechanize",
+      "company": "Mechanize",
+      "profile": "technical"
+    },
+    {
+      "type": "greenhouse",
+      "board": "mwinternshipprogram",
+      "company": "Marshall Wace",
+      "profile": "both"
+    },
+    {
+      "type": "workday",
+      "site": "global_hm_career_site",
+      "host": "https://heidelbergmaterials.wd3.myworkdayjobs.com",
+      "tenant": "heidelbergmaterials",
+      "company": "Heidelberg Materials",
+      "profile": "finance"
+    },
+    {
+      "type": "workday",
+      "site": "hntb_university_careers",
+      "host": "https://hntb.wd5.myworkdayjobs.com",
+      "tenant": "hntb",
+      "company": "HNTB",
+      "profile": "both"
+    },
+    {
+      "type": "workday",
+      "site": "External",
+      "host": "https://generac.wd5.myworkdayjobs.com",
+      "tenant": "generac",
+      "company": "Generac",
+      "profile": "finance"
+    },
+    {
+      "type": "workday",
+      "site": "hntb_careers",
+      "host": "https://hntb.wd5.myworkdayjobs.com",
+      "tenant": "hntb",
+      "company": "HNTB",
+      "profile": "both"
+    },
+    {
+      "type": "greenhouse",
+      "board": "olsson",
+      "company": "Olsson",
+      "profile": "technical"
+    },
+    {
+      "type": "greenhouse",
+      "board": "optiverprivate",
+      "company": "Optiver",
+      "profile": "technical"
+    },
+    {
+      "type": "workday",
+      "site": "Careers_GM",
+      "host": "https://generalmotors.wd5.myworkdayjobs.com",
+      "tenant": "generalmotors",
+      "company": "General Motors",
+      "profile": "finance"
+    },
+    {
+      "type": "workday",
+      "site": "External_Careers",
+      "host": "https://theirc.wd1.myworkdayjobs.com",
+      "tenant": "theirc",
+      "company": "International Rescue Committee (IRC)",
+      "profile": "finance"
+    },
+    {
+      "type": "lever",
+      "site": "pivotal",
+      "company": "Pivotal Software",
+      "profile": "technical"
+    },
+    {
+      "type": "workday",
+      "site": "BRG_External_Career_Site",
+      "host": "https://thinkbrg.wd5.myworkdayjobs.com",
+      "tenant": "thinkbrg",
+      "company": "BRG",
+      "profile": "finance"
+    },
+    {
+      "type": "ashby",
+      "board": "reframesystems",
+      "company": "Reframe Systems",
+      "profile": "technical"
+    },
+    {
+      "type": "workday",
+      "site": "jllcareers",
+      "host": "https://jll.wd1.myworkdayjobs.com",
+      "tenant": "jll",
+      "company": "Jones Lang LaSalle (JLL)",
+      "profile": "finance"
+    },
+    {
+      "type": "greenhouse",
+      "board": "relaypro",
+      "company": "Relay",
+      "profile": "technical"
+    },
+    {
+      "type": "ashby",
+      "board": "reviserobotics",
+      "company": "Revise Robotics",
+      "profile": "technical"
+    },
+    {
+      "type": "workday",
+      "site": "Careers",
+      "host": "https://nxp.wd3.myworkdayjobs.com",
+      "tenant": "nxp",
+      "company": "NXP",
+      "profile": "technical"
+    },
+    {
+      "type": "workday",
+      "site": "Magna",
+      "host": "https://magna.wd3.myworkdayjobs.com",
+      "tenant": "magna",
+      "company": "Magna International",
+      "profile": "finance"
+    },
+    {
+      "type": "greenhouse",
+      "board": "samayaai",
+      "company": "Samaya AI",
+      "profile": "finance"
+    },
+    {
+      "type": "workday",
+      "site": "CORPORATE-CAREERS",
+      "host": "https://northwesternmutual.wd5.myworkdayjobs.com",
+      "tenant": "northwesternmutual",
+      "company": "Northwestern Mutual",
+      "profile": "both"
+    },
+    {
+      "type": "greenhouse",
+      "board": "samsungresearchamericainternship",
+      "company": "Samsung AI Research Center",
+      "profile": "technical"
+    },
+    {
+      "type": "workday",
+      "site": "pentair_careers",
+      "host": "https://pentair.wd5.myworkdayjobs.com",
+      "tenant": "pentair",
+      "company": "Pentair",
+      "profile": "both"
+    },
+    {
+      "type": "ashby",
+      "board": "tacit",
+      "company": "Tacit",
+      "profile": "technical"
+    },
+    {
+      "type": "workday",
+      "site": "nvidiaexternalcareersite",
+      "host": "https://nvidia.wd5.myworkdayjobs.com",
+      "tenant": "nvidia",
+      "company": "NVIDIA",
+      "profile": "technical"
+    },
+    {
+      "type": "workday",
+      "site": "INTERN",
+      "host": "https://boeing.wd1.myworkdayjobs.com",
+      "tenant": "boeing",
+      "company": "The Boeing Company",
+      "profile": "technical"
+    },
+    {
+      "type": "workday",
+      "site": "careers",
+      "host": "https://nxp.wd3.myworkdayjobs.com",
+      "tenant": "nxp",
+      "company": "NXP Semiconductors",
+      "profile": "technical"
+    },
+    {
+      "type": "workday",
+      "site": "ExternalPrivatePostingStudents",
+      "host": "https://rbc.wd3.myworkdayjobs.com",
+      "tenant": "rbc",
+      "company": "Royal Bank of Canada",
+      "profile": "finance"
+    },
+    {
+      "type": "ashby",
+      "board": "trm-labs",
+      "company": "Trm Labs",
+      "profile": "technical"
+    },
+    {
+      "type": "workday",
+      "site": "medtroniccareers",
+      "host": "https://medtronic.wd1.myworkdayjobs.com",
+      "tenant": "medtronic",
+      "company": "Medtronic",
+      "profile": "both"
+    },
+    {
+      "type": "workday",
+      "site": "External",
+      "host": "https://pnc.wd5.myworkdayjobs.com",
+      "tenant": "pnc",
+      "company": "PNC Financial Services",
+      "profile": "finance"
+    },
+    {
+      "type": "workday",
+      "site": "MedtronicCareers",
+      "host": "https://medtronic.wd1.myworkdayjobs.com",
+      "tenant": "medtronic",
+      "company": "Medtronic",
+      "profile": "both"
+    },
+    {
+      "type": "workday",
+      "site": "Suncor_External",
+      "host": "https://suncor.wd1.myworkdayjobs.com",
+      "tenant": "suncor",
+      "company": "Suncor",
+      "profile": "technical"
+    },
+    {
+      "type": "greenhouse",
+      "board": "xpengmotors",
+      "company": "XPENG",
+      "profile": "technical"
+    },
+    {
+      "type": "workday",
+      "site": "rocket_careers",
+      "host": "https://quickenloans.wd5.myworkdayjobs.com",
+      "tenant": "quickenloans",
+      "company": "Rocket Companies",
+      "profile": "technical"
+    },
+    {
+      "type": "lever",
+      "site": "tri",
+      "company": "Tri",
+      "profile": "technical"
+    },
+    {
+      "type": "workday",
+      "site": "external",
+      "host": "https://winlandfoods.wd1.myworkdayjobs.com",
+      "tenant": "winlandfoods",
+      "company": "Winland Foods",
+      "profile": "finance"
+    },
+    {
+      "type": "workday",
+      "site": "Uline_Careers",
+      "host": "https://uline.wd1.myworkdayjobs.com",
+      "tenant": "uline",
+      "company": "Uline",
+      "profile": "both"
+    },
+    {
+      "type": "workday",
+      "site": "utstudent",
+      "host": "https://utaustin.wd1.myworkdayjobs.com",
+      "tenant": "utaustin",
+      "company": "University of Texas at Austin",
+      "profile": "finance"
+    },
+    {
+      "type": "workday",
+      "site": "targetcareers",
+      "host": "https://target.wd5.myworkdayjobs.com",
+      "tenant": "target",
+      "company": "Target",
+      "profile": "finance"
+    },
+    {
+      "type": "workday",
+      "site": "wellsfargojobs",
+      "host": "https://wf.wd1.myworkdayjobs.com",
+      "tenant": "wf",
+      "company": "Wells Fargo",
+      "profile": "finance"
+    },
+    {
+      "type": "workday",
+      "site": "rbcglobal1",
+      "host": "https://rbc.wd3.myworkdayjobs.com",
+      "tenant": "rbc",
+      "company": "Royal Bank of Canada",
+      "profile": "technical"
+    },
+    {
+      "type": "workday",
+      "site": "RBCEARLYTALENT1",
+      "host": "https://rbc.wd3.myworkdayjobs.com",
+      "tenant": "rbc",
+      "company": "Royal Bank of Canada",
+      "profile": "both"
     }
   ],
   "linkedin": [
