@@ -314,6 +314,65 @@ describe('mark applied', () => {
   });
 });
 
+describe('the title decides, and the description gets no vote', () => {
+  // Neuralink's "IT Systems Administrator Intern" reached the finance digest
+  // because its duties mention hardware asset management and its benefits
+  // mention equity. Lambda's "Legal Intern" arrived the same way. At an
+  // investment firm every description says markets, so reading one classified
+  // the employer rather than the job.
+  it('refuses a role whose only finance signal is in its description', () => {
+    const cases: Array<[string, string]> = [
+      ['IT Systems Administrator Intern', 'Assist with hardware asset management including inventory tracking and asset tags. Equity (RSUs) offered.'],
+      ['Legal Intern - Fall 2026', 'Support the legal team at our hedge fund. Compensation includes equity.'],
+      ['FPGA Intern', 'Work alongside the trading desk in global markets.'],
+      ['AI/ML Research Intern', 'Our private equity team invests across public and private markets.']
+    ];
+    for (const [title, description] of cases) {
+      expect(classifyFinanceCategory(title, description), title).toMatchObject({ eligible: false });
+    }
+  });
+
+  // "IT asset management" is tracking laptops and licences, and it shares every
+  // word with the discipline that manages money. Lucid Motors' intern matched
+  // the investing pattern on its title alone.
+  it('reads asset management as inventory when a technology word owns it', () => {
+    for (const title of ['IT Asset Management Intern', 'Software Asset Management Analyst', 'Hardware Asset Management Co-op']) {
+      expect(classifyFinanceCategory(title), title).toMatchObject({ eligible: false });
+    }
+    // The discipline itself is untouched, including where an employer names a
+    // group after it.
+    for (const title of ['Asset Management Group Undergraduate Intern', 'Asset & Wealth Management Summer Analyst', 'Internship in Portfolio Management']) {
+      expect(classifyFinanceCategory(title), title).toMatchObject({ eligible: true });
+    }
+  });
+
+  // The quant patterns are exempt from the other-discipline reject, because a
+  // quant title names its own discipline. That exemption does not extend to
+  // writing software: these belong in the technical digest, which keeps
+  // developer and engineer in its own copy of the same patterns.
+  it('lets a quant title keep its desk, but not its compiler', () => {
+    for (const title of ['Quantitative Research Software Developer', 'Quantitative Developer Intern', 'Quant Software Engineer', 'Quantitative Trading Systems Engineer']) {
+      expect(classifyFinanceCategory(title), title).toMatchObject({ eligible: false });
+    }
+    // Susquehanna files a "Quant Systematic Trading Analyst", so the desk may
+    // sit between the discipline and the role.
+    for (const title of ['Quantitative Trader Intern - Summer 2027', 'Quant Systematic Trading Analyst', 'Quantitative Risk Intern', 'Quantitative Research Analyst - Intern (US)']) {
+      expect(classifyFinanceCategory(title), title).toMatchObject({ category: 'Quant', eligible: true });
+    }
+  });
+
+  // Removing the fallback cost one row in the measurement that justified it, so
+  // these have to keep qualifying on their titles alone.
+  it('still reads the roles this digest exists for, from the title alone', () => {
+    for (const title of ['Research Analyst Intern', 'Finance Intern - Summer 2027', 'FP&A Internship - Summer 2027',
+      '2027 Summer Intern - Capital Markets Group Analyst', 'Private Wealth Management Internship - Summer 2027',
+      'Sales and Trading Intern', 'Quantitative Trading Internship', 'Summer Analyst',
+      'Investment Analyst Intern - Private Debt & Equity, Summer 2027', '2027 ETP Intern - Wealth Management']) {
+      expect(classifyFinanceCategory(title), title).toMatchObject({ eligible: true });
+    }
+  });
+});
+
 describe('US-only, read strictly enough for a banking list', () => {
   afterEach(() => vi.unstubAllEnvs());
 

@@ -302,7 +302,16 @@ const accountingAuditTax = /\b(accounting|accountant|accounts (?:payable|receiva
 // descriptions say "proprietary trading" and the description fallback below
 // took that as a finance signal. A quant title still survives: the front office
 // is tested before this, and "Quantitative Developer" matches there.
-const otherDiscipline = /\b(software|firmware|hardware|mechanical|electrical|engineer(?:ing)?|developer|programmer|data scien\w+|machine learning|artificial intelligence|infrastructure|devops|cyber ?security|marketing|human resources|recruit\w+|paralegal|clinical|nurse|teacher)\b/i;
+// Disciplines that are not finance however often their descriptions say
+// "financial". The IT and legal entries were added after Neuralink's "IT
+// Systems Administrator Intern" and Lambda's "Legal Intern" reached the finance
+// digest: neither title named a finance track, so both fell through to the
+// description, where one keyword was enough. Network and support are spelled
+// out rather than left bare because DRW files a "Leadership Rotation Network
+// Intern" that belongs in this digest.
+const otherDiscipline = /\b(software|firmware|hardware|mechanical|electrical|engineer(?:ing)?|developer|programmer|data scien\w+|machine learning|artificial intelligence|infrastructure|devops|cyber ?security|information technology|systems? administrator|sysadmin|help ?desk|desktop support|technical support|network (?:engineer|administrator|operations)|legal|attorney|counsel|marketing|human resources|recruit\w+|paralegal|clinical|nurse|physician|pharmacist|veterinar\w+|teacher)\b/i;
+/** The half of otherDiscipline that even a quant title cannot talk its way past. */
+const buildsSoftware = /\b(software|developer|programmer|firmware|devops|systems? engineer|engineering manager)\b/i;
 const insuranceRiskCompliance = /\b(insurance|underwrit\w+|actuar\w+|claims?|reinsurance|risk manage\w+|enterprise risk|operational risk|credit risk|compliance|regulatory|aml|kyc|fraud|internal control)\b/i;
 
 // Ordered specific desk first, catch-all last. The IB pattern ends in a bare
@@ -323,7 +332,10 @@ const frontOffice: Array<[Category, RegExp]> = [
   // trader, analyst, risk and strategist are the roles that decide or study what
   // to trade. A title left behind here falls to the other-discipline reject on
   // the word "developer", which is exactly where it should land.
-  ['Quant', /\b(quantitative|quant)\s+(research(?:er)?|trading|trader|analyst|risk|strategist|portfolio)\b|\balgorithmic trading\b|\btrading intern(?:ship)?\b/i],
+  // Up to two words may sit between the discipline and the role, because desks
+  // name themselves in the middle of the title: Susquehanna files a
+  // "Quant Systematic Trading Analyst" and requiring adjacency dropped it.
+  ['Quant', /\b(quantitative|quant)\s+(?:\w+\s+){0,2}(research(?:er)?|trading|trader|analyst|risk|strategist|portfolio)\b|\balgorithmic trading\b|\btrading intern(?:ship)?\b/i],
   ['AM/WM', /\b(asset management|wealth management|investment management|investment analy(?:st|sis|tics)|portfolio management|portfolio manager|portfolio analy(?:st|sis)|equity analyst|research analyst|research associate|investment research|credit research|securities research|fundamental (?:equit\w+|research)|public markets?|public investments?|public equit\w+|public credit|private client|private bank(?:ing)?|financial advis\w+|financial planner|financial planning(?!\s*(?:&|and)\s*analysis)|fund management|multi-?asset|hedge fund|endowment|pension investments?|investment strateg\w+|buy[ -]side)\b/i],
   ['IB', /\b(investment bank(?:ing|er)?|bank(?:ing)? (?:analyst|associate|intern(?:ship)?|summer)|capital markets|m&a|mergers (?:&|and) acquisitions|summer analyst|sales (?:&|and) trading|equity research|equity capital markets|debt capital markets|leveraged finance|restructuring|global markets|coverage banking|sell[ -]side)\b/i]
 ];
@@ -338,7 +350,26 @@ const corporateFinance: Array<[Category, RegExp]> = [
 /** Categories that answer "this role invests money or researches what to invest in". */
 export const INVESTING_CATEGORIES: ReadonlySet<Category> = new Set<Category>(['IB', 'PE/VC', 'AM/WM', 'Quant']);
 
-export function classifyFinanceCategory(title: string, description = ''): { category: Category; eligible: boolean; reason?: string } {
+/**
+ * Asset management, except when it is inventory.
+ *
+ * "IT asset management" is tracking laptops and licences, and it shares every
+ * word with the discipline that manages money. Lucid Motors' "IT Asset
+ * Management Intern" matched the investing pattern on its title, and
+ * Neuralink's systems administrator matched on a duty to "assist with hardware
+ * asset management". Both reached a digest whose whole subject is investing.
+ *
+ * Removing the phrase rather than adding a negative lookbehind keeps it working
+ * in the description too, where the qualifier and the phrase are often several
+ * words apart.
+ */
+const TECHNOLOGY_ASSET_MANAGEMENT = /\b(?:it|i\.t\.|hardware|software|digital|data|media|records?|fixed|physical|equipment|inventory)[\s-]+asset[\s-]+management\b/gi;
+function withoutInventoryLanguage(text: string): string {
+  return text.replace(TECHNOLOGY_ASSET_MANAGEMENT, ' ');
+}
+
+export function classifyFinanceCategory(rawTitle: string, _rawDescription = ''): { category: Category; eligible: boolean; reason?: string } {
+  const title = withoutInventoryLanguage(rawTitle);
   if (seniorRole.test(title)) return { category: 'Other', eligible: false, reason: 'not_early_career' };
   if (commercialBanking.test(title)) return { category: 'Other', eligible: false, reason: 'commercial_banking' };
   if (backOffice.test(title)) return { category: 'Other', eligible: false, reason: 'back_office_operations' };
@@ -349,21 +380,38 @@ export function classifyFinanceCategory(title: string, description = ''): { cate
     // matched on. Only the quant patterns, which name their discipline
     // themselves, may keep a title another discipline also claims; everything
     // else falls through to the reject on the next line.
-    if (category !== 'Quant' && otherDiscipline.test(title)) break;
+    //
+    // That exemption does not extend to writing software. "Quantitative
+    // Research Software Developer" is a software role on a research desk, the
+    // same shape as the Schonfeld title and the same answer: it belongs in the
+    // technical digest, which has its own copy of these quant patterns and
+    // keeps developer and engineer in them on purpose.
+    if (otherDiscipline.test(title) && (category !== 'Quant' || buildsSoftware.test(title))) break;
     return { category, eligible: true };
   }
   if (otherDiscipline.test(title)) return { category: 'Other', eligible: false, reason: 'not_a_finance_discipline' };
   if (accountingAuditTax.test(title)) return { category: 'Other', eligible: false, reason: 'accounting_audit_or_tax' };
   if (insuranceRiskCompliance.test(title)) return { category: 'Other', eligible: false, reason: 'insurance_risk_or_compliance' };
   for (const [category, pattern] of corporateFinance) if (pattern.test(title)) return { category, eligible: true };
-  // Only a title that named no track of its own earns a look at the
-  // description, the same allowance the technical policy makes, and only the
-  // front office can be read out of one. Every rule above has already returned,
-  // so a description cannot readmit an accounting or commercial banking row by
-  // mentioning the word "investment" once; the corporate-finance pattern is
-  // excluded here for the same reason in reverse, since every job description
-  // written at a financial firm says "financial" somewhere in the body.
-  for (const [category, pattern] of frontOffice) if (pattern.test(description)) return { category, eligible: true };
+  // The title decides, and the description gets no vote.
+  //
+  // There used to be a fallback here: a title that named no track of its own
+  // was allowed to match the front-office patterns against its description.
+  // It was a reasonable idea and it did not survive measurement. At an
+  // investment firm every description says markets, so the fallback classified
+  // whatever the employer happened to be rather than what the job was, and it
+  // admitted Neuralink's "IT Systems Administrator Intern", Lambda's "Legal
+  // Intern", DRW's "FPGA Intern" as investment banking and its "AI/ML Research
+  // Intern" as private equity.
+  //
+  // What it bought was nothing. Across 45 finance-profile boards, 80 postings
+  // qualified on their title and exactly one qualified only through its
+  // description: StepStone's "2027 AI Initiatives PhD Internship", which is an
+  // AI role at a private equity firm and belongs in the other digest anyway.
+  // The same count over a live digest was 135 on the title against one.
+  //
+  // A thin title that genuinely names a finance track is still caught, because
+  // the patterns above already read every word of it.
   return { category: 'Other', eligible: false, reason: 'no_finance_signal' };
 }
 
