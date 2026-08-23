@@ -3469,6 +3469,547 @@
       "tenant": "rbc",
       "company": "Royal Bank of Canada",
       "profile": "both"
+    },
+    {
+      "type": "workday",
+      "host": "https://guggenheiminvestment.wd5.myworkdayjobs.com",
+      "tenant": "guggenheiminvestment",
+      "site": "External",
+      "company": "Guggenheim Partners",
+      "profile": "finance"
+    },
+    {
+      "type": "workday",
+      "host": "https://baincapital.wd1.myworkdayjobs.com",
+      "tenant": "baincapital",
+      "site": "External_Public",
+      "company": "Bain Capital",
+      "profile": "finance"
+    },
+    {
+      "type": "workday",
+      "host": "https://moelis.wd1.myworkdayjobs.com",
+      "tenant": "moelis",
+      "site": "Experienced-Hires",
+      "company": "Moelis",
+      "profile": "finance"
+    },
+    {
+      "type": "workday",
+      "host": "https://ghr.wd1.myworkdayjobs.com",
+      "tenant": "ghr",
+      "site": "lateral-us",
+      "company": "Bank of America",
+      "profile": "both"
+    },
+    {
+      "type": "workday",
+      "host": "https://raymondjames.wd1.myworkdayjobs.com",
+      "tenant": "raymondjames",
+      "site": "RaymondJamesCareers",
+      "company": "Raymond James",
+      "profile": "finance"
+    },
+    {
+      "type": "workday",
+      "host": "https://nasdaq.wd1.myworkdayjobs.com",
+      "tenant": "nasdaq",
+      "site": "Global_External_Site",
+      "company": "Nasdaq",
+      "profile": "both"
+    },
+    {
+      "type": "workday",
+      "host": "https://spgi.wd5.myworkdayjobs.com",
+      "tenant": "spgi",
+      "site": "SPGI_Careers",
+      "company": "S&P Global",
+      "profile": "both"
+    },
+    {
+      "type": "workday",
+      "host": "https://pjtpartners.wd1.myworkdayjobs.com",
+      "tenant": "pjtpartners",
+      "site": "Careers",
+      "company": "PJT Partners",
+      "profile": "finance"
+    },
+    {
+      "type": "workday",
+      "host": "https://paloaltonetworks.wd5.myworkdayjobs.com",
+      "tenant": "paloaltonetworks",
+      "site": "panwexternalcareers",
+      "company": "Palo Alto Networks",
+      "profile": "technical"
+    },
+    {
+      "type": "workday",
+      "host": "https://oaktree.wd1.myworkdayjobs.com",
+      "tenant": "oaktree",
+      "site": "Oaktree",
+      "company": "Oaktree Capital",
+      "profile": "finance"
+    },
+    {
+      "type": "workday",
+      "host": "https://blueowl.wd1.myworkdayjobs.com",
+      "tenant": "blueowl",
+      "site": "blueowl",
+      "company": "Blue Owl",
+      "profile": "finance"
+    },
+    {
+      "type": "workday",
+      "host": "https://athene.wd5.myworkdayjobs.com",
+      "tenant": "athene",
+      "site": "Apollo_Careers",
+      "company": "Apollo Global Management",
+      "profile": "finance"
+    },
+    {
+      "type": "workday",
+      "host": "https://comfortsystemsusa.wd1.myworkdayjobs.com",
+      "tenant": "comfortsystemsusa",
+      "site": "Corpcareers",
+      "company": "Comfort Systems USA",
+      "profile": "finance"
+    },
+    {
+      "type": "workday",
+      "host": "https://genmills.wd1.myworkdayjobs.com",
+      "tenant": "genmills",
+      "site": "GMI_External_Careers",
+      "company": "General Mills",
+      "profile": "both"
+    },
+    {
+      "type": "workday",
+      "host": "https://bah.wd1.myworkdayjobs.com",
+      "tenant": "bah",
+      "site": "BAH_Jobs",
+      "company": "Booz Allen Hamilton",
+      "profile": "both"
+    },
+    {
+      "type": "workday",
+      "host": "https://abbott.wd5.myworkdayjobs.com",
+      "tenant": "abbott",
+      "site": "abbottcareers",
+      "company": "Abbott",
+      "profile": "both"
+    },
+    {
+      "type": "workday",
+      "host": "https://workday.wd5.myworkdayjobs.com",
+      "tenant": "workday",
+      "site": "Workday",
+      "company": "Workday",
+      "profile": "technical"
+    },
+    {
+      "type": "oracle",
+      "site": "BNY-Careers",
+      "host": "https://eofe.fa.us2.oraclecloud.com",
+      "company": "BNY Mellon",
+      "profile": "both"
+    },
+    {
+      "type": "workday",
+      "site": "MFS-Careers",
+      "host": "https://mfs.wd1.myworkdayjobs.com",
+      "tenant": "mfs",
+      "company": "MFS Investment Management",
+      "profile": "both"
+    },
+    {
+      "type": "workday",
+      "site": "voya_jobs",
+      "host": "https://godirect.wd5.myworkdayjobs.com",
+      "tenant": "godirect",
+      "company": "Voya Financial",
+      "profile": "both"
+    },
+    {
+      "type": "workday",
+      "site": "Ameriprise",
+      "host": "https://ameriprise.wd5.myworkdayjobs.com",
+      "tenant": "ameriprise",
+      "company": "Ameriprise Financial",
+      "profile": "both"
+    },
+    {
+      "type": "workday",
+      "site": "northerntrust",
+      "host": "https://ntrs.wd1.myworkdayjobs.com",
+      "tenant": "ntrs",
+      "company": "Northern Trust",
+      "profile": "both"
+    },
+    {
+      "type": "workday",
+      "site": "Visa",
+      "host": "https://visa.wd5.myworkdayjobs.com",
+      "tenant": "visa",
+      "company": "Visa",
+      "profile": "both"
+    },
+    {
+      "type": "workday",
+      "site": "External_Career_Site",
+      "host": "https://keybank.wd5.myworkdayjobs.com",
+      "tenant": "keybank",
+      "company": "KeyBank",
+      "profile": "both"
+    },
+    {
+      "type": "workday",
+      "site": "Careers",
+      "host": "https://broadridge.wd5.myworkdayjobs.com",
+      "tenant": "broadridge",
+      "company": "Broadridge",
+      "profile": "both"
+    },
+    {
+      "type": "workday",
+      "site": "MTB",
+      "host": "https://mtb.wd5.myworkdayjobs.com",
+      "tenant": "mtb",
+      "company": "M&T Bank",
+      "profile": "both"
+    },
+    {
+      "type": "workday",
+      "site": "TSYS",
+      "host": "https://tsys.wd1.myworkdayjobs.com",
+      "tenant": "tsys",
+      "company": "Global Payments",
+      "profile": "both"
+    },
+    {
+      "type": "oracle",
+      "site": "CX_1",
+      "host": "https://ibpwjb.fa.ocs.oraclecloud.com",
+      "company": "First Horizon",
+      "profile": "both"
+    },
+    {
+      "type": "workday",
+      "site": "External",
+      "host": "https://travelers.wd5.myworkdayjobs.com",
+      "tenant": "travelers",
+      "company": "Travelers",
+      "profile": "both"
+    },
+    {
+      "type": "workday",
+      "site": "Guardian-Life-Careers",
+      "host": "https://guardianlife.wd5.myworkdayjobs.com",
+      "tenant": "guardianlife",
+      "company": "Guardian Life",
+      "profile": "both"
+    },
+    {
+      "type": "workday",
+      "site": "allstate_careers",
+      "host": "https://allstate.wd5.myworkdayjobs.com",
+      "tenant": "allstate",
+      "company": "Allstate",
+      "profile": "both"
+    },
+    {
+      "type": "workday",
+      "site": "CornerstoneResearch_Careers",
+      "host": "https://cornerstone.wd501.myworkdayjobs.com",
+      "tenant": "cornerstone",
+      "company": "Cornerstone Research",
+      "profile": "both"
+    },
+    {
+      "type": "workday",
+      "site": "PacificLifeCareers",
+      "host": "https://pacificlife.wd1.myworkdayjobs.com",
+      "tenant": "pacificlife",
+      "company": "Pacific Life",
+      "profile": "both"
+    },
+    {
+      "type": "workday",
+      "site": "Nationwide_Career",
+      "host": "https://nationwide.wd1.myworkdayjobs.com",
+      "tenant": "nationwide",
+      "company": "Nationwide",
+      "profile": "both"
+    },
+    {
+      "type": "workday",
+      "site": "crowdstrikecareers",
+      "host": "https://crowdstrike.wd5.myworkdayjobs.com",
+      "tenant": "crowdstrike",
+      "company": "CrowdStrike",
+      "profile": "technical"
+    },
+    {
+      "type": "workday",
+      "site": "External",
+      "host": "https://unum.wd1.myworkdayjobs.com",
+      "tenant": "unum",
+      "company": "Unum",
+      "profile": "both"
+    },
+    {
+      "type": "workday",
+      "site": "f5jobs",
+      "host": "https://ffive.wd5.myworkdayjobs.com",
+      "tenant": "ffive",
+      "company": "F5",
+      "profile": "technical"
+    },
+    {
+      "type": "workday",
+      "site": "PTC",
+      "host": "https://ptc.wd1.myworkdayjobs.com",
+      "tenant": "ptc",
+      "company": "PTC",
+      "profile": "technical"
+    },
+    {
+      "type": "workday",
+      "site": "Agilent_Student_Careers",
+      "host": "https://agilent.wd5.myworkdayjobs.com",
+      "tenant": "agilent",
+      "company": "Agilent",
+      "profile": "both"
+    },
+    {
+      "type": "workday",
+      "site": "EdwardsCareers",
+      "host": "https://edwards.wd5.myworkdayjobs.com",
+      "tenant": "edwards",
+      "company": "Edwards Lifesciences",
+      "profile": "both"
+    },
+    {
+      "type": "workday",
+      "site": "StrykerCareers",
+      "host": "https://stryker.wd1.myworkdayjobs.com",
+      "tenant": "stryker",
+      "company": "Stryker",
+      "profile": "both"
+    },
+    {
+      "type": "workday",
+      "site": "AccentureCareers",
+      "host": "https://accenture.wd103.myworkdayjobs.com",
+      "tenant": "accenture",
+      "company": "Accenture",
+      "profile": "both"
+    },
+    {
+      "type": "workday",
+      "site": "illumina-careers",
+      "host": "https://illumina.wd1.myworkdayjobs.com",
+      "tenant": "illumina",
+      "company": "Illumina",
+      "profile": "both"
+    },
+    {
+      "type": "oracle",
+      "site": "CX_1",
+      "host": "https://fa-exty-saasfaprod1.fa.ocs.oraclecloud.com",
+      "company": "Howmet Aerospace",
+      "profile": "both"
+    },
+    {
+      "type": "workday",
+      "site": "EXTERNAL_CAREER_SITE_USA",
+      "host": "https://bdx.wd1.myworkdayjobs.com",
+      "tenant": "bdx",
+      "company": "Becton Dickinson",
+      "profile": "both"
+    },
+    {
+      "type": "workday",
+      "site": "vertex_careers",
+      "host": "https://vrtx.wd501.myworkdayjobs.com",
+      "tenant": "vrtx",
+      "company": "Vertex Pharmaceuticals",
+      "profile": "both"
+    },
+    {
+      "type": "workday",
+      "site": "BMS",
+      "host": "https://bristolmyerssquibb.wd5.myworkdayjobs.com",
+      "tenant": "bristolmyerssquibb",
+      "company": "Bristol Myers Squibb",
+      "profile": "both"
+    },
+    {
+      "type": "workday",
+      "site": "external",
+      "host": "https://biibhr.wd3.myworkdayjobs.com",
+      "tenant": "biibhr",
+      "company": "Biogen",
+      "profile": "both"
+    },
+    {
+      "type": "workday",
+      "site": "gileadcareers",
+      "host": "https://gilead.wd1.myworkdayjobs.com",
+      "tenant": "gilead",
+      "company": "Gilead",
+      "profile": "both"
+    },
+    {
+      "type": "workday",
+      "site": "M_tx",
+      "host": "https://modernatx.wd1.myworkdayjobs.com",
+      "tenant": "modernatx",
+      "company": "Moderna",
+      "profile": "both"
+    },
+    {
+      "type": "oracle",
+      "site": "CX_1",
+      "host": "https://fa-espx-saasfaprod1.fa.ocs.oraclecloud.com",
+      "company": "Cummins",
+      "profile": "both"
+    },
+    {
+      "type": "oracle",
+      "site": "CX_1006",
+      "host": "https://fa-espx-saasfaprod1.fa.ocs.oraclecloud.com",
+      "company": "Cummins",
+      "profile": "both"
+    },
+    {
+      "type": "workday",
+      "site": "Corporate",
+      "host": "https://oxy.wd5.myworkdayjobs.com",
+      "tenant": "oxy",
+      "company": "Occidental Petroleum",
+      "profile": "both"
+    },
+    {
+      "type": "workday",
+      "site": "External",
+      "host": "https://xcelenergy.wd1.myworkdayjobs.com",
+      "tenant": "xcelenergy",
+      "company": "Xcel Energy",
+      "profile": "both"
+    },
+    {
+      "type": "oracle",
+      "site": "CX_1",
+      "host": "https://hdjq.fa.us2.oraclecloud.com",
+      "company": "Emerson",
+      "profile": "both"
+    },
+    {
+      "type": "workday",
+      "site": "AEPCareerSite",
+      "host": "https://aep.wd1.myworkdayjobs.com",
+      "tenant": "aep",
+      "company": "AEP",
+      "profile": "both"
+    },
+    {
+      "type": "oracle",
+      "site": "CX_1",
+      "host": "https://efds.fa.em5.oraclecloud.com",
+      "company": "Ford",
+      "profile": "both"
+    },
+    {
+      "type": "workday",
+      "site": "TSN",
+      "host": "https://tysonfoods.wd5.myworkdayjobs.com",
+      "tenant": "tysonfoods",
+      "company": "Tyson Foods",
+      "profile": "both"
+    },
+    {
+      "type": "oracle",
+      "site": "CX_2002",
+      "host": "https://ekkh.fa.us2.oraclecloud.com",
+      "company": "Hormel",
+      "profile": "both"
+    },
+    {
+      "type": "workday",
+      "site": "nke2",
+      "host": "https://nike.wd1.myworkdayjobs.com",
+      "tenant": "nike",
+      "company": "Nike",
+      "profile": "both"
+    },
+    {
+      "type": "workday",
+      "site": "nke",
+      "host": "https://nike.wd1.myworkdayjobs.com",
+      "tenant": "nike",
+      "company": "Nike",
+      "profile": "both"
+    },
+    {
+      "type": "workday",
+      "site": "CareerDepot",
+      "host": "https://homedepot.wd5.myworkdayjobs.com",
+      "tenant": "homedepot",
+      "company": "Home Depot",
+      "profile": "both"
+    },
+    {
+      "type": "oracle",
+      "site": "CX_1",
+      "host": "https://efet.fa.us2.oraclecloud.com",
+      "company": "Hilton",
+      "profile": "both"
+    },
+    {
+      "type": "oracle",
+      "site": "CX",
+      "host": "https://ejwl.fa.us2.oraclecloud.com",
+      "company": "Marriott",
+      "profile": "both"
+    },
+    {
+      "type": "workday",
+      "site": "ANT",
+      "host": "https://elevancehealth.wd1.myworkdayjobs.com",
+      "tenant": "elevancehealth",
+      "company": "Elevance Health",
+      "profile": "both"
+    },
+    {
+      "type": "oracle",
+      "site": "CX_1",
+      "host": "https://hckd.fa.us2.oraclecloud.com",
+      "company": "Molina Healthcare",
+      "profile": "both"
+    },
+    {
+      "type": "workday",
+      "site": "AP0001",
+      "host": "https://airproducts.wd5.myworkdayjobs.com",
+      "tenant": "airproducts",
+      "company": "Air Products",
+      "profile": "both"
+    },
+    {
+      "type": "workday",
+      "site": "External",
+      "host": "https://tmobile.wd1.myworkdayjobs.com",
+      "tenant": "tmobile",
+      "company": "T-Mobile",
+      "profile": "both"
+    },
+    {
+      "type": "workday",
+      "site": "JCI",
+      "host": "https://jci.wd5.myworkdayjobs.com",
+      "tenant": "jci",
+      "company": "Johnson Controls",
+      "profile": "both"
     }
   ],
   "linkedin": [
