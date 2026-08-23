@@ -95,8 +95,28 @@ export function isoOrUndefined(value: unknown): string | undefined {
  * non-student title whose body merely mentions an internship programme is lost
  * by this, which is no loss against a fetch that carried no body at all.
  */
+/**
+ * First publication, unless the board is recycling a requisition.
+ *
+ * first_published is the right field almost always: IMC's July internships
+ * carried an updated_at of two days ago, so reading the edit date reported a
+ * six-week-old listing as posted this week. But Databricks lists a Summer 2027
+ * internship whose requisition was first published in August 2023 and edited
+ * four days ago, and printing "Aug 17, 2023" against a 2027 role is not a date
+ * the reader can use. Beyond a year and a half the first publication is
+ * describing a different hiring round, so the edit date is the better of two
+ * imperfect answers.
+ */
+const RECYCLED_AFTER_MS = 550 * 86_400_000;
+export function greenhousePostedAt(firstPublished: string | null | undefined, updatedAt: string | null | undefined, now: string): string | undefined {
+  const first = firstPublished ? Date.parse(firstPublished) : Number.NaN;
+  const reference = Date.parse(now);
+  if (!Number.isNaN(first) && !Number.isNaN(reference) && reference - first > RECYCLED_AFTER_MS && updatedAt) return updatedAt;
+  return firstPublished ?? updatedAt ?? undefined;
+}
+
 export function normalizeGreenhouse(payload: unknown, cfg: Extract<AtsConfig, { type: 'greenhouse' }>, now: string): RawJob[] {
-  return greenhouseSchema.parse(payload).jobs.map(job => ({ sourceName: `greenhouse:${cfg.board}`, sourceJobId: String(job.id), company: cfg.company, title: job.title, location: job.location.name, postedAt: job.first_published ?? job.updated_at ?? undefined, description: STUDENT_ROLE.test(job.title) ? job.content ?? undefined : undefined, sourceUrl: job.absolute_url, directApplyUrl: job.absolute_url, scrapedAt: now, employmentType: 'Internship' }));
+  return greenhouseSchema.parse(payload).jobs.map(job => ({ sourceName: `greenhouse:${cfg.board}`, sourceJobId: String(job.id), company: cfg.company, title: job.title, location: job.location.name, postedAt: greenhousePostedAt(job.first_published, job.updated_at, now), description: STUDENT_ROLE.test(job.title) ? job.content ?? undefined : undefined, sourceUrl: job.absolute_url, directApplyUrl: job.absolute_url, scrapedAt: now, employmentType: 'Internship' }));
 }
 
 export function normalizeLever(payload: unknown, cfg: Extract<AtsConfig, { type: 'lever' }>, now: string): RawJob[] {

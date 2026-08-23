@@ -19,6 +19,12 @@ export function canonicalizeUrl(input: string): string {
     }
     url.hostname = url.hostname.toLowerCase().replace(/^www\./, '');
     url.pathname = url.pathname.replace(/\/{2,}/g, '/').replace(/\/$/, '') || '/';
+    // Ashby serves one posting at two paths, the listing and the same path with
+    // /application on the end. Quadrillion's internship arrived once from its
+    // own Ashby board and once from a list that linked the application form,
+    // and with two spellings of the company ("Quadrillion" and "Quadrillion
+    // Labs") the URL was the only key left that could see they were one job.
+    url.pathname = url.pathname.replace(/\/application$/, '');
     const sorted = [...url.searchParams.entries()].sort(([a], [b]) => a.localeCompare(b));
     url.search = '';
     for (const [key, value] of sorted) url.searchParams.append(key, value);

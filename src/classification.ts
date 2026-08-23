@@ -137,14 +137,44 @@ const NON_US_LOCATION = /\b(?:afghanistan|albania|algeria|andorra|angola|argenti
 // Kentucky.
 const CANADIAN_PROVINCE = /,\s*(?:ON|QC|BC|AB|MB|SK|NS|NB|NL|PE|YT|NT|NU)\b/;
 
-export function classifyLocation(location: string): { eligible: boolean; evidence: string } {
+/**
+ * Cities with no US namesake worth protecting, which the country list misses.
+ *
+ * A general city list is unsafe and stays unwritten: "Ontario, CA" is in
+ * California and "London, KY" is in Kentucky. These are safe for two reasons.
+ * They are tested after the US check, so any posting that names a US state
+ * alongside the city has already been claimed. And none of them is a US city
+ * that appears in postings, which is what separates Abu Dhabi from Berlin.
+ *
+ * Written for the rows that actually reached the digest: Vatic's "Abu Dhabi",
+ * Maven's "London" and Ontario Teachers' Toronto programme, each of which
+ * named no country and so counted as eligible for a digest whose whole premise
+ * is a US work authorisation.
+ */
+const NON_US_CITY = /\b(?:abu dhabi|dubai|toronto|vancouver|montreal|montréal|calgary|ottawa|edmonton|winnipeg|london|tel aviv|riyadh|doha|kuala lumpur|jakarta|bangkok|taipei|seoul|tokyo|osaka|mumbai|bengaluru|bangalore|hyderabad|gurgaon|gurugram|noida|shanghai|shenzhen|beijing|guangzhou|são paulo|sao paulo|rio de janeiro|buenos aires|bogotá|bogota|johannesburg|nairobi|lagos|casablanca|edinburgh|glasgow|belfast|barcelona|lisbon|brussels|copenhagen|stockholm|helsinki|oslo|warsaw|prague|budapest|bucharest|istanbul|zurich|zürich|geneva|düsseldorf|dusseldorf|sydney|brisbane|auckland)\b/i;
+
+/**
+ * The location field, and where it says nothing, the posting's own URL.
+ *
+ * `context` is only read when the location names no country at all, which is
+ * the one case that used to end in an unconditional yes. Two rows in the last
+ * digest were exactly that: Ontario Teachers' Toronto internship and Tikehau's
+ * London one both arrived as "Unspecified", and both name their city in the
+ * employer's own apply path. A URL is punctuation between words rather than
+ * spaces, so it is flattened before matching or `\b` never fires inside
+ * "..._private_equity_london_october_2026".
+ */
+export function classifyLocation(location: string, context = ''): { eligible: boolean; evidence: string } {
   // Before the US test, not after: the finance lists write "Toronto, ON, CA",
   // and CA is a US state code, so the US test claimed it for California.
   const province = location.match(CANADIAN_PROVINCE);
   if (province) return { eligible: false, evidence: `Location is a Canadian province: ${province[0].replace(/^,\s*/, '')}.` };
   if (US_LOCATION.test(location)) return { eligible: true, evidence: 'Location names a US state, territory, or the United States.' };
-  const match = location.match(NON_US_LOCATION);
+  const match = location.match(NON_US_LOCATION) ?? location.match(NON_US_CITY);
   if (match) return { eligible: false, evidence: `Location is outside the United States: ${match[0]}.` };
+  const flattened = context.replace(/[^\p{L}\p{N}]+/gu, ' ');
+  const fromContext = flattened.match(NON_US_LOCATION) ?? flattened.match(NON_US_CITY);
+  if (fromContext && !US_LOCATION.test(flattened)) return { eligible: false, evidence: `Location is unstated and the posting is outside the United States: ${fromContext[0]}.` };
   return { eligible: true, evidence: 'Location names no country, so it is not treated as foreign.' };
 }
 
