@@ -348,6 +348,21 @@ describe('US-only, read strictly enough for a banking list', () => {
     }
   });
 
+  // Retagging boards for foreign-headquartered employers imported four rows
+  // that were plainly abroad, each written in a shape the country list missed:
+  // ING as "ACT (Amsterdam - Acanthus)", Magna as "Nanchang, Jiangxi, CN",
+  // Philips as "Eindhoven" and Valeo as "San Luis Potosi".
+  it('reads a country code written where a state code goes', () => {
+    for (const place of ['Nanchang, Jiangxi, CN', 'Eindhoven', 'ACT (Amsterdam - Acanthus)', 'San Luis Potosi', 'Lyon, FR', 'Osaka, JP']) {
+      expect(classifyLocation(place), place).toMatchObject({ eligible: false });
+    }
+    // The codes that are also US state codes are deliberately absent from that
+    // list, so these must all still read as US.
+    for (const place of ['Indianapolis, IN', 'Wilmington, DE', 'Denver, CO', 'Chicago, IL', 'Little Rock, AR', 'Boise, ID', 'Baton Rouge, LA', 'Amsterdam, NY']) {
+      expect(classifyLocation(place), place).toMatchObject({ eligible: true });
+    }
+  });
+
   // Where the location field says nothing, the employer's own apply path does.
   it('falls back to the posting URL when the location is unstated', () => {
     const toronto = 'Capital Markets Intern https://otppb.wd3.myworkdayjobs.com/OntarioTeachers_Careers/job/Toronto-Canada/Intern-Capital-Markets_7167';

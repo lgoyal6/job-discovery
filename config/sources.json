@@ -791,7 +791,8 @@
     {
       "type": "ashby",
       "board": "etched",
-      "company": "Etched"
+      "company": "Etched",
+      "profile": "both"
     },
     {
       "type": "ashby",
@@ -1267,7 +1268,7 @@
       "type": "ashby",
       "board": "kirin",
       "company": "Kirin",
-      "profile": "technical"
+      "profile": "both"
     },
     {
       "type": "ashby",
@@ -1567,7 +1568,7 @@
       "type": "greenhouse",
       "board": "integra",
       "company": "Integra FEC",
-      "profile": "technical"
+      "profile": "both"
     },
     {
       "type": "greenhouse",
@@ -1825,7 +1826,7 @@
       "tenant": "argonne",
       "site": "EDU_PUB",
       "company": "Argonne National Laboratory",
-      "profile": "technical"
+      "profile": "both"
     },
     {
       "type": "workday",
@@ -1965,7 +1966,7 @@
       "tenant": "chevron",
       "site": "university",
       "company": "Chevron",
-      "profile": "technical"
+      "profile": "both"
     },
     {
       "type": "workday",
@@ -1997,7 +1998,7 @@
       "tenant": "conagrabrands",
       "site": "careers_us",
       "company": "Conagra Brands",
-      "profile": "technical"
+      "profile": "both"
     },
     {
       "type": "workday",
@@ -2096,7 +2097,7 @@
       "tenant": "fanniemae",
       "site": "fanniemaecareers",
       "company": "Fannie Mae",
-      "profile": "technical"
+      "profile": "both"
     },
     {
       "type": "smartrecruiters",
@@ -2110,7 +2111,7 @@
       "tenant": "fifththird",
       "site": "53careers",
       "company": "Fifth Third Bank",
-      "profile": "technical"
+      "profile": "both"
     },
     {
       "type": "workday",
@@ -2150,7 +2151,7 @@
       "tenant": "gartner",
       "site": "ext",
       "company": "Gartner",
-      "profile": "technical"
+      "profile": "both"
     },
     {
       "type": "oracle",
@@ -2205,7 +2206,7 @@
       "tenant": "generac",
       "site": "external",
       "company": "Generac",
-      "profile": "technical"
+      "profile": "both"
     },
     {
       "type": "workday",
@@ -2438,7 +2439,7 @@
       "tenant": "medtronic",
       "site": "redeploymentmedtroniccareers",
       "company": "Medtronic",
-      "profile": "technical"
+      "profile": "both"
     },
     {
       "type": "workday",
@@ -2751,7 +2752,7 @@
       "tenant": "synchronyfinancial",
       "site": "university",
       "company": "Synchrony Bank",
-      "profile": "technical"
+      "profile": "both"
     },
     {
       "type": "workday",
@@ -2933,7 +2934,7 @@
       "tenant": "chevron",
       "site": "University",
       "company": "Chevron Corporation",
-      "profile": "technical"
+      "profile": "both"
     },
     {
       "type": "workday",
@@ -2941,7 +2942,7 @@
       "tenant": "synchronyfinancial",
       "site": "University",
       "company": "Synchrony Financial",
-      "profile": "technical"
+      "profile": "both"
     },
     {
       "type": "workday",
