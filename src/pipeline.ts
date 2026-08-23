@@ -156,7 +156,11 @@ export async function classifyRawJob(raw: RawJob, context: { aliases: Map<string
   const description = raw.description ?? '';
   const policy = rolePolicies[activeProfile];
   const role = policy.classifyRole(title, description);
-  const place = classifyLocation(location);
+  // The posting's own URL is the fallback evidence when the location field
+  // names no country: it is the employer's path to the job and it spells the
+  // city out, which is how Ontario Teachers' Toronto internship and Tikehau's
+  // London one both reached a US-only digest reading "Unspecified".
+  const place = classifyLocation(location, `${title} ${raw.directApplyUrl ?? raw.sourceUrl ?? ''}`);
   const cycle = classifyCycle(title, description, raw.cycleHint ?? '');
   const graduation = classifyGraduation(title, description);
   const earlyCareer = classifyEarlyCareer(title, description);

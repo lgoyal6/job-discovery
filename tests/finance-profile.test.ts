@@ -332,6 +332,35 @@ describe('US-only, read strictly enough for a banking list', () => {
       expect(classifyLocation(place), place).toMatchObject({ eligible: true });
     }
   });
+
+  // A city that names no country used to be an unconditional yes, so Vatic's
+  // Abu Dhabi internship, Maven's London one and an Ontario Teachers'
+  // programme in Toronto all reached a digest whose premise is a US work
+  // authorisation.
+  it('reads a city that is unambiguously abroad', () => {
+    for (const place of ['Abu Dhabi', 'London', 'Toronto', 'Zurich', 'Bengaluru', 'Tel Aviv']) {
+      expect(classifyLocation(place), place).toMatchObject({ eligible: false });
+    }
+    // And the US namesakes still win, because the US test runs first: it is the
+    // state code that decides, not the city name.
+    for (const place of ['London, KY', 'London, OH', 'Toronto, OH', 'Ontario, CA']) {
+      expect(classifyLocation(place), place).toMatchObject({ eligible: true });
+    }
+  });
+
+  // Where the location field says nothing, the employer's own apply path does.
+  it('falls back to the posting URL when the location is unstated', () => {
+    const toronto = 'Capital Markets Intern https://otppb.wd3.myworkdayjobs.com/OntarioTeachers_Careers/job/Toronto-Canada/Intern-Capital-Markets_7167';
+    expect(classifyLocation('Unspecified', toronto)).toMatchObject({ eligible: false });
+    // A URL separates words with punctuation rather than spaces, so it has to be
+    // flattened first or no word boundary ever fires inside the slug.
+    const london = 'Product Specialist https://intern-list.com/x/internship_product_specialist_private_equity_london_october_2026_at_tikehau_capital';
+    expect(classifyLocation('Unspecified', london)).toMatchObject({ eligible: false });
+    // Context is only consulted when the location itself named no country, and
+    // a US signal anywhere in it still wins.
+    expect(classifyLocation('Unspecified', 'Quant Intern New York https://job-boards.greenhouse.io/xantium/jobs/4371217009')).toMatchObject({ eligible: true });
+    expect(classifyLocation('San Francisco, California', 'https://jobs.ashbyhq.com/notion/3fba1c39')).toMatchObject({ eligible: true });
+  });
 });
 
 describe('a role this reader has already applied to', () => {

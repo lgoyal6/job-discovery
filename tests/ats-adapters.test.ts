@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { AtsSource, normalizeGreenhouse, type AtsConfig } from '../src/sources/ats.js';
+import { AtsSource, greenhousePostedAt, normalizeGreenhouse, type AtsConfig } from '../src/sources/ats.js';
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -83,6 +83,20 @@ describe('ATS adapters', () => {
     // requisition both sweeps returned must not become a second row.
     expect(workday.jobs).toHaveLength(22);
     expect(workday.jobs.filter(job => job.sourceJobId === 'R-20')).toHaveLength(1);
+  });
+
+  // Databricks lists a Summer 2027 internship whose requisition was first
+  // published in August 2023 and edited four days ago, and the digest printed
+  // "Aug 17, 2023" against a 2027 role.
+  it('prefers first publication, unless the board is recycling a requisition', () => {
+    const now = '2026-08-22T23:00:00Z';
+    expect(greenhousePostedAt('2023-08-17T17:27:27-04:00', '2026-08-18T13:17:06-04:00', now)?.slice(0, 10)).toBe('2026-08-18');
+    // IMC's July internships carried an updated_at of two days ago, so reading
+    // the edit date reported a six-week-old listing as posted this week. That
+    // is still the behaviour inside the window.
+    expect(greenhousePostedAt('2026-07-01T00:00:00Z', '2026-08-20T00:00:00Z', now)?.slice(0, 10)).toBe('2026-07-01');
+    expect(greenhousePostedAt(null, '2026-08-20T00:00:00Z', now)?.slice(0, 10)).toBe('2026-08-20');
+    expect(greenhousePostedAt(null, null, now)).toBeUndefined();
   });
 
   // Millennium's campus board is Eightfold, and Eightfold answers with ten
