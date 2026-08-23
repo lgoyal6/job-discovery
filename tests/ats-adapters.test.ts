@@ -65,12 +65,51 @@ describe('ATS adapters', () => {
     // that configured one.
     const workdayFetch = vi.fn()
       .mockResolvedValueOnce(new Response(JSON.stringify({ jobPostings: Array.from({ length: 20 }, (_, index) => workdayJob(index)) }), { status: 200 }))
-      .mockResolvedValueOnce(new Response(JSON.stringify({ jobPostings: [workdayJob(20)] }), { status: 200 }));
+      .mockResolvedValueOnce(new Response(JSON.stringify({ jobPostings: [workdayJob(20)] }), { status: 200 }))
+      // The searched sweep: one posting the blank sweep already returned, and
+      // one it never reached.
+      .mockResolvedValueOnce(new Response(JSON.stringify({ jobPostings: [workdayJob(20), workdayJob(21)] }), { status: 200 }));
     vi.stubGlobal('fetch', workdayFetch);
     const workday = await new AtsSource({ type: 'workday', host: 'https://acme.wd5.myworkdayjobs.com', tenant: 'acme', site: 'External', company: 'Acme' }).fetch();
-    expect(workday.jobs).toHaveLength(21);
     const secondBody = JSON.parse(String((workdayFetch.mock.calls[1]?.[1] as RequestInit).body));
     expect(secondBody).toMatchObject({ offset: 20, limit: 20, searchText: '' });
+
+    // Sony publishes 102 postings of which 62 are internships, so the newest
+    // sixty are not where its students are. The second sweep asks the same
+    // board for interns, which Workday ranks by relevance rather than date.
+    const searched = JSON.parse(String((workdayFetch.mock.calls[2]?.[1] as RequestInit).body));
+    expect(searched).toMatchObject({ offset: 0, searchText: 'intern' });
+    // 21 from the blank sweep plus the one posting only the search found: the
+    // requisition both sweeps returned must not become a second row.
+    expect(workday.jobs).toHaveLength(22);
+    expect(workday.jobs.filter(job => job.sourceJobId === 'R-20')).toHaveLength(1);
+  });
+
+  // Millennium's campus board is Eightfold, and Eightfold answers with ten
+  // positions however many are asked for, so a single request saw six of its
+  // 59 campus roles. Its 2027 quantitative internships are the reason the
+  // board is configured, and they are not all in the first ten.
+  it('pages through an Eightfold board and reads its own field names', async () => {
+    const position = (id: number) => ({
+      id: 700000 + id, name: `2027 Quantitative Researcher Intern ${id}`,
+      location: 'New York, New York, United States of America',
+      t_create: 1786320000, canonicalPositionUrl: `https://mlp.eightfold.ai/careers/job/${700000 + id}`
+    });
+    const eightfoldFetch = vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ count: 12, positions: Array.from({ length: 10 }, (_, i) => position(i)) }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ count: 12, positions: [position(10), position(11)] }), { status: 200 }));
+    vi.stubGlobal('fetch', eightfoldFetch);
+    const source = await new AtsSource({ type: 'eightfold', company: 'Millennium', endpoint: 'https://campusjobs.mlp.com/api/apply/v2/jobs?domain=mlp.com&start=0&num=100' }).fetch();
+
+    expect(source.jobs).toHaveLength(12);
+    expect(String(eightfoldFetch.mock.calls[1]?.[0])).toContain('start=10');
+    const [job] = source.jobs;
+    expect(job?.title).toBe('2027 Quantitative Researcher Intern 0');
+    // Epoch seconds, not milliseconds: read as milliseconds this dates to 1970
+    // and the row reaches the digest as the oldest thing in it.
+    expect(job?.postedAt?.slice(0, 10)).toBe('2026-08-10');
+    // The posting, not the API endpoint the rows arrived through.
+    expect(job?.directApplyUrl).toBe('https://mlp.eightfold.ai/careers/job/700000');
   });
 
   // 93 Greenhouse boards answered with no description at all, so a title with
