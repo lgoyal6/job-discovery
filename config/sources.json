@@ -4202,6 +4202,46 @@
       "host": "jobs.cvshealth.com",
       "company": "CVS Health",
       "profile": "both"
+    },
+    {
+      "type": "workday",
+      "host": "https://tiaa.wd1.myworkdayjobs.com",
+      "tenant": "tiaa",
+      "site": "Search",
+      "company": "TIAA",
+      "profile": "both"
+    },
+    {
+      "type": "workday",
+      "host": "https://kla.wd1.myworkdayjobs.com",
+      "tenant": "kla",
+      "site": "Search",
+      "company": "KLA",
+      "profile": "technical"
+    },
+    {
+      "type": "workday",
+      "host": "https://dukeenergy.wd1.myworkdayjobs.com",
+      "tenant": "dukeenergy",
+      "site": "search",
+      "company": "Duke Energy",
+      "profile": "both"
+    },
+    {
+      "type": "workday",
+      "host": "https://carrier.wd5.myworkdayjobs.com",
+      "tenant": "carrier",
+      "site": "jobs",
+      "company": "Carrier",
+      "profile": "both"
+    },
+    {
+      "type": "workday",
+      "host": "https://3m.wd1.myworkdayjobs.com",
+      "tenant": "3m",
+      "site": "Search",
+      "company": "3M",
+      "profile": "both"
     }
   ],
   "linkedin": [
