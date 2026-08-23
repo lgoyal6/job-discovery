@@ -160,9 +160,9 @@ const CANADIAN_PROVINCE = /,\s*(?:ON|QC|BC|AB|MB|SK|NS|NB|NL|PE|YT|NT|NU)\b/;
  * Illinois, AR is Arkansas, ID is Idaho, LA is Louisiana. The US test runs
  * first regardless, so this only ever sees strings that named no state.
  */
-const NON_US_COUNTRY_CODE = /,\s*(?:CN|NL|FR|JP|BR|MX|CH|SE|DK|FI|PL|CZ|AT|BE|IE|SG|HK|TW|KR|TH|VN|PH|MY|AE|ZA|EG|NG|KE|TR|RU|UA|GR|PT|ES|IT|GB|AU|NZ)\b/;
+const NON_US_COUNTRY_CODE = /,\s*(?:CN|NL|FR|JP|BR|MX|CH|SE|DK|FI|PL|CZ|AT|BE|IE|SG|HK|TW|KR|TH|VN|PH|MY|AE|ZA|EG|NG|KE|TR|RU|UA|GR|PT|ES|IT|GB|AU|NZ|KZ|QA|KW|BH|OM|JO|LB|PK|BD|LK|NP|KH|MM|GH|DZ|CI|SN|UG|ZM|ZW|BW|RS|HR|SI|SK|BG|RO|LT|LV|EE|IS|LU|CY|UZ|PE)\b/i;
 
-const NON_US_CITY = /\b(?:abu dhabi|dubai|amsterdam|eindhoven|rotterdam|utrecht|nanchang|san luis potosi|monterrey|guadalajara|toronto|vancouver|montreal|montréal|calgary|ottawa|edmonton|winnipeg|london|tel aviv|riyadh|doha|kuala lumpur|jakarta|bangkok|taipei|seoul|tokyo|osaka|mumbai|bengaluru|bangalore|hyderabad|gurgaon|gurugram|noida|shanghai|shenzhen|beijing|guangzhou|são paulo|sao paulo|rio de janeiro|buenos aires|bogotá|bogota|johannesburg|nairobi|lagos|casablanca|edinburgh|glasgow|belfast|barcelona|lisbon|brussels|copenhagen|stockholm|helsinki|oslo|warsaw|prague|budapest|bucharest|istanbul|zurich|zürich|geneva|düsseldorf|dusseldorf|sydney|brisbane|auckland)\b/i;
+const NON_US_CITY = /\b(?:abu dhabi|dubai|madrid|frankfurt|geneva|geneve|genève|amsterdam|eindhoven|rotterdam|utrecht|nanchang|san luis potosi|monterrey|guadalajara|toronto|vancouver|montreal|montréal|calgary|ottawa|edmonton|winnipeg|london|tel aviv|riyadh|doha|kuala lumpur|jakarta|bangkok|taipei|seoul|tokyo|osaka|mumbai|bengaluru|bangalore|hyderabad|gurgaon|gurugram|noida|shanghai|shenzhen|beijing|guangzhou|são paulo|sao paulo|rio de janeiro|buenos aires|bogotá|bogota|johannesburg|nairobi|lagos|casablanca|edinburgh|glasgow|belfast|barcelona|lisbon|brussels|copenhagen|stockholm|helsinki|oslo|warsaw|prague|budapest|bucharest|istanbul|zurich|zürich|geneva|düsseldorf|dusseldorf|sydney|brisbane|auckland)\b/i;
 
 /**
  * The location field, and where it says nothing, the posting's own URL.
