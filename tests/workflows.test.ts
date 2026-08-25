@@ -90,6 +90,28 @@ describe('exported n8n workflows', () => {
     expect(JSON.stringify(value)).toContain('batch-sent');
   });
 
+  // Execution 372 claimed a batch with nothing rendered in it: shouldSend was
+  // true while subject, html and text were all null, so the gate opened and the
+  // Gmail node died on "Cannot read properties of null (reading 'trim')". The
+  // send was already claimed by then. A claimed batch with no digest has to stop
+  // at the gate, where stopping costs nothing, not at the node that mails it.
+  it('refuses to open the send gate without a rendered subject', async () => {
+    for (const name of ['job-discovery-every-two-hours.json', 'finance-digest-every-six-hours.json']) {
+      const value = await workflow(name);
+      const gate = value.nodes.find((node: any) => node.name === 'Has Claimed New Roles?');
+      expect(gate.parameters.conditions.combinator).toBe('and');
+      const conditions = gate.parameters.conditions.conditions;
+      expect(conditions).toHaveLength(2);
+      const subject = conditions.find((condition: any) => condition.leftValue.includes('subject'));
+      expect(subject.operator).toMatchObject({ type: 'string', operation: 'notEmpty' });
+      // Coalesced to a string, because typeValidation is strict: a null subject
+      // has to evaluate false and skip the send, not raise on the gate itself
+      // and trade a bad digest for a failed run.
+      expect(gate.parameters.conditions.options.typeValidation).toBe('strict');
+      expect(subject.leftValue).toContain("?? ''");
+    }
+  });
+
   // The one webhook that writes anywhere, and its two arguments are pasted into
   // a shell command. Dies if the character whitelist is ever loosened, or if the
   // command node is fed the query string directly rather than the validated node.

@@ -30,7 +30,7 @@
       "position": [-140, 0]
     },
     {
-      "parameters": {"conditions":{"options":{"caseSensitive":true,"leftValue":"","typeValidation":"strict"},"conditions":[{"id":"975c7d12-ffaf-4454-ab08-85baa8871651","leftValue":"={{ $json.shouldSend }}","rightValue":true,"operator":{"type":"boolean","operation":"true","singleValue":true}}],"combinator":"and"}},
+      "parameters": {"conditions":{"options":{"caseSensitive":true,"leftValue":"","typeValidation":"strict"},"conditions":[{"id":"975c7d12-ffaf-4454-ab08-85baa8871651","leftValue":"={{ $json.shouldSend }}","rightValue":true,"operator":{"type":"boolean","operation":"true","singleValue":true}},{"id":"3f2c1d0a-9b8e-4a71-8c55-2d6e4f7a0b13","leftValue":"={{ $json.subject ?? '' }}","rightValue":"","operator":{"type":"string","operation":"notEmpty","singleValue":true}}],"combinator":"and"}},
       "id": "ce03f8bb-4dde-40ce-bb69-e280e179932f",
       "name": "Has Claimed New Roles?",
       "type": "n8n-nodes-base.if",

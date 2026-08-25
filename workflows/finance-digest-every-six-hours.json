@@ -70,6 +70,16 @@
         "operation": "true",
         "singleValue": true
        }
+      },
+      {
+       "id": "3f2c1d0a-9b8e-4a71-8c55-2d6e4f7a0b13",
+       "leftValue": "={{ $json.subject ?? '' }}",
+       "rightValue": "",
+       "operator": {
+        "type": "string",
+        "operation": "notEmpty",
+        "singleValue": true
+       }
       }
      ],
      "combinator": "and"
