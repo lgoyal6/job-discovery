@@ -40,7 +40,10 @@ ORDER BY claimed_at DESC
 LIMIT 20;
 ```
 
-The expected steady state is no overlapping runs, no repeated digest hash, no `UNSUPPORTED` open job with `sent_at`, and zero Notion writes (the codebase contains only `/query` for Notion).
+The expected steady state is no overlapping runs, no repeated digest hash, no `UNSUPPORTED` open job with `sent_at`, and no unexpected Notion writes. Discovery itself only reads Notion; the mirror in
+`src/mirror.ts` is the sole writer (`POST /v1/pages` and `PATCH /v1/pages/:id` in
+`src/notion.ts`) and it is gated on `NOTION_MIRROR_ENABLED`, which defaults to
+`false`.
 
 ## Overrides
 
