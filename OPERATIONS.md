@@ -19,7 +19,7 @@ Each successful cloud start must contain an `ok: true` migration record, the str
 
 ### One-time workflow import
 
-After creating the first n8n owner account, set `N8N_IMPORT_WORKFLOWS_ON_START=true` on the n8n service and deploy. Confirm one `n8n_workflow_import_complete` log record for each stable workflow ID (`LakshJobDiscovery2h` and `LakshRezzyShortlist`), then set the variable back to `false`. The n8n CLI assigns imports to the owner's personal project, upserts by workflow ID, and forces them inactive. Never leave the switch enabled during routine deploys because imports intentionally deactivate existing matching workflows.
+After creating the first n8n owner account, set `N8N_IMPORT_WORKFLOWS_ON_START=true` on the n8n service and deploy. Confirm one `n8n_workflow_import_complete` log record for each stable workflow ID the guard imports (`LakshJobDiscovery2h`, `LakshRezzyShortlist`, `FinanceJobDigest6h` and `LakshMarkApplied`), then set the variable back to `false`. `LakshJobDiscoveryErrorAlert` is imported outside the guard and so logs its own record on every deploy. The n8n CLI assigns imports to the owner's personal project, upserts by workflow ID, and forces them inactive. Never leave the switch enabled during routine deploys because imports intentionally deactivate existing matching workflows.
 
 Recent source health:
 
