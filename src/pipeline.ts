@@ -5,7 +5,7 @@ import { z } from 'zod';
 import { config, loadCompanyAliases, loadSponsorshipPatterns, projectRoot, watchlistPath, activeProfile } from './config.js';
 import { applyLinkRank, buildAliasMap, canonicalizeUrl, canonicalKey, canonicalLocation, extractSourceJobId, locationBucket, normalizeCompany, normalizeText, requisitionSignature, titleSignature } from './normalization.js';
 import { classifyCycle, classifyEarlyCareer, classifyGraduation, classifyLocation, classifySponsorship, extractSkills, scoreJob, STUDENT_ROLE, rolePolicies } from './classification.js';
-import { parseWatchlist, rotateWatchlist, type WatchlistCompany } from './watchlist.js';
+import { parseWatchlist, rotateWatchlist } from './watchlist.js';
 import type { ClassifiedJob, DigestJob, PipelineReport, RawJob, SourceAdapter, SourceResult } from './types.js';
 import { enrichSponsorship } from './enrichment.js';
 import { resolveListingLinks } from './apply-links.js';
@@ -36,7 +36,7 @@ async function fixtureRuns(): Promise<SourceResult[]> {
   return [{ sourceName: 'fixtures', status: 'SUCCESS', jobs: payload, startedAt: now, finishedAt: now, durationMs: 0, costUnits: 0 }, skippedSource('notion-applied', 'fixture mode: no network or credentials used'), skippedSource('apify:linkedin', 'fixture mode: credentialed actor calls disabled'), skippedSource('apify:indeed', 'fixture mode: credentialed actor calls disabled'), skippedSource('apify:monster', 'fixture mode: credentialed actor calls disabled')];
 }
 
-async function collectSources(options: RunOptions, watchlistCohort: WatchlistCompany[]): Promise<SourceResult[]> {
+async function collectSources(options: RunOptions): Promise<SourceResult[]> {
   if (options.fixtures) return fixtureRuns();
   const [community, internList, ats, linkedin] = await Promise.all([loadCommunitySources(), loadInternListSources(), loadAtsSources(), loadLinkedInSources()]);
   // Boards and LinkedIn queries now carry the profile they belong to and are
@@ -363,7 +363,7 @@ async function execute(options: RunOptions): Promise<PipelineReport> {
   ]);
   const slot = Math.floor(Date.now() / 7_200_000);
   const watchlistCohort = rotateWatchlist(watchlist, slot, config.WATCHLIST_COMPANIES_PER_RUN);
-  const sourceRuns = await collectSources(options, watchlistCohort);
+  const sourceRuns = await collectSources(options);
   const now = new Date().toISOString();
 
   // Program pages announce a cycle before any requisition exists, which is the
