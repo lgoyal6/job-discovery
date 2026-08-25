@@ -29,6 +29,30 @@ reader's send history never suppresses the other's mail.
 5. **Send exactly once**, claiming a batch under a Postgres advisory lock and
    confirming it only after delivery.
 
+## The pipeline
+
+```mermaid
+flowchart TD
+  S1[("450+ employer boards")] --> F["fetch<br/>concurrent, per-source timeouts,<br/>retries and health metrics"]
+  S2[("20 community lists")] --> F
+  S3[("LinkedIn guest search")] --> F
+  F --> N["~51,000 postings per run"]
+  N --> C["classify<br/>role category, cycle, graduation window,<br/>US eligibility, sponsorship policy"]
+  C -->|"every rejection carries a reason"| FUNNEL[("auditable funnel")]
+  C --> ID["resolve identity across sources<br/>canonical URL, requisition id,<br/>normalised title signature"]
+  ID --> ONE["one requisition = one row,<br/>however many sources found it"]
+  ONE --> RANK["rank and cap<br/>one row per employer per round"]
+  RANK --> SEND{"claim batch under a<br/>Postgres advisory lock"}
+  SEND -->|"delivered"| CONFIRM["mark sent"]
+  SEND -->|"delivery failed"| RETRY["batch stays unclaimed"]
+  CONFIRM --> MAIL["~130 genuinely new roles, one email"]
+
+  style SEND fill:#1f6feb,color:#fff
+```
+
+A source that fails is reported, not fatal. The send is confirmed only after
+delivery, which is what makes "exactly once" true rather than aspirational.
+
 ## Running it
 
 Requires Node 22+ and Postgres.
@@ -48,6 +72,31 @@ node dist/cli.js pipeline
 `JOB_PROFILE=finance` switches profiles. `config/` holds the sources, the
 company aliases and the sponsorship patterns; `migrations/` holds ordered,
 idempotent SQL that is safe to re-run.
+
+## Deploying it
+
+The pipeline runs on a schedule under n8n, with Postgres for send history.
+
+```bash
+# local or a single box
+docker compose up -d            # postgres, migrate, n8n
+docker compose ps
+docker compose logs --since=4h n8n postgres
+```
+
+For a hosted run, `railway.json` builds `Dockerfile.n8n` with a `/healthz`
+check and `restartPolicyType: ALWAYS`:
+
+```bash
+railway up
+railway service status --service n8n --json
+```
+
+Migrations in `migrations/` are ordered and idempotent, so they are safe to
+re-run; a healthy start logs a `job_pipeline_migrations_complete` event. Keep
+Postgres private, and leave `N8N_IMPORT_WORKFLOWS_ON_START` off except for the
+one-time workflow import. Full runbook, including source-health triage, is in
+[OPERATIONS.md](OPERATIONS.md).
 
 ## Contributing
 
