@@ -7,3 +7,6 @@ coverage/
 data/
 *.log
 .DS_Store
+
+# graphify knowledge graph (local index, not source)
+graphify-out/
