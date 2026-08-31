@@ -3,12 +3,13 @@ import { config } from './config.js';
 import { fetchWithPolicy } from './http.js';
 import { canonicalizeUrl, normalizeText } from './normalization.js';
 
-export interface AppliedExclusion {
+export interface LedgerExclusion {
   notionPageId: string;
   companyNormalized: string;
   titleNormalized: string;
   canonicalUrl?: string;
   sourceJobId?: string;
+  kind: 'APPLIED' | 'INELIGIBLE' | 'DUPLICATE';
 }
 
 const querySchema = z.object({ results: z.array(z.object({ id: z.string(), properties: z.record(z.string(), z.any()) })), has_more: z.boolean(), next_cursor: z.string().nullable().optional() });
@@ -39,14 +40,18 @@ export const LEDGER_FIELDS = {
   appliedOn: ['Date Applied', 'Applied Date', 'Applied On']
 } as const;
 
-const EXCLUDED_STATUSES = ['Applied', 'In Review', 'Interview', 'Offer', 'Rejected'] as const;
-const EXCLUDED_PURGE_VALUES = ['Ineligible - delete', 'Duplicate - delete'] as const;
+const APPLIED_STATUSES = ['Applied', 'In Review', 'Interview', 'Offer', 'Rejected'] as const;
+const INELIGIBLE_STATUS = 'Ineligible';
+const LEGACY_INELIGIBLE_PURGE = 'Ineligible - delete';
+const DUPLICATE_PURGE = 'Duplicate - delete';
 
 function exclusionFilter(): Record<string, unknown> {
   return {
     or: [
-      ...EXCLUDED_STATUSES.map(value => ({ property: LEDGER_FIELDS.status[0], select: { equals: value } })),
-      ...EXCLUDED_PURGE_VALUES.map(value => ({ property: LEDGER_FIELDS.purge[0], select: { equals: value } }))
+      ...APPLIED_STATUSES.map(value => ({ property: LEDGER_FIELDS.status[0], select: { equals: value } })),
+      { property: LEDGER_FIELDS.status[0], select: { equals: INELIGIBLE_STATUS } },
+      { property: LEDGER_FIELDS.purge[0], select: { equals: LEGACY_INELIGIBLE_PURGE } },
+      { property: LEDGER_FIELDS.purge[0], select: { equals: DUPLICATE_PURGE } }
     ]
   };
 }
@@ -77,9 +82,9 @@ function named(properties: Record<string, any>, names: readonly string[]): strin
   return entry ? propertyText(entry[1]) : '';
 }
 
-export async function readAppliedExclusions(): Promise<AppliedExclusion[]> {
+export async function readLedgerExclusions(): Promise<LedgerExclusion[]> {
   if (!config.NOTION_TOKEN) return [];
-  const exclusions: AppliedExclusion[] = [];
+  const exclusions: LedgerExclusion[] = [];
   let cursor: string | undefined;
   let useLegacyDatabaseQuery = false;
   do {
@@ -116,7 +121,23 @@ export async function readAppliedExclusions(): Promise<AppliedExclusion[]> {
       const title = named(row.properties, LEDGER_FIELDS.title);
       const link = named(row.properties, LEDGER_FIELDS.url);
       const sourceJobId = named(row.properties, LEDGER_FIELDS.sourceJobId);
-      if (company && title) exclusions.push({ notionPageId: row.id, companyNormalized: normalizeText(company), titleNormalized: normalizeText(title), canonicalUrl: link ? canonicalizeUrl(link) : undefined, sourceJobId: sourceJobId || undefined });
+      const status = named(row.properties, LEDGER_FIELDS.status);
+      const purge = named(row.properties, LEDGER_FIELDS.purge);
+      const kind = APPLIED_STATUSES.some(value => value.toLowerCase() === status.toLowerCase())
+        ? 'APPLIED'
+        : status.toLowerCase() === INELIGIBLE_STATUS.toLowerCase() || purge.toLowerCase() === LEGACY_INELIGIBLE_PURGE.toLowerCase()
+          ? 'INELIGIBLE'
+          : purge.toLowerCase() === DUPLICATE_PURGE.toLowerCase()
+            ? 'DUPLICATE'
+            : undefined;
+      if (company && title && kind) exclusions.push({
+        notionPageId: row.id,
+        companyNormalized: normalizeText(company),
+        titleNormalized: normalizeText(title),
+        canonicalUrl: link ? canonicalizeUrl(link) : undefined,
+        sourceJobId: sourceJobId || undefined,
+        kind
+      });
     }
     cursor = page.has_more ? page.next_cursor ?? undefined : undefined;
   } while (cursor);
@@ -193,6 +214,10 @@ export async function createLedgerPage(entry: AppliedLedgerEntry, status: string
     [LEDGER_FIELDS.postedAt, entry.postedAt ? entry.postedAt.slice(0, 10) : ''],
     [LEDGER_FIELDS.summary, entry.summary ?? '']
   ]);
+  const statusProperty = findProperty(schema, LEDGER_FIELDS.status);
+  if (!statusProperty || !(statusProperty[0] in properties)) {
+    throw new Error(`The ledger has no Status option that can carry "${status}".`);
+  }
   const created = await notionCall('https://api.notion.com/v1/pages', version, {
     method: 'POST', body: JSON.stringify({ parent, properties })
   });
@@ -205,16 +230,34 @@ export async function createLedgerPage(entry: AppliedLedgerEntry, status: string
  */
 export async function setLedgerStatus(pageId: string, status: string, appliedOn?: string): Promise<void> {
   const { version, schema } = await ledgerBinding();
+  const statusProperty = findProperty(schema, LEDGER_FIELDS.status);
   const properties = buildProperties(schema, [
     [LEDGER_FIELDS.status, status],
     // The ledger has a column for the day of the application, and the click
     // that files it is the only moment that knows.
     [LEDGER_FIELDS.appliedOn, appliedOn ?? '']
   ]);
-  if (!Object.keys(properties).length) throw new Error(`The ledger has no Status column that can carry "${status}".`);
+  if (!statusProperty || !(statusProperty[0] in properties)) {
+    throw new Error(`The ledger has no Status option that can carry "${status}".`);
+  }
+  if (status === 'Applied' || status === 'Ineligible') {
+    const purge = findProperty(schema, LEDGER_FIELDS.purge);
+    if (purge) properties[purge[0]] = clearProperty(purge[1] as { type: string });
+  }
+  if (status === 'Ineligible') {
+    const appliedDate = findProperty(schema, LEDGER_FIELDS.appliedOn);
+    if (appliedDate) properties[appliedDate[0]] = clearProperty(appliedDate[1] as { type: string });
+  }
   await notionCall(`https://api.notion.com/v1/pages/${pageId}`, version, {
     method: 'PATCH', body: JSON.stringify({ properties })
   });
+}
+
+function clearProperty(definition: { type: string }): unknown {
+  if (definition.type === 'select') return { select: null };
+  if (definition.type === 'status') return { status: null };
+  if (definition.type === 'date') return { date: null };
+  return undefined;
 }
 
 function buildProperties(schema: Record<string, { type: string }>, values: Array<[readonly string[], string | string[]]>): Record<string, unknown> {
@@ -299,10 +342,14 @@ export function titlesDescribeOneRole(a: string, b: string): boolean {
   return shared / Math.min(left.size, right.size) >= 0.8 && shared / Math.max(left.size, right.size) >= 0.6;
 }
 
-export function isApplied(job: { normalizedCompany: string; normalizedTitle: string; canonicalUrl: string; sourceJobId?: string }, exclusions: AppliedExclusion[]): boolean {
-  return exclusions.some(exclusion =>
+export function findLedgerExclusion(job: { normalizedCompany: string; normalizedTitle: string; canonicalUrl: string; sourceJobId?: string }, exclusions: LedgerExclusion[]): LedgerExclusion | undefined {
+  return exclusions.find(exclusion =>
     (Boolean(job.sourceJobId) && job.sourceJobId === exclusion.sourceJobId) ||
     (job.canonicalUrl.startsWith('http') && job.canonicalUrl === exclusion.canonicalUrl) ||
     (job.normalizedCompany === exclusion.companyNormalized && titlesDescribeOneRole(job.normalizedTitle, exclusion.titleNormalized))
   );
+}
+
+export function isApplied(job: { normalizedCompany: string; normalizedTitle: string; canonicalUrl: string; sourceJobId?: string }, exclusions: LedgerExclusion[]): boolean {
+  return Boolean(findLedgerExclusion(job, exclusions.filter(exclusion => exclusion.kind === 'APPLIED')));
 }

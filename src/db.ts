@@ -5,7 +5,7 @@ import pg from 'pg';
 import { config, projectRoot } from './config.js';
 import { extractText } from './enrichment.js';
 import type { ClassifiedJob, DigestJob, SourceResult } from './types.js';
-import type { AppliedExclusion } from './notion.js';
+import type { LedgerExclusion } from './notion.js';
 import { batchKey as makeBatchKey, digestHash as makeDigestHash } from './state.js';
 import { materialFingerprint } from './normalization.js';
 
@@ -46,29 +46,29 @@ export async function withPipelineLock<T>(fn: () => Promise<T>): Promise<T> {
   }
 }
 
-export async function syncAppliedExclusions(exclusions: AppliedExclusion[]): Promise<void> {
+export async function syncLedgerExclusions(exclusions: LedgerExclusion[]): Promise<void> {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
     await client.query('DELETE FROM applied_exclusions');
     for (const item of exclusions) await client.query(
-      `INSERT INTO applied_exclusions(notion_page_id,company_normalized,title_normalized,canonical_url,source_job_id)
-       VALUES($1,$2,$3,$4,$5) ON CONFLICT(notion_page_id) DO UPDATE SET company_normalized=EXCLUDED.company_normalized,title_normalized=EXCLUDED.title_normalized,canonical_url=EXCLUDED.canonical_url,source_job_id=EXCLUDED.source_job_id,synced_at=now()`,
-      [item.notionPageId, item.companyNormalized, item.titleNormalized, item.canonicalUrl ?? null, item.sourceJobId ?? null]);
+      `INSERT INTO applied_exclusions(notion_page_id,company_normalized,title_normalized,canonical_url,source_job_id,kind)
+       VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT(notion_page_id) DO UPDATE SET company_normalized=EXCLUDED.company_normalized,title_normalized=EXCLUDED.title_normalized,canonical_url=EXCLUDED.canonical_url,source_job_id=EXCLUDED.source_job_id,kind=EXCLUDED.kind,synced_at=now()`,
+      [item.notionPageId, item.companyNormalized, item.titleNormalized, item.canonicalUrl ?? null, item.sourceJobId ?? null, item.kind]);
     await client.query('COMMIT');
   } catch (error) { await client.query('ROLLBACK'); throw error; } finally { client.release(); }
 }
 
-export async function loadCachedAppliedExclusions(): Promise<AppliedExclusion[]> {
-  const rows = await pool.query<{ notion_page_id: string; company_normalized: string; title_normalized: string; canonical_url: string | null; source_job_id: string | null }>('SELECT notion_page_id,company_normalized,title_normalized,canonical_url,source_job_id FROM applied_exclusions');
-  return rows.rows.map(row => ({ notionPageId: row.notion_page_id, companyNormalized: row.company_normalized, titleNormalized: row.title_normalized, canonicalUrl: row.canonical_url ?? undefined, sourceJobId: row.source_job_id ?? undefined }));
+export async function loadCachedLedgerExclusions(): Promise<LedgerExclusion[]> {
+  const rows = await pool.query<{ notion_page_id: string; company_normalized: string; title_normalized: string; canonical_url: string | null; source_job_id: string | null; kind: LedgerExclusion['kind'] }>('SELECT notion_page_id,company_normalized,title_normalized,canonical_url,source_job_id,kind FROM applied_exclusions');
+  return rows.rows.map(row => ({ notionPageId: row.notion_page_id, companyNormalized: row.company_normalized, titleNormalized: row.title_normalized, canonicalUrl: row.canonical_url ?? undefined, sourceJobId: row.source_job_id ?? undefined, kind: row.kind }));
 }
 
-export async function recordAppliedExclusion(exclusion: AppliedExclusion): Promise<void> {
+export async function recordLedgerExclusion(exclusion: LedgerExclusion): Promise<void> {
   await pool.query(
-    `INSERT INTO applied_exclusions(notion_page_id,company_normalized,title_normalized,canonical_url,source_job_id)
-     VALUES($1,$2,$3,$4,$5) ON CONFLICT(notion_page_id) DO UPDATE SET company_normalized=EXCLUDED.company_normalized,title_normalized=EXCLUDED.title_normalized,canonical_url=EXCLUDED.canonical_url,source_job_id=EXCLUDED.source_job_id,synced_at=now()`,
-    [exclusion.notionPageId, exclusion.companyNormalized, exclusion.titleNormalized, exclusion.canonicalUrl ?? null, exclusion.sourceJobId ?? null]);
+    `INSERT INTO applied_exclusions(notion_page_id,company_normalized,title_normalized,canonical_url,source_job_id,kind)
+     VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT(notion_page_id) DO UPDATE SET company_normalized=EXCLUDED.company_normalized,title_normalized=EXCLUDED.title_normalized,canonical_url=EXCLUDED.canonical_url,source_job_id=EXCLUDED.source_job_id,kind=EXCLUDED.kind,synced_at=now()`,
+    [exclusion.notionPageId, exclusion.companyNormalized, exclusion.titleNormalized, exclusion.canonicalUrl ?? null, exclusion.sourceJobId ?? null, exclusion.kind]);
 }
 
 export interface LedgerJob {

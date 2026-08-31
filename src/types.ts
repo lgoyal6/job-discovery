@@ -78,6 +78,8 @@ export interface PipelineReport {
     rejected: number;
     deduplicated: number;
     appliedExcluded: number;
+    ineligibleExcluded: number;
+    duplicateExcluded: number;
   };
   rejectionReasons: Record<string, number>;
   degradedSources: string[];

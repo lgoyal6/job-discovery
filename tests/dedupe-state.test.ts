@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { isApplied } from '../src/notion.js';
-import { localDedupe } from '../src/pipeline.js';
+import { excludeLedgerMatches, localDedupe } from '../src/pipeline.js';
 import type { ClassifiedJob } from '../src/types.js';
 import { batchKey, digestHash, transitionJob } from '../src/state.js';
 
@@ -49,9 +49,23 @@ describe('deduplication and state', () => {
   });
 
   it('matches Notion applied exclusions by job ID, URL, or company/title', () => {
-    const exclusions = [{ notionPageId: 'p1', companyNormalized: 'acme', titleNormalized: 'software intern summer 2027', canonicalUrl: 'https://acme.test/jobs/1', sourceJobId: '1' }];
+    const exclusions = [{ notionPageId: 'p1', companyNormalized: 'acme', titleNormalized: 'software intern summer 2027', canonicalUrl: 'https://acme.test/jobs/1', sourceJobId: '1', kind: 'APPLIED' as const }];
     expect(isApplied(job(), exclusions)).toBe(true);
     expect(isApplied(job({ sourceJobId: 'x', canonicalUrl: 'https://other.test', normalizedTitle: 'different' }), exclusions)).toBe(false);
+  });
+
+  it('suppresses applied, ineligible, and duplicate rows while keeping their reasons distinct', () => {
+    const applied = job({ sourceJobId: 'applied', canonicalUrl: 'https://acme.test/jobs/applied' });
+    const ineligible = job({ sourceJobId: 'ineligible', canonicalUrl: 'https://acme.test/jobs/ineligible' });
+    const duplicate = job({ sourceJobId: 'duplicate', canonicalUrl: 'https://acme.test/jobs/duplicate' });
+    const open = job({ sourceJobId: 'open', canonicalUrl: 'https://acme.test/jobs/open' });
+    const result = excludeLedgerMatches([applied, ineligible, duplicate, open], [
+      { notionPageId: 'p1', companyNormalized: 'acme', titleNormalized: 'different applied role', sourceJobId: 'applied', kind: 'APPLIED' },
+      { notionPageId: 'p2', companyNormalized: 'acme', titleNormalized: 'different blocked role', sourceJobId: 'ineligible', kind: 'INELIGIBLE' },
+      { notionPageId: 'p3', companyNormalized: 'acme', titleNormalized: 'different duplicate role', sourceJobId: 'duplicate', kind: 'DUPLICATE' }
+    ]);
+
+    expect(result).toEqual({ kept: [open], appliedExcluded: 1, ineligibleExcluded: 1, duplicateExcluded: 1 });
   });
 
   it('makes email batch identity independent of job order', () => {
