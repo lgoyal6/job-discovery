@@ -17,7 +17,7 @@ if [ -n "${FINANCE_DATABASE_URL:-}" ] && [ -n "${FINANCE_EMAIL_TO:-}" ]; then
 fi
 
 if [ "${N8N_IMPORT_WORKFLOWS_ON_START:-false}" = "true" ]; then
-  n8n import:workflow --input=/opt/job-pipeline/workflows/job-discovery-every-two-hours.json --activeState=false
+  n8n import:workflow --input=/opt/job-pipeline/workflows/job-discovery-every-three-hours.json --activeState=false
   printf '%s\n' '{"level":"info","event":"n8n_workflow_import_complete","workflow_id":"LakshJobDiscovery2h","active":false}'
 
   n8n import:workflow --input=/opt/job-pipeline/workflows/rezzy-shortlist-webhook.json --activeState=false

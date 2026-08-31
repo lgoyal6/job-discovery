@@ -77,10 +77,10 @@ describe('exported n8n workflows', () => {
     expect(entrypoint.slice(guard, alertImport)).toContain('\nfi\n');
   });
 
-  it('has a two-hour inactive schedule, email guard, and batch confirmation', async () => {
-    const value = await workflow('job-discovery-every-two-hours.json');
+  it('has a three-hour inactive schedule, email guard, and batch confirmation', async () => {
+    const value = await workflow('job-discovery-every-three-hours.json');
     expect(value.active).toBe(false);
-    expect(value.nodes.find((node: any) => node.type.endsWith('scheduleTrigger')).parameters.rule.interval[0].hoursInterval).toBe(2);
+    expect(value.nodes.find((node: any) => node.type.endsWith('scheduleTrigger')).parameters.rule.interval[0].hoursInterval).toBe(3);
     expect(value.nodes.some((node: any) => node.name === 'Has Claimed New Roles?')).toBe(true);
     expect(value.nodes.some((node: any) => node.name === 'Confirm Email Batch')).toBe(true);
     const gmail = value.nodes.find((node: any) => node.name === 'Send Gmail Digest');
@@ -96,7 +96,7 @@ describe('exported n8n workflows', () => {
   // send was already claimed by then. A claimed batch with no digest has to stop
   // at the gate, where stopping costs nothing, not at the node that mails it.
   it('refuses to open the send gate without a rendered subject', async () => {
-    for (const name of ['job-discovery-every-two-hours.json', 'finance-digest-every-six-hours.json']) {
+    for (const name of ['job-discovery-every-three-hours.json', 'finance-digest-every-six-hours.json']) {
       const value = await workflow(name);
       const gate = value.nodes.find((node: any) => node.name === 'Has Claimed New Roles?');
       expect(gate.parameters.conditions.combinator).toBe('and');

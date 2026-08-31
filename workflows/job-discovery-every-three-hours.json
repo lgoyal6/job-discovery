@@ -1,11 +1,11 @@
 {
   "id": "LakshJobDiscovery2h",
-  "name": "Laksh Job Discovery — Every Two Hours",
+  "name": "Laksh Job Discovery — Every Three Hours",
   "nodes": [
     {
-      "parameters": {"rule":{"interval":[{"field":"hours","hoursInterval":2,"triggerAtMinute":7}] }},
+      "parameters": {"rule":{"interval":[{"field":"hours","hoursInterval":3,"triggerAtMinute":7}] }},
       "id": "16d61b25-8199-43bf-b682-660d39086d2d",
-      "name": "Every Two Hours",
+      "name": "Every Three Hours",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.2,
       "position": [-620, 0]
@@ -57,7 +57,7 @@
   ],
   "pinData": {},
   "connections": {
-    "Every Two Hours":{"main":[[{"node":"Run Deterministic Pipeline","type":"main","index":0}]]},
+    "Every Three Hours":{"main":[[{"node":"Run Deterministic Pipeline","type":"main","index":0}]]},
     "Run Deterministic Pipeline":{"main":[[{"node":"Parse Pipeline Report","type":"main","index":0}]]},
     "Parse Pipeline Report":{"main":[[{"node":"Has Claimed New Roles?","type":"main","index":0}]]},
     "Has Claimed New Roles?":{"main":[[{"node":"Send Gmail Digest","type":"main","index":0}],[]]},
