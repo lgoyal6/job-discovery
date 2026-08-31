@@ -427,7 +427,7 @@ async function execute(options: RunOptions): Promise<PipelineReport> {
       if (options.persistent) applied = await loadCachedAppliedExclusions();
       sourceRuns.push(skippedSource('notion-applied', `NOTION_TOKEN is not configured; using ${applied.length} cached exclusions`));
     } else {
-      try { applied = await readAppliedExclusions(); notionReadSucceeded = true; sourceRuns.push({ ...skippedSource('notion-applied', `read ${applied.length} applied rows`), status: 'SUCCESS' }); }
+      try { applied = await readAppliedExclusions(); notionReadSucceeded = true; sourceRuns.push({ ...skippedSource('notion-applied', `read ${applied.length} excluded rows`), status: 'SUCCESS' }); }
       catch (error) {
         if (options.persistent) applied = await loadCachedAppliedExclusions();
         sourceRuns.push({ ...skippedSource('notion-applied', `${error instanceof Error ? error.message : String(error)}; using ${applied.length} cached exclusions`), status: 'FAILED' });
