@@ -37,8 +37,8 @@ describe('mirroring postings into the Notion ledger', () => {
     expect(mockedFetch).not.toHaveBeenCalled();
   });
 
-  // The invariant the whole feature rests on. readAppliedExclusions filters
-  // Status = Applied, so a mirrored posting written under that status would
+  // The invariant the whole feature rests on. readLedgerExclusions filters
+  // terminal and ineligible statuses, so a mirrored posting under one of them would
   // come back next run as a role already applied to, and every role the
   // pipeline found would exclude itself.
   it('files postings under a status the applied read ignores, and remembers the page', async () => {

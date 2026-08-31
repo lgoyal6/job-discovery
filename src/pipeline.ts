@@ -17,9 +17,9 @@ import { loadAtsSources } from './sources/ats.js';
 import { loadLinkedInSources } from './sources/linkedin.js';
 import { checkWatchedPages, loadWatchPages, type PageChange } from './sources/pagewatch.js';
 import { skippedSource } from './sources/base.js';
-import { readAppliedExclusions, isApplied, type AppliedExclusion } from './notion.js';
+import { findLedgerExclusion, readLedgerExclusions, type LedgerExclusion } from './notion.js';
 import { buildDigest, digestOrder, type ProgramChange } from './digest.js';
-import { getPageWatchState, savePageWatch, closeStaleJobs, getEnrichment, getSentRequisitions, getUnsentJobIds, isSourceDue, saveEnrichment, loadCachedAppliedExclusions, loadCompanyAliasRows, loadSponsorshipOverrides, prepareEmailBatch, recordSourceRuns, syncAppliedExclusions, upsertJob, withPipelineLock, type SponsorshipOverrideRow } from './db.js';
+import { getPageWatchState, savePageWatch, closeStaleJobs, getEnrichment, getSentRequisitions, getUnsentJobIds, isSourceDue, saveEnrichment, loadCachedLedgerExclusions, loadCompanyAliasRows, loadSponsorshipOverrides, prepareEmailBatch, recordSourceRuns, syncLedgerExclusions, upsertJob, withPipelineLock, type SponsorshipOverrideRow } from './db.js';
 import { log } from './logger.js';
 
 interface RunOptions { fixtures?: boolean; liveFree?: boolean; persistent?: boolean }
@@ -206,6 +206,26 @@ export async function classifyRawJob(raw: RawJob, context: { aliases: Map<string
 // "2027-ServiceNow" and "ServiceNow 2027" the same requisition and keeps the
 // AWS posting separate.
 export interface RequisitionGroup { display: DigestJob; members: DigestJob[] }
+
+export function excludeLedgerMatches(jobs: ClassifiedJob[], exclusions: LedgerExclusion[]): {
+  kept: ClassifiedJob[];
+  appliedExcluded: number;
+  ineligibleExcluded: number;
+  duplicateExcluded: number;
+} {
+  const kept: ClassifiedJob[] = [];
+  let appliedExcluded = 0;
+  let ineligibleExcluded = 0;
+  let duplicateExcluded = 0;
+  for (const job of jobs) {
+    const exclusion = findLedgerExclusion(job, exclusions);
+    if (exclusion?.kind === 'APPLIED') appliedExcluded += 1;
+    else if (exclusion?.kind === 'INELIGIBLE') ineligibleExcluded += 1;
+    else if (exclusion?.kind === 'DUPLICATE') duplicateExcluded += 1;
+    else kept.push(job);
+  }
+  return { kept, appliedExcluded, ineligibleExcluded, duplicateExcluded };
+}
 
 function mergedLocation(members: DigestJob[]): string {
   const places = [...new Set(members.map(job => job.location ?? 'Unspecified'))];
@@ -416,7 +436,7 @@ async function execute(options: RunOptions): Promise<PipelineReport> {
   }
   for (const company of watchlist) for (const alias of company.aliases) aliases.set(normalizeText(alias), company.parent);
   const priorities = new Map(watchlist.flatMap(company => company.aliases.map(alias => [normalizeText(company.parent === alias ? company.parent : aliases.get(normalizeText(alias)) ?? alias), company.priority] as const)));
-  let applied: AppliedExclusion[] = [];
+  let exclusions: LedgerExclusion[] = [];
   let notionReadSucceeded = false;
   if (!options.fixtures && !options.liveFree) {
     // The Notion ledger is one person's applied history. Excluding their
@@ -424,17 +444,17 @@ async function execute(options: RunOptions): Promise<PipelineReport> {
     if (activeProfile !== 'technical') {
       sourceRuns.push(skippedSource('notion-applied', `${activeProfile} profile: the applied ledger belongs to the technical digest`));
     } else if (!config.NOTION_TOKEN) {
-      if (options.persistent) applied = await loadCachedAppliedExclusions();
-      sourceRuns.push(skippedSource('notion-applied', `NOTION_TOKEN is not configured; using ${applied.length} cached exclusions`));
+      if (options.persistent) exclusions = await loadCachedLedgerExclusions();
+      sourceRuns.push(skippedSource('notion-applied', `NOTION_TOKEN is not configured; using ${exclusions.length} cached exclusions`));
     } else {
-      try { applied = await readAppliedExclusions(); notionReadSucceeded = true; sourceRuns.push({ ...skippedSource('notion-applied', `read ${applied.length} excluded rows`), status: 'SUCCESS' }); }
+      try { exclusions = await readLedgerExclusions(); notionReadSucceeded = true; sourceRuns.push({ ...skippedSource('notion-applied', `read ${exclusions.length} applied, ineligible, or duplicate rows`), status: 'SUCCESS' }); }
       catch (error) {
-        if (options.persistent) applied = await loadCachedAppliedExclusions();
-        sourceRuns.push({ ...skippedSource('notion-applied', `${error instanceof Error ? error.message : String(error)}; using ${applied.length} cached exclusions`), status: 'FAILED' });
+        if (options.persistent) exclusions = await loadCachedLedgerExclusions();
+        sourceRuns.push({ ...skippedSource('notion-applied', `${error instanceof Error ? error.message : String(error)}; using ${exclusions.length} cached exclusions`), status: 'FAILED' });
       }
     }
   }
-  applied = applied.map(exclusion => ({ ...exclusion, companyNormalized: normalizeCompany(exclusion.companyNormalized, aliases).normalized }));
+  exclusions = exclusions.map(exclusion => ({ ...exclusion, companyNormalized: normalizeCompany(exclusion.companyNormalized, aliases).normalized }));
   const raw = sourceRuns.flatMap(run => run.jobs);
   const classified = await Promise.all(raw.map(job => classifyRawJob(job, { aliases, patterns, priorities, sponsorshipOverrides })));
   for (const run of sourceRuns) {
@@ -442,19 +462,23 @@ async function execute(options: RunOptions): Promise<PipelineReport> {
     run.metrics = { ...(run.metrics ?? {}), acceptedCount: fromSource.filter(job => !job.rejectionReason).length, rejectedCount: fromSource.filter(job => Boolean(job.rejectionReason)).length };
   }
   const rejectionReasons: Record<string, number> = {};
-  let appliedExcluded = 0;
-  const eligible = classified.filter(job => {
+  const sourceEligible = classified.filter(job => {
     if (job.rejectionReason) { rejectionReasons[job.rejectionReason] = (rejectionReasons[job.rejectionReason] ?? 0) + 1; return false; }
-    if (isApplied(job, applied)) { appliedExcluded += 1; rejectionReasons.already_applied = (rejectionReasons.already_applied ?? 0) + 1; return false; }
     return true;
   });
+  const ledgerFiltered = excludeLedgerMatches(sourceEligible, exclusions);
+  const { appliedExcluded, ineligibleExcluded, duplicateExcluded } = ledgerFiltered;
+  const eligible = ledgerFiltered.kept;
+  if (appliedExcluded) rejectionReasons.already_applied = appliedExcluded;
+  if (ineligibleExcluded) rejectionReasons.ineligible = ineligibleExcluded;
+  if (duplicateExcluded) rejectionReasons.duplicate = duplicateExcluded;
   const deduped = localDedupe(eligible);
   let digestJobs: DigestJob[] = deduped.unique;
   let batchKey: string | null = null;
   let shouldSend = false;
   let alreadySentRequisitions = 0;
   if (options.persistent) {
-    if (notionReadSucceeded) await syncAppliedExclusions(applied);
+    if (notionReadSucceeded) await syncLedgerExclusions(exclusions);
     await recordSourceRuns(runId, sourceRuns);
     const stored = await Promise.all(deduped.unique.map(upsertJob));
     await closeStaleJobs();
@@ -557,7 +581,7 @@ async function execute(options: RunOptions): Promise<PipelineReport> {
     runId, dryRun: !options.persistent, batchKey, shouldSend, emailTo: config.EMAIL_TO,
     subject: digestJobs.length ? digest.subject : null, html: digestJobs.length ? digest.html : null, text: digestJobs.length ? digest.text : null,
     jobs: digestJobs, sourceRuns: sourceRuns.map(run => ({ ...run, jobs: [], metrics: { ...(run.metrics ?? {}), fetchedCount: run.jobs.length } })),
-    counts: { raw: raw.length, accepted: digestJobs.length, rejected: classified.length - eligible.length, deduplicated: deduped.count, appliedExcluded },
+    counts: { raw: raw.length, accepted: digestJobs.length, rejected: classified.length - eligible.length, deduplicated: deduped.count, appliedExcluded, ineligibleExcluded, duplicateExcluded },
     rejectionReasons, degradedSources: sourceRuns.filter(run => run.status !== 'SUCCESS').map(run => run.sourceName), notionModified: mirrored > 0
   };
 }

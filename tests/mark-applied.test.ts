@@ -63,21 +63,22 @@ describe('the mark-applied link in the digest', () => {
 
 describe('marking a role applied', () => {
   const mockDb = (overrides: Record<string, unknown> = {}) => {
-    const recordAppliedExclusion = vi.fn().mockResolvedValue(undefined);
+    const recordLedgerExclusion = vi.fn().mockResolvedValue(undefined);
     const recordNotionPage = vi.fn().mockResolvedValue(undefined);
     vi.doMock('../src/db.js', () => ({
       getJobForLedger: vi.fn().mockResolvedValue({ id: JOB_ID, company: 'Anduril Industries Inc', title: '2027 Software Engineer Intern', url: 'https://example.test/apply', sourceJobId: 'monster-1' }),
-      loadCachedAppliedExclusions: vi.fn().mockResolvedValue([]),
-      recordAppliedExclusion,
+      loadCachedLedgerExclusions: vi.fn().mockResolvedValue([]),
+      recordLedgerExclusion,
       recordNotionPage,
       ...overrides
     }));
-    return { recordAppliedExclusion, recordNotionPage };
+    return { recordLedgerExclusion, recordNotionPage };
   };
 
   const ledgerSchema = { properties: {
     Company: { type: 'title' }, Role: { type: 'rich_text' },
-    Link: { type: 'url' }, 'Job ID': { type: 'rich_text' }, Status: { type: 'select' }
+    Link: { type: 'url' }, 'Job ID': { type: 'rich_text' }, Status: { type: 'select' },
+    Purge: { type: 'select' }, 'Date Applied': { type: 'date' }
   } };
 
   it('refuses a forged link without reading the database or writing to Notion', async () => {
@@ -90,7 +91,7 @@ describe('marking a role applied', () => {
 
     expect(await markApplied(JOB_ID, 'f'.repeat(32))).toEqual({ ok: false, reason: 'bad_signature' });
     expect(mockedFetch).not.toHaveBeenCalled();
-    expect(db.recordAppliedExclusion).not.toHaveBeenCalled();
+    expect(db.recordLedgerExclusion).not.toHaveBeenCalled();
   });
 
   it('is a no-op the second time, so a re-clicked or scanned link files one row', async () => {
@@ -99,8 +100,8 @@ describe('marking a role applied', () => {
     const mockedFetch = vi.fn();
     vi.stubGlobal('fetch', mockedFetch);
     const db = mockDb({
-      loadCachedAppliedExclusions: vi.fn().mockResolvedValue([
-        { notionPageId: 'page-1', companyNormalized: 'anduril industries inc', titleNormalized: '2027 software engineer intern' }
+      loadCachedLedgerExclusions: vi.fn().mockResolvedValue([
+        { notionPageId: 'page-1', companyNormalized: 'anduril industries inc', titleNormalized: '2027 software engineer intern', kind: 'APPLIED' }
       ])
     });
     const { markApplied, signJobId } = await import('../src/applied.js');
@@ -108,14 +109,14 @@ describe('marking a role applied', () => {
     const result = await markApplied(JOB_ID, signJobId(JOB_ID));
     expect(result).toMatchObject({ ok: true, alreadyApplied: true });
     expect(mockedFetch).not.toHaveBeenCalled();
-    expect(db.recordAppliedExclusion).not.toHaveBeenCalled();
+    expect(db.recordLedgerExclusion).not.toHaveBeenCalled();
   });
 
   it('writes the row under the names the reader looks for, then excludes it locally', async () => {
     configure();
     process.env.NOTION_TOKEN = 'test-token';
     // This ledger keeps the company in the page title and the role in rich
-    // text, the shape readAppliedExclusions already handles. A payload built
+    // text, the shape readLedgerExclusions already handles. A payload built
     // from Notion's property types alone would file the company as the role.
     const json = (body: unknown): Response => new Response(JSON.stringify(body), { status: 200, headers: { 'content-type': 'application/json' } });
     const mockedFetch = vi.fn().mockImplementation((url: string) =>
@@ -136,12 +137,12 @@ describe('marking a role applied', () => {
     expect(body.properties.Role.rich_text[0].text.content).toBe('2027 Software Engineer Intern');
     expect(body.properties.Link.url).toBe('https://example.test/apply');
     expect(body.properties['Job ID'].rich_text[0].text.content).toBe('monster-1');
-    // Must equal the value readAppliedExclusions filters on, or the row it
+    // Must equal the value readLedgerExclusions filters on, or the row it
     // writes is invisible to the read that excludes it.
     expect(body.properties.Status.select).toEqual({ name: 'Applied' });
 
-    expect(db.recordAppliedExclusion).toHaveBeenCalledWith(expect.objectContaining({
-      notionPageId: 'new-page-1', companyNormalized: 'anduril industries inc', titleNormalized: '2027 software engineer intern'
+    expect(db.recordLedgerExclusion).toHaveBeenCalledWith(expect.objectContaining({
+      notionPageId: 'new-page-1', companyNormalized: 'anduril industries inc', titleNormalized: '2027 software engineer intern', kind: 'APPLIED'
     }));
   });
 
@@ -169,7 +170,34 @@ describe('marking a role applied', () => {
     const [url, init] = mockedFetch.mock.calls[1] as [string, RequestInit];
     expect(url).toBe('https://api.notion.com/v1/pages/mirrored-page');
     expect(init.method).toBe('PATCH');
-    expect(JSON.parse(String(init.body)).properties.Status.select).toEqual({ name: 'Applied' });
+    const properties = JSON.parse(String(init.body)).properties;
+    expect(properties.Status.select).toEqual({ name: 'Applied' });
+    expect(properties['Date Applied'].date).toEqual({ start: expect.any(String) });
+    expect(properties.Purge.select).toBeNull();
+  });
+
+  it('overrides an existing ineligible row instead of creating a competing applied row', async () => {
+    configure();
+    process.env.NOTION_TOKEN = 'test-token';
+    const mockedFetch = vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify(ledgerSchema), { status: 200, headers: { 'content-type': 'application/json' } }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ id: 'blocked-page' }), { status: 200, headers: { 'content-type': 'application/json' } }));
+    vi.stubGlobal('fetch', mockedFetch);
+    const db = mockDb({
+      loadCachedLedgerExclusions: vi.fn().mockResolvedValue([{
+        notionPageId: 'blocked-page', companyNormalized: 'anduril industries inc',
+        titleNormalized: '2027 software engineer intern', canonicalUrl: 'https://example.test/apply',
+        sourceJobId: 'monster-1', kind: 'INELIGIBLE'
+      }])
+    });
+    const { markApplied, signJobId } = await import('../src/applied.js');
+
+    const result = await markApplied(JOB_ID, signJobId(JOB_ID));
+
+    expect(result).toMatchObject({ ok: true, notionPageId: 'blocked-page' });
+    expect(mockedFetch.mock.calls.some(call => call[0] === 'https://api.notion.com/v1/pages')).toBe(false);
+    expect(db.recordNotionPage).toHaveBeenCalledWith(JOB_ID, 'blocked-page');
+    expect(db.recordLedgerExclusion).toHaveBeenCalledWith(expect.objectContaining({ notionPageId: 'blocked-page', kind: 'APPLIED' }));
   });
 
   it('reports a Notion failure instead of throwing, and records no exclusion', async () => {
@@ -183,6 +211,6 @@ describe('marking a role applied', () => {
     const result = await markApplied(JOB_ID, signJobId(JOB_ID));
     expect(result.ok).toBe(false);
     expect(result.reason).toBe('notion_failed');
-    expect(db.recordAppliedExclusion).not.toHaveBeenCalled();
+    expect(db.recordLedgerExclusion).not.toHaveBeenCalled();
   });
 });

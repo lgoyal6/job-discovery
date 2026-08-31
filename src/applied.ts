@@ -1,8 +1,8 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import { activeProfile, config } from './config.js';
-import { getJobForLedger, loadCachedAppliedExclusions, recordAppliedExclusion, recordNotionPage } from './db.js';
+import { getJobForLedger, loadCachedLedgerExclusions, recordLedgerExclusion, recordNotionPage } from './db.js';
 import { log } from './logger.js';
-import { createLedgerPage, isApplied, setLedgerStatus } from './notion.js';
+import { createLedgerPage, findLedgerExclusion, setLedgerStatus } from './notion.js';
 import { canonicalizeUrl, normalizeText } from './normalization.js';
 
 export interface MarkAppliedResult {
@@ -70,7 +70,8 @@ export async function markApplied(jobId: string, signature: string): Promise<Mar
     canonicalUrl: job.url ? canonicalizeUrl(job.url) : '',
     sourceJobId: job.sourceJobId
   };
-  if (isApplied(candidate, await loadCachedAppliedExclusions())) {
+  const existing = findLedgerExclusion(candidate, await loadCachedLedgerExclusions());
+  if (existing && existing.kind === 'APPLIED') {
     log('info', 'mark_applied_duplicate', { jobId, company: job.company });
     return { ok: true, alreadyApplied: true, company: job.company, title: job.title };
   }
@@ -81,9 +82,11 @@ export async function markApplied(jobId: string, signature: string): Promise<Mar
     // is the whole point of having stored its id: the alternative is a second
     // row for the same posting, one of them stale, every time.
     const today = new Date().toISOString().slice(0, 10);
-    if (job.notionPageId) {
-      await setLedgerStatus(job.notionPageId, 'Applied', today);
-      notionPageId = job.notionPageId;
+    const existingPageId = job.notionPageId ?? (existing && existing.kind !== 'APPLIED' ? existing.notionPageId : undefined);
+    if (existingPageId) {
+      await setLedgerStatus(existingPageId, 'Applied', today);
+      notionPageId = existingPageId;
+      if (!job.notionPageId) await recordNotionPage(job.id, notionPageId);
     } else {
       notionPageId = await createLedgerPage(job, 'Applied');
       await setLedgerStatus(notionPageId, 'Applied', today);
@@ -96,12 +99,13 @@ export async function markApplied(jobId: string, signature: string): Promise<Mar
 
   // Excluded from the next digest without waiting for the next Notion read, and
   // the row that makes a second click a no-op.
-  await recordAppliedExclusion({
+  await recordLedgerExclusion({
     notionPageId,
     companyNormalized: candidate.normalizedCompany,
     titleNormalized: candidate.normalizedTitle,
     canonicalUrl: candidate.canonicalUrl || undefined,
-    sourceJobId: candidate.sourceJobId
+    sourceJobId: candidate.sourceJobId,
+    kind: 'APPLIED'
   });
   log('info', 'mark_applied_recorded', { jobId, notionPageId, company: job.company });
   return { ok: true, company: job.company, title: job.title, notionPageId };
