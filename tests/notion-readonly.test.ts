@@ -7,8 +7,8 @@ afterEach(() => {
   vi.resetModules();
 });
 
-describe('Notion applied ledger', () => {
-  it('paginates query-only reads and normalizes applied exclusions without mutations', async () => {
+describe('Notion digest exclusions', () => {
+  it('paginates query-only reads for terminal decisions without mutations', async () => {
     process.env.NOTION_TOKEN = 'test-notion-token';
     process.env.NOTION_DATA_SOURCE_ID = 'test-data-source';
     const pages = [
@@ -41,7 +41,16 @@ describe('Notion applied ledger', () => {
     }
     const firstBody = JSON.parse(String((mockedFetch.mock.calls[0]?.[1] as RequestInit).body));
     const secondBody = JSON.parse(String((mockedFetch.mock.calls[1]?.[1] as RequestInit).body));
-    expect(firstBody.filter).toEqual({ property: 'Status', select: { equals: 'Applied' } });
+    expect(firstBody.filter).toEqual({ or: [
+      { property: 'Status', select: { equals: 'Applied' } },
+      { property: 'Status', select: { equals: 'In Review' } },
+      { property: 'Status', select: { equals: 'Interview' } },
+      { property: 'Status', select: { equals: 'Offer' } },
+      { property: 'Status', select: { equals: 'Rejected' } },
+      { property: 'Purge', select: { equals: 'Ineligible - delete' } },
+      { property: 'Purge', select: { equals: 'Duplicate - delete' } }
+    ] });
+    expect(secondBody.filter).toEqual(firstBody.filter);
     expect(secondBody.start_cursor).toBe('cursor-2');
   });
 });

@@ -23,6 +23,7 @@ export const LEDGER_FIELDS = {
   url: ['Link', 'URL', 'Application URL'],
   sourceJobId: ['Job ID', 'Source Job ID'],
   status: ['Status'],
+  purge: ['Purge'],
   // The ledger already had a column for each of these, and its select options
   // are this pipeline's own vocabulary: Category is exactly SWE/ML-AI/Quant/
   // GTM Eng/Other, Cycle is the four target cycles, and all 15 skills the
@@ -37,6 +38,18 @@ export const LEDGER_FIELDS = {
   summary: ['JD Meta', 'Summary', 'Notes'],
   appliedOn: ['Date Applied', 'Applied Date', 'Applied On']
 } as const;
+
+const EXCLUDED_STATUSES = ['Applied', 'In Review', 'Interview', 'Offer', 'Rejected'] as const;
+const EXCLUDED_PURGE_VALUES = ['Ineligible - delete', 'Duplicate - delete'] as const;
+
+function exclusionFilter(): Record<string, unknown> {
+  return {
+    or: [
+      ...EXCLUDED_STATUSES.map(value => ({ property: LEDGER_FIELDS.status[0], select: { equals: value } })),
+      ...EXCLUDED_PURGE_VALUES.map(value => ({ property: LEDGER_FIELDS.purge[0], select: { equals: value } }))
+    ]
+  };
+}
 
 // The ledger's own words for a sponsorship verdict.
 const WORK_AUTH: Record<string, string> = { SUPPORTED: 'F-1 OK', UNSUPPORTED: 'US only', UNKNOWN: 'Unknown' };
@@ -70,9 +83,9 @@ export async function readAppliedExclusions(): Promise<AppliedExclusion[]> {
   let cursor: string | undefined;
   let useLegacyDatabaseQuery = false;
   do {
-    // The ledger uses a Status *select* property (not the newer Status type).
-    // Keep this shape compatible with both the data-source and legacy query APIs.
-    const body = JSON.stringify({ page_size: 100, filter: { property: 'Status', select: { equals: 'Applied' } }, ...(cursor ? { start_cursor: cursor } : {}) });
+    // Status and Purge are both select properties. A role the user has already
+    // decided on must not resurface just because the decision was not Applied.
+    const body = JSON.stringify({ page_size: 100, filter: exclusionFilter(), ...(cursor ? { start_cursor: cursor } : {}) });
     let response: Response;
     try {
       response = await fetchWithPolicy(useLegacyDatabaseQuery
