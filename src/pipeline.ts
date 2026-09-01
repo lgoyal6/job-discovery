@@ -200,7 +200,7 @@ export async function classifyRawJob(raw: RawJob, context: { aliases: Map<string
     ...raw, sourceJobId, company: company.display, location, canonicalUrl, normalizedCompany: company.normalized, normalizedTitle, normalizedLocation,
     canonicalKey: canonicalKey({ sourceName: raw.sourceName, sourceJobId, canonicalUrl, normalizedCompany: company.normalized, normalizedTitle, normalizedLocation, cycle: resolvedCycle }),
     category: role.category, cycle: resolvedCycle, sponsorshipStatus: sponsorship.status, sponsorshipEvidence: sponsorship.evidence,
-    graduationEligible: graduation.eligible, graduationEvidence: graduation.evidence, requiredSkills: skills,
+    graduationEligible: graduation.eligible, graduationEvidence: graduation.evidence, graduationClaim: graduation.claim, requiredSkills: skills,
     score: scoreJob({ cycle: resolvedCycle, category: role.category, sponsorshipStatus: sponsorship.status, skills, postedAt: raw.postedAt, location, watchlistPriority: context.priorities.get(company.normalized) ?? 0 }),
     rejectionReason, summary: shortSummary(description)
   };

@@ -189,20 +189,33 @@ export function classifyLocation(location: string, context = ''): { eligible: bo
   return { eligible: true, evidence: 'Location names no country, so it is not treated as foreign.' };
 }
 
-export function classifyGraduation(title: string, description = ''): { eligible: boolean; evidence: string } {
+// Laksh can finish at any UC San Diego quarter boundary from June 2027 onward,
+// so the graduation date on a page is a choice rather than a fact to work
+// around. Two dates are worth claiming and the posting decides which:
+//   June 2027 for full-time new-grad roles, the only date that opens the class
+//     of 2027, and the only one that closes a Summer 2027 internship.
+//   June 2028 for internships, which makes Summer 2027 the rising-senior summer
+//     the whole cycle recruits for.
+// December 2027 exists as a deliberate exception, handled by the caller, not
+// here: it only pays at an employer that hires on a rolling start date rather
+// than a cohort. March 2028 was considered and dropped, since it carries
+// December's off-cycle cost without December's speed.
+export type ClaimedGraduation = 'JUNE_2027' | 'JUNE_2028';
+
+export function classifyGraduation(title: string, description = ''): { eligible: boolean; evidence: string; claim: ClaimedGraduation } {
   const text = `${title} ${description}`;
   if (/\bnew grad(?:uate)?\b|university graduate/i.test(title)) {
-    if (/graduat(?:e|ing|ion).{0,45}\b2027\b/i.test(text) && !/\b2028\b/i.test(text)) return { eligible: false, evidence: 'New-grad posting explicitly requires 2027 graduation.' };
-    if (/graduat(?:e|ing|ion).{0,60}\b2028\b/i.test(text)) return { eligible: true, evidence: 'New-grad graduation window explicitly includes 2028.' };
-    return { eligible: false, evidence: 'New-grad role lacks an explicit June 2028-compatible graduation window.' };
+    if (/graduat(?:e|ing|ion).{0,45}\b2027\b/i.test(text) && !/\b2028\b/i.test(text)) return { eligible: true, evidence: 'New-grad posting requires 2027 graduation, so claim June 2027.', claim: 'JUNE_2027' };
+    if (/graduat(?:e|ing|ion).{0,60}\b2028\b/i.test(text)) return { eligible: true, evidence: 'New-grad graduation window explicitly includes 2028.', claim: 'JUNE_2028' };
+    return { eligible: true, evidence: 'New-grad role states no graduation window, so claim June 2027 to reach the earlier class.', claim: 'JUNE_2027' };
   }
   const exclusions = [
     /graduat(?:e|ing|ion).{0,50}(?:december\s+2026|may\s+2027|june\s+2027)(?!\s*(?:-|through|or)\s*2028)/i,
     /must graduate (?:in|by) 2027/i,
     /class of 2027 only/i
   ];
-  if (exclusions.some(pattern => pattern.test(text))) return { eligible: false, evidence: 'Graduation requirement clearly excludes June 2028.' };
-  return { eligible: true, evidence: 'No graduation restriction excluding June 2028 was found.' };
+  if (exclusions.some(pattern => pattern.test(text))) return { eligible: true, evidence: 'Graduation requirement excludes June 2028, so claim June 2027.', claim: 'JUNE_2027' };
+  return { eligible: true, evidence: 'No graduation restriction excluding June 2028 was found.', claim: 'JUNE_2028' };
 }
 
 // The community lists state this in the title, and far more reliably than any

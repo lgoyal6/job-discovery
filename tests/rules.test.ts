@@ -341,10 +341,19 @@ describe('deterministic role rules', () => {
     expect(classifyLocation('Unspecified').eligible).toBe(true);
   });
 
-  it('rejects incompatible 2027 new-grad/graduation windows and accepts explicit 2028', () => {
-    expect(classifyGraduation('Software Engineer New Grad 2027', 'Must graduate in 2027').eligible).toBe(false);
-    expect(classifyGraduation('Software Engineer New Grad', 'Graduating between December 2027 and June 2028').eligible).toBe(true);
-    expect(classifyGraduation('Software Engineering Intern', 'Currently enrolled').eligible).toBe(true);
+  it('claims the graduation date each posting needs, rather than filtering on one', () => {
+    // A 2027 new-grad window used to be a rejection. It is now a June 2027
+    // claim, which is the only date that opens the class of 2027.
+    const class2027 = classifyGraduation('Software Engineer New Grad 2027', 'Must graduate in 2027');
+    expect(class2027).toMatchObject({ eligible: true, claim: 'JUNE_2027' });
+
+    // An internship keeps June 2028, which makes Summer 2027 the rising-senior
+    // summer the cycle recruits for.
+    expect(classifyGraduation('Software Engineering Intern', 'Currently enrolled')).toMatchObject({ eligible: true, claim: 'JUNE_2028' });
+    expect(classifyGraduation('Software Engineer New Grad', 'Graduating between December 2027 and June 2028')).toMatchObject({ eligible: true, claim: 'JUNE_2028' });
+
+    // A new-grad post that names no window reaches for the earlier class.
+    expect(classifyGraduation('New Grad Software Engineer', 'Join our team')).toMatchObject({ claim: 'JUNE_2027' });
   });
 
   it('classifies sponsorship positive, negative, and ambiguous language', async () => {
