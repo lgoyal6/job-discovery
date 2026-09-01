@@ -149,7 +149,14 @@ export function shortSummary(description = ''): string {
   return text ? text.slice(0, 280) : 'The source did not provide a verifiable description summary.';
 }
 
-export async function classifyRawJob(raw: RawJob, context: { aliases: Map<string, string>; patterns: Awaited<ReturnType<typeof loadSponsorshipPatterns>>; priorities: Map<string, number>; sponsorshipOverrides?: SponsorshipOverrideRow[] ; h1bSponsors?: Set<string>; cohortEmployers?: Set<string>}): Promise<ClassifiedJob> {
+// 100 H-1B approvals over two fiscal years puts an employer in the top 2.5% of
+// the 28,566 on record. Companies that size run new-grad programs; the ones
+// below it are where a rolling start is plausible. Erring either way is cheap:
+// too high and we claim December at a cohort employer until we see one of its
+// new-grad reqs, too low and we claim June 2028 and convert a season later.
+const COHORT_APPROVAL_FLOOR = 100;
+
+export async function classifyRawJob(raw: RawJob, context: { aliases: Map<string, string>; patterns: Awaited<ReturnType<typeof loadSponsorshipPatterns>>; priorities: Map<string, number>; sponsorshipOverrides?: SponsorshipOverrideRow[] ; h1bSponsors?: Map<string, number>; cohortEmployers?: Set<string>}): Promise<ClassifiedJob> {
   const title = raw.title.trim();
   const company = normalizeCompany(raw.company, context.aliases);
   const location = raw.location?.trim() || 'Unspecified';
@@ -202,7 +209,13 @@ export async function classifyRawJob(raw: RawJob, context: { aliases: Map<string
   // 2027 converts about six months after the internship instead of waiting for
   // the next summer intake. At a cohort employer the start date is the cohort's
   // and December buys nothing, so the claim stays June 2028.
-  if (graduation.claim === 'JUNE_2028' && context.cohortEmployers?.size && !context.cohortEmployers.has(company.normalized)) {
+  // Absence from the cohort set can mean "hires on a rolling start" or just
+  // "we have never seen this employer". H-1B approval volume separates them: an
+  // employer sponsoring at this scale is large enough to run a cohort whatever
+  // our own board history shows, which is what stops a big company arriving
+  // through a new source from being read as a startup on its first posting.
+  const looksLargeEnoughForACohort = (context.h1bSponsors?.get(company.normalized) ?? 0) >= COHORT_APPROVAL_FLOOR;
+  if (graduation.claim === 'JUNE_2028' && context.cohortEmployers?.size && !context.cohortEmployers.has(company.normalized) && !looksLargeEnoughForACohort) {
     graduation = { ...graduation, claim: 'DECEMBER_2027', evidence: `${graduation.evidence} No new-grad requisition seen from this employer, so a rolling start makes December 2027 worth claiming.` };
   }
   return {
@@ -464,7 +477,7 @@ async function execute(options: RunOptions): Promise<PipelineReport> {
   sourceRuns.push({ sourceName: 'watchlist-rotation', status: 'SUCCESS', jobs: [], startedAt: now, finishedAt: now, durationMs: 0, costUnits: 0, metrics: { slot, scheduledCompanies: watchlistCohort.map(company => company.parent), linkedInScanEnabled: !options.liveFree && (config.APIFY_ENABLED || config.PAID_SOURCES_ENABLED), totalCompanies: watchlist.length, watchlistCompaniesWithRoles: companiesWithRoles.size, watchlistCoveragePercent: watchlist.length ? Math.round((100 * companiesWithRoles.size) / watchlist.length) : 0 } });
   const aliases = buildAliasMap(aliasesConfig);
   let sponsorshipOverrides: SponsorshipOverrideRow[] = [];
-  let h1bSponsors = new Set<string>();
+  let h1bSponsors = new Map<string, number>();
   let cohortEmployers = new Set<string>();
   if (options.persistent) {
     const [aliasRows, overrides, sponsors, cohorts] = await Promise.all([loadCompanyAliasRows(), loadSponsorshipOverrides(), loadH1bSponsors(), loadCohortEmployers()]);

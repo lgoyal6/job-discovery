@@ -482,12 +482,13 @@ describe('the graduation date each posting gets claimed against', () => {
     sourceUrl: 'https://example.test/1', directApplyUrl: 'https://example.test/1',
     scrapedAt: '2026-09-01T00:00:00.000Z', description: 'Currently enrolled students.'
   });
-  const claimFor = async (company: string, title: string, cohortEmployers?: Set<string>) => {
+  const claimFor = async (company: string, title: string, cohortEmployers?: Set<string>, h1bSponsors?: Map<string, number>) => {
     const context = {
       aliases: buildAliasMap(await loadCompanyAliases()),
       patterns: await loadSponsorshipPatterns(),
       priorities: new Map<string, number>(),
-      cohortEmployers
+      cohortEmployers,
+      h1bSponsors
     };
     return (await classifyRawJob(raw(company, title), context)).graduationClaim;
   };
@@ -512,6 +513,22 @@ describe('the graduation date each posting gets claimed against', () => {
     // runs a cohort. Absence of data is not evidence.
     expect(await claimFor('Some Startup', 'Software Engineering Intern', new Set())).toBe('JUNE_2028');
     expect(await claimFor('Some Startup', 'Software Engineering Intern')).toBe('JUNE_2028');
+  });
+
+  it('keeps June 2028 for a big employer arriving fresh, on H-1B volume alone', async () => {
+    // Absent from the cohort set only because we have never seen its board.
+    // Sponsoring at this scale means it is large enough to run a cohort, which
+    // is what stops a first sighting from being read as a startup.
+    const cohorts = new Set(['alphabet']);
+    const sponsors = new Map([['salesforce', 1200]]);
+    expect(await claimFor('Salesforce', 'Software Engineering Intern', cohorts, sponsors)).toBe('JUNE_2028');
+  });
+
+  it('still claims December for a small employer that sponsors a little', async () => {
+    // A handful of approvals is a startup that sponsors, not a cohort employer.
+    const cohorts = new Set(['alphabet']);
+    const sponsors = new Map([['artie', 3]]);
+    expect(await claimFor('Artie', 'Software Engineering Intern, Summer 2027', cohorts, sponsors)).toBe('DECEMBER_2027');
   });
 
   it('never downgrades a new-grad role to December, since June 2027 opens the earlier class', async () => {

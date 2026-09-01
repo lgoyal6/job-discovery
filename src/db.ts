@@ -163,9 +163,10 @@ export async function loadCohortEmployers(): Promise<Set<string>> {
   return new Set(rows.rows.map(row => row.normalized_company));
 }
 
-export async function loadH1bSponsors(): Promise<Set<string>> {
-  const rows = await pool.query<{ company_normalized: string }>('SELECT company_normalized FROM employer_h1b_approvals');
-  return new Set(rows.rows.map(row => row.company_normalized));
+export async function loadH1bSponsors(): Promise<Map<string, number>> {
+  const rows = await pool.query<{ company_normalized: string; approvals: number }>(
+    'SELECT company_normalized, approvals FROM employer_h1b_approvals');
+  return new Map(rows.rows.map(row => [row.company_normalized, Number(row.approvals)]));
 }
 
 export async function recordSourceRuns(runId: string, runs: SourceResult[]): Promise<void> {
