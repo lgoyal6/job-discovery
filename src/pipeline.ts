@@ -19,7 +19,7 @@ import { checkWatchedPages, loadWatchPages, type PageChange } from './sources/pa
 import { skippedSource } from './sources/base.js';
 import { findLedgerExclusionMatch, readLedgerExclusions, type LedgerExclusion } from './notion.js';
 import { buildDigest, digestOrder, type ProgramChange } from './digest.js';
-import { getPageWatchState, savePageWatch, closeStaleJobs, getEnrichment, getSentRequisitions, getUnsentJobIds, isSourceDue, saveEnrichment, loadCachedLedgerExclusions, loadCompanyAliasRows, loadSponsorshipOverrides, prepareEmailBatch, recordSourceRuns, syncLedgerExclusions, upsertJob, withPipelineLock, type SponsorshipOverrideRow } from './db.js';
+import { getPageWatchState, savePageWatch, closeStaleJobs, getEnrichment, getSentRequisitions, getUnsentJobIds, isSourceDue, saveEnrichment, loadCachedLedgerExclusions, loadH1bSponsors, loadCompanyAliasRows, loadSponsorshipOverrides, prepareEmailBatch, recordSourceRuns, syncLedgerExclusions, upsertJob, withPipelineLock, type SponsorshipOverrideRow } from './db.js';
 import { log } from './logger.js';
 
 interface RunOptions { fixtures?: boolean; liveFree?: boolean; persistent?: boolean }
@@ -149,7 +149,7 @@ export function shortSummary(description = ''): string {
   return text ? text.slice(0, 280) : 'The source did not provide a verifiable description summary.';
 }
 
-export async function classifyRawJob(raw: RawJob, context: { aliases: Map<string, string>; patterns: Awaited<ReturnType<typeof loadSponsorshipPatterns>>; priorities: Map<string, number>; sponsorshipOverrides?: SponsorshipOverrideRow[] }): Promise<ClassifiedJob> {
+export async function classifyRawJob(raw: RawJob, context: { aliases: Map<string, string>; patterns: Awaited<ReturnType<typeof loadSponsorshipPatterns>>; priorities: Map<string, number>; sponsorshipOverrides?: SponsorshipOverrideRow[] ; h1bSponsors?: Set<string>}): Promise<ClassifiedJob> {
   const title = raw.title.trim();
   const company = normalizeCompany(raw.company, context.aliases);
   const location = raw.location?.trim() || 'Unspecified';
@@ -188,6 +188,14 @@ export async function classifyRawJob(raw: RawJob, context: { aliases: Map<string
   const sourceJobId = raw.sourceJobId || extractSourceJobId(canonicalUrl);
   const sponsorshipOverride = context.sponsorshipOverrides?.find(override => override.companyNormalized === company.normalized && ((override.sourceJobId && override.sourceJobId === sourceJobId) || (override.canonicalUrl && canonicalizeUrl(override.canonicalUrl) === canonicalUrl)));
   if (sponsorshipOverride) sponsorship = { status: sponsorshipOverride.status, evidence: sponsorshipOverride.evidence };
+  // A silent posting is not evidence either way, so ask whether the employer has
+  // ever sponsored anyone. Absence is the signal, not the count: a company with
+  // three approvals still sponsors, one with none in two full fiscal years
+  // probably does not. Status stays UNKNOWN, only the evidence sharpens, so the
+  // call remains the reader's.
+  if (sponsorship.status === 'UNKNOWN' && context.h1bSponsors?.size && !context.h1bSponsors.has(company.normalized)) {
+    sponsorship = { status: 'UNKNOWN', evidence: `${sponsorship.evidence} This employer has no H-1B approvals on record, so sponsorship is unlikely.` };
+  }
   return {
     ...raw, sourceJobId, company: company.display, location, canonicalUrl, normalizedCompany: company.normalized, normalizedTitle, normalizedLocation,
     canonicalKey: canonicalKey({ sourceName: raw.sourceName, sourceJobId, canonicalUrl, normalizedCompany: company.normalized, normalizedTitle, normalizedLocation, cycle: resolvedCycle }),
@@ -447,10 +455,12 @@ async function execute(options: RunOptions): Promise<PipelineReport> {
   sourceRuns.push({ sourceName: 'watchlist-rotation', status: 'SUCCESS', jobs: [], startedAt: now, finishedAt: now, durationMs: 0, costUnits: 0, metrics: { slot, scheduledCompanies: watchlistCohort.map(company => company.parent), linkedInScanEnabled: !options.liveFree && (config.APIFY_ENABLED || config.PAID_SOURCES_ENABLED), totalCompanies: watchlist.length, watchlistCompaniesWithRoles: companiesWithRoles.size, watchlistCoveragePercent: watchlist.length ? Math.round((100 * companiesWithRoles.size) / watchlist.length) : 0 } });
   const aliases = buildAliasMap(aliasesConfig);
   let sponsorshipOverrides: SponsorshipOverrideRow[] = [];
+  let h1bSponsors = new Set<string>();
   if (options.persistent) {
-    const [aliasRows, overrides] = await Promise.all([loadCompanyAliasRows(), loadSponsorshipOverrides()]);
+    const [aliasRows, overrides, sponsors] = await Promise.all([loadCompanyAliasRows(), loadSponsorshipOverrides(), loadH1bSponsors()]);
     for (const row of aliasRows) aliases.set(row.aliasNormalized, row.canonicalCompany);
     sponsorshipOverrides = overrides;
+    h1bSponsors = sponsors;
   }
   for (const company of watchlist) for (const alias of company.aliases) aliases.set(normalizeText(alias), company.parent);
   const priorities = new Map(watchlist.flatMap(company => company.aliases.map(alias => [normalizeText(company.parent === alias ? company.parent : aliases.get(normalizeText(alias)) ?? alias), company.priority] as const)));
@@ -475,7 +485,7 @@ async function execute(options: RunOptions): Promise<PipelineReport> {
   }
   exclusions = exclusions.map(exclusion => ({ ...exclusion, companyNormalized: normalizeCompany(exclusion.companyNormalized, aliases).normalized }));
   const raw = sourceRuns.flatMap(run => run.jobs);
-  const classified = await Promise.all(raw.map(job => classifyRawJob(job, { aliases, patterns, priorities, sponsorshipOverrides })));
+  const classified = await Promise.all(raw.map(job => classifyRawJob(job, { aliases, patterns, priorities, sponsorshipOverrides, h1bSponsors })));
   for (const run of sourceRuns) {
     const fromSource = classified.filter(job => job.sourceName === run.sourceName);
     run.metrics = { ...(run.metrics ?? {}), acceptedCount: fromSource.filter(job => !job.rejectionReason).length, rejectedCount: fromSource.filter(job => Boolean(job.rejectionReason)).length };
