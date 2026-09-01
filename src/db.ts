@@ -151,6 +151,11 @@ export async function loadSponsorshipOverrides(): Promise<SponsorshipOverrideRow
   return rows.rows.map(row => ({ companyNormalized: row.company_normalized, sourceJobId: row.source_job_id ?? undefined, canonicalUrl: row.canonical_url ?? undefined, status: row.status, evidence: row.evidence }));
 }
 
+export async function loadH1bSponsors(): Promise<Set<string>> {
+  const rows = await pool.query<{ company_normalized: string }>('SELECT company_normalized FROM employer_h1b_approvals');
+  return new Set(rows.rows.map(row => row.company_normalized));
+}
+
 export async function recordSourceRuns(runId: string, runs: SourceResult[]): Promise<void> {
   for (const run of runs) {
     await pool.query(

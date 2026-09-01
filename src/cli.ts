@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { getSeenApplyUrls, markBatchSent, migrate, pool } from './db.js';
+import { seed as seedH1bApprovals } from './seed-h1b-approvals.js';
 import { harvestBoardsFromSeenUrls, runDiscovery } from './discovery.js';
 import { runPipeline } from './pipeline.js';
 import { log } from './logger.js';
@@ -13,6 +14,13 @@ function flag(name: string): string | undefined {
 
 async function main(): Promise<void> {
   const command = process.argv[2];
+  if (command === 'seed-h1b') {
+    const path = process.argv[3];
+    if (!path) throw new Error('seed-h1b needs a path to the USCIS export');
+    const result = await seedH1bApprovals(path);
+    process.stdout.write(`${JSON.stringify({ ok: true, ...result })}\n`);
+    return;
+  }
   if (command === 'migrate') {
     const applied = await migrate();
     process.stdout.write(`${JSON.stringify({ ok: true, applied })}\n`);
