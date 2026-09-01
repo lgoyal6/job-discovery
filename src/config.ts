@@ -116,6 +116,7 @@ const envSchema = z.object({
   // tail was waiting a tick or more to be said. 100 roles is about 64 KB of the
   // ~102 KB Gmail allows before it clips.
   DIGEST_MAX_ROLES: z.coerce.number().int().min(1).max(150).default(100),
+  DIGEST_MAX_ROLES_PER_COMPANY: z.coerce.number().int().min(1).max(50).default(3),
   // The sponsorship-unlikely section has its own, much smaller cap. Those roles
   // are reported rather than dropped because the boilerplate is not always the
   // practice, but Anduril alone posts 139 of them and they must never be able

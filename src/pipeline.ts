@@ -310,7 +310,7 @@ export function applyEnrichment(
 // roles tie on score, the tiebreak is alphabetical, and one high-volume employer
 // takes 40% of the digest. Deal one role per company per pass instead, companies
 // ordered by their best role, so breadth wins before any employer gets seconds.
-export function diversifiedTop(jobs: DigestJob[], limit: number): DigestJob[] {
+export function diversifiedTop(jobs: DigestJob[], limit: number, perCompany = Infinity): DigestJob[] {
   // The digest's own order, so the cap keeps the roles the email would have led
   // with rather than a different hundred it then has to re-sort.
   const ranked = [...jobs].sort(digestOrder);
@@ -318,7 +318,12 @@ export function diversifiedTop(jobs: DigestJob[], limit: number): DigestJob[] {
   for (const job of ranked) {
     const key = job.normalizedCompany || job.company;
     const queue = queues.get(key);
-    if (queue) queue.push(job); else queues.set(key, [job]);
+    // Round-robin alone orders employers fairly but never limits one. American
+    // Express files a separate requisition per degree level, role family and
+    // city, so 28 of them were live at once, none of them applied to and none
+    // of them suppressible; the deal simply came back round to Amex four times
+    // and the digest read as the same row over and over.
+    if (queue) { if (queue.length < perCompany) queue.push(job); } else queues.set(key, [job]);
   }
   const picked: DigestJob[] = [];
   const rotation = [...queues.values()];
@@ -547,9 +552,11 @@ async function execute(options: RunOptions): Promise<PipelineReport> {
   const open = allRequisitions.filter(group => group.display.sponsorshipStatus !== 'UNSUPPORTED');
   // Group first, then cap, so the cap counts requisitions rather than spending
   // itself on one employer's six cities.
+  // No early return on rows.length <= limit. The total cap is rarely the one
+  // that binds - a digest of sixty rows is under it - and skipping the deal
+  // when it does not bind skipped the per-employer ceiling with it.
   const capGroups = (rows: RequisitionGroup[], limit: number): RequisitionGroup[] => {
-    if (rows.length <= limit) return rows;
-    const keep = new Set(diversifiedTop(rows.map(group => group.display), limit).map(job => job.canonicalKey));
+    const keep = new Set(diversifiedTop(rows.map(group => group.display), limit, config.DIGEST_MAX_ROLES_PER_COMPANY).map(job => job.canonicalKey));
     return rows.filter(group => keep.has(group.display.canonicalKey));
   };
   const groups = capGroups(open, config.DIGEST_MAX_ROLES);
