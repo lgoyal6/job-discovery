@@ -154,6 +154,12 @@ export function shortSummary(description = ''): string {
 // below it are where a rolling start is plausible. Erring either way is cheap:
 // too high and we claim December at a cohort employer until we see one of its
 // new-grad reqs, too low and we claim June 2028 and convert a season later.
+// Both absence-based signals below are gated on this. Absence only means
+// something once a posting's company name resolves to the USCIS legal entity,
+// and today 76% of the employers we have seen do not resolve. Flip this to true
+// once there is a resolution layer, and the two branches come back on together.
+const NAME_RESOLUTION_READY = false;
+
 const COHORT_APPROVAL_FLOOR = 100;
 
 export async function classifyRawJob(raw: RawJob, context: { aliases: Map<string, string>; patterns: Awaited<ReturnType<typeof loadSponsorshipPatterns>>; priorities: Map<string, number>; sponsorshipOverrides?: SponsorshipOverrideRow[] ; h1bSponsors?: Map<string, number>; cohortEmployers?: Set<string>}): Promise<ClassifiedJob> {
@@ -200,7 +206,15 @@ export async function classifyRawJob(raw: RawJob, context: { aliases: Map<string
   // three approvals still sponsors, one with none in two full fiscal years
   // probably does not. Status stays UNKNOWN, only the evidence sharpens, so the
   // call remains the reader's.
-  if (sponsorship.status === 'UNKNOWN' && context.h1bSponsors?.size && !context.h1bSponsors.has(company.normalized)) {
+  // DISABLED, Sep 1 2026, measured against the live database. 634 of 832
+  // employers we have seen (76%) have no row in employer_h1b_approvals, and the
+  // misses are name shape rather than real absence: the postings say "AMD",
+  // "Palantir", "Raytheon" and USCIS says "advanced micro devices" (790
+  // approvals), "palantir technologies" (88), "raytheon technologies" (13).
+  // Absence is only a signal once a name resolves, so until there is a
+  // resolution layer between posting names and USCIS legal entities this would
+  // mostly emit false "does not sponsor" notes for employers that do.
+  if (NAME_RESOLUTION_READY && sponsorship.status === 'UNKNOWN' && context.h1bSponsors?.size && !context.h1bSponsors.has(company.normalized)) {
     sponsorship = { status: 'UNKNOWN', evidence: `${sponsorship.evidence} This employer has no H-1B approvals on record, so sponsorship is unlikely.` };
   }
 
@@ -215,7 +229,16 @@ export async function classifyRawJob(raw: RawJob, context: { aliases: Map<string
   // our own board history shows, which is what stops a big company arriving
   // through a new source from being read as a startup on its first posting.
   const looksLargeEnoughForACohort = (context.h1bSponsors?.get(company.normalized) ?? 0) >= COHORT_APPROVAL_FLOOR;
-  if (graduation.claim === 'JUNE_2028' && context.cohortEmployers?.size && !context.cohortEmployers.has(company.normalized) && !looksLargeEnoughForACohort) {
+  // DISABLED, Sep 1 2026, measured against the live database. Two independent
+  // failures. First, this is an internship pipeline: 2,747 of 2,939 stored
+  // titles contain "intern" and 3 contain "new grad", so a new-grad requisition
+  // never reaches the jobs table and loadCohortEmployers finds 7 employers out
+  // of 832. Second, the H-1B fallback cannot rescue it, because the same name
+  // resolution gap leaves RTX, Palantir, AMD, Blue Origin and Raytheon reading
+  // as zero-approval employers. Together they would have claimed December on
+  // 2,270 of 2,939 postings, 77%, including every defense employer, which is
+  // the opposite of selective.
+  if (NAME_RESOLUTION_READY && graduation.claim === 'JUNE_2028' && context.cohortEmployers?.size && !context.cohortEmployers.has(company.normalized) && !looksLargeEnoughForACohort) {
     graduation = { ...graduation, claim: 'DECEMBER_2027', evidence: `${graduation.evidence} No new-grad requisition seen from this employer, so a rolling start makes December 2027 worth claiming.` };
   }
   return {
