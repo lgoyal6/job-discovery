@@ -42,6 +42,7 @@ export interface ClassifiedJob extends RawJob {
   sponsorshipEvidence: string;
   graduationEligible: boolean;
   graduationEvidence: string;
+  graduationClaim?: 'JUNE_2027' | 'JUNE_2028';
   requiredSkills: string[];
   score: number;
   rejectionReason?: string;
