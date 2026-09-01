@@ -1,0 +1,20 @@
+{
+  "_comment": "Posting-side employer name -> the name USCIS files it under. null means verified absent from the export, so absence is a real signal rather than a lookup failure. Hand-checked; every entry should be re-checkable in one search.",
+  "amd": "advanced micro devices",
+  "bny": "bank of new york mellon",
+  "sig": "susquehanna international group",
+  "susquehanna international group sig": "susquehanna international group",
+  "hp iq": "hp",
+  "ge aerospace": null,
+  "ge vernova": null,
+  "rtx": null,
+  "blue origin": null,
+  "spacex": null,
+  "northrop grumman": null,
+  "astranis space technologies": null,
+  "varda": null,
+  "hermeus": null,
+  "freeform": null,
+  "the nuclear company": null,
+  "jump trading": null
+}
