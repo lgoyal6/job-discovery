@@ -92,7 +92,6 @@ function roleHtml(job: DigestJob): string {
 function graduationLabel(job: DigestJob): string {
   switch (job.graduationClaim) {
     case 'JUNE_2027': return 'June 2027, the only date that opens the class of 2027';
-    case 'DECEMBER_2027': return 'December 2027, no new-grad cohort seen so a rolling start converts sooner';
     default: return 'June 2028';
   }
 }

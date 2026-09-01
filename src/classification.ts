@@ -200,7 +200,7 @@ export function classifyLocation(location: string, context = ''): { eligible: bo
 // here: it only pays at an employer that hires on a rolling start date rather
 // than a cohort. March 2028 was considered and dropped, since it carries
 // December's off-cycle cost without December's speed.
-export type ClaimedGraduation = 'JUNE_2027' | 'JUNE_2028' | 'DECEMBER_2027';
+export type ClaimedGraduation = 'JUNE_2027' | 'JUNE_2028';
 
 export function classifyGraduation(title: string, description = ''): { eligible: boolean; evidence: string; claim: ClaimedGraduation } {
   const text = `${title} ${description}`;

@@ -258,6 +258,16 @@ export async function loadSponsorshipPatterns(): Promise<SponsorshipPatterns> {
   return z.object({ supported: z.array(z.string()), unsupported: z.array(z.string()), ambiguous: z.array(z.string()) }).parse(YAML.parse(raw));
 }
 
+// Employers whose USCIS filing name we have checked by hand. A string value is
+// the entity they file as; null means we looked and they are genuinely not in
+// the export. Only the nulls drive the sponsorship note, because only a checked
+// absence means anything - an unresolved name is a lookup we failed, not an
+// employer that fails to sponsor.
+export async function loadVerifiedNonSponsors(): Promise<Set<string>> {
+  const raw = JSON.parse(await readFile(resolve(projectRoot, 'config/uscis-aliases.json'), 'utf8')) as Record<string, string | null>;
+  return new Set(Object.entries(raw).filter(([key, value]) => !key.startsWith('_') && value === null).map(([key]) => key));
+}
+
 export async function loadCompanyAliases(): Promise<Record<string, string[]>> {
   return JSON.parse(await readFile(resolve(projectRoot, 'config/company-aliases.json'), 'utf8')) as Record<string, string[]>;
 }
