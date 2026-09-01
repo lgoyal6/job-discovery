@@ -451,6 +451,41 @@ describe('a role this reader has already applied to', () => {
     expect(titlesDescribeOneRole('quantitative research intern', 'quantitative research intern')).toBe(true);
   });
 
+  // Same complaint, one layer down. The tracker has no Job ID column, and both
+  // Amex rows were filed with an empty Link, so the exact-key paths could not
+  // fire and the whole decision fell to the fuzzy title match - which the
+  // requisition written into the title is what broke.
+  it('reads the requisition out of a role the ledger wrote it into', async () => {
+    const { splitTitleRequisition } = await import('../src/notion.js');
+    expect(splitTitleRequisition('Campus Undergraduate Summer Internship 2027 - Software Engineer, Technology (Job 26010970)'))
+      .toEqual({ title: 'Campus Undergraduate Summer Internship 2027 - Software Engineer, Technology', jobId: '26010970' });
+    // A role with a parenthetical that is not a requisition keeps it.
+    expect(splitTitleRequisition('Software Engineer Intern (Summer 2027)')).toEqual({ title: 'Software Engineer Intern (Summer 2027)' });
+  });
+
+  it('suppresses the applied role on the requisition the ledger buried in its title', async () => {
+    const { findLedgerExclusionMatch, splitTitleRequisition } = await import('../src/notion.js');
+    const { normalizeText } = await import('../src/normalization.js');
+    const filed = splitTitleRequisition('Campus Undergraduate Summer Internship 2027 - Software Engineer, Technology (Job 26010970)');
+    const exclusions = [{
+      notionPageId: 'p1', companyNormalized: normalizeText('American Express'),
+      titleNormalized: normalizeText(filed.title), canonicalUrl: undefined,
+      sourceJobId: undefined, titleJobId: filed.jobId, kind: 'APPLIED' as const
+    }];
+    const board = (title: string, id: string) => ({
+      normalizedCompany: normalizeText('American Express'), normalizedTitle: normalizeText(title),
+      canonicalUrl: `https://egug.fa.us2.oraclecloud.com/hcmUI/CandidateExperience/en/sites/CX_1/job/${id}`, sourceJobId: id
+    });
+    expect(findLedgerExclusionMatch(board('Campus Undergraduate Summer Internship Program - 2027 Software Engineer, Technology - New York, NY', '26010970'), exclusions))
+      .toMatchObject({ basis: 'SOURCE_JOB_ID' });
+    // A different requisition at the same employer is a different job.
+    expect(findLedgerExclusionMatch(board('Campus Undergraduate Summer Internship Program - 2027 Data Engineer, Enterprise Technology Services- Sunrise, FL', '26011831'), exclusions))
+      .toBeUndefined();
+    // And the same number at a different employer means nothing.
+    expect(findLedgerExclusionMatch({ ...board('Software Engineer Intern', '26010970'), normalizedCompany: 'stripe' }, exclusions))
+      .toBeUndefined();
+  });
+
   it('will not hide a role nobody applied to', async () => {
     const { titlesDescribeOneRole } = await import('../src/notion.js');
     // Measured against the real ledger: comparing only against the smaller set

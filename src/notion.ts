@@ -10,6 +10,7 @@ export interface LedgerExclusion {
   titleNormalized: string;
   canonicalUrl?: string;
   sourceJobId?: string;
+  titleJobId?: string;
   kind: NotionExclusionKind;
 }
 
@@ -119,7 +120,7 @@ export async function readLedgerExclusions(): Promise<LedgerExclusion[]> {
     const page = querySchema.parse(await response.json());
     for (const row of page.results) {
       const company = named(row.properties, LEDGER_FIELDS.company);
-      const title = named(row.properties, LEDGER_FIELDS.title);
+      const { title, jobId: titleJobId } = splitTitleRequisition(named(row.properties, LEDGER_FIELDS.title));
       const link = named(row.properties, LEDGER_FIELDS.url);
       const sourceJobId = named(row.properties, LEDGER_FIELDS.sourceJobId);
       const status = named(row.properties, LEDGER_FIELDS.status);
@@ -137,6 +138,7 @@ export async function readLedgerExclusions(): Promise<LedgerExclusion[]> {
         titleNormalized: normalizeText(title),
         canonicalUrl: link ? canonicalizeUrl(link) : undefined,
         sourceJobId: sourceJobId || undefined,
+        titleJobId,
         kind
       });
     }
@@ -305,6 +307,22 @@ function encodeProperty(definition: { type: string; [key: string]: unknown }, va
 // matches the row filed against it.
 const FILLER = /^(intern|interns|internship|internships|co|op|coop|summer|fall|winter|spring|20\d\d|program|programme|the|and|or|a|an|of|for|at|in|to|new|grad|graduate|student|campus|university|undergrad|undergraduate|masters|phd)$/;
 
+// American Express writes the requisition into the role text - "Campus
+// Undergraduate Summer Internship 2027 - Software Engineer, Technology (Job
+// 26010970)" - because the tracker has no Job ID column to put it in. Left
+// there it is worse than useless: "job" and the number both survive the filler
+// filter below, so they count as identity words, and the applied row scored
+// 0.75 against the board's own wording where the threshold is 0.80. The role
+// was filed as applied and arrived in the digest anyway, twice a day.
+const TITLE_REQUISITION = /\(\s*(?:job|req|requisition|posting)\s*(?:id|no\.?|#)?\s*[:#-]?\s*([a-z0-9][a-z0-9-]{3,})\s*\)/i;
+
+/** Separates a trailing "(Job 26010970)" from the role it was written into. */
+export function splitTitleRequisition(title: string): { title: string; jobId?: string } {
+  const match = TITLE_REQUISITION.exec(title);
+  if (!match) return { title };
+  return { title: title.replace(match[0], ' ').replace(/\s{2,}/g, ' ').trim(), jobId: match[1] };
+}
+
 function identityWords(title: string): Set<string> {
   return new Set(title.split(' ').filter(word => word.length > 2 && !FILLER.test(word)));
 }
@@ -351,6 +369,12 @@ export interface LedgerExclusionMatch {
 export function findLedgerExclusionMatch(job: { normalizedCompany: string; normalizedTitle: string; canonicalUrl: string; sourceJobId?: string }, exclusions: LedgerExclusion[]): LedgerExclusionMatch | undefined {
   for (const exclusion of exclusions) {
     if (job.sourceJobId && job.sourceJobId === exclusion.sourceJobId) return { exclusion, basis: 'SOURCE_JOB_ID' };
+    // The id read out of the row's own title, scoped to the employer. The Job
+    // ID column exists to hold this and a hand-filed row rarely fills it, but a
+    // bare requisition number is only unique within the board that issued it,
+    // so unlike the column above this one may not match across companies.
+    if (job.sourceJobId && exclusion.titleJobId && job.sourceJobId === exclusion.titleJobId
+      && job.normalizedCompany === exclusion.companyNormalized) return { exclusion, basis: 'SOURCE_JOB_ID' };
     if (job.canonicalUrl.startsWith('http') && job.canonicalUrl === exclusion.canonicalUrl) return { exclusion, basis: 'CANONICAL_URL' };
     if (job.normalizedCompany === exclusion.companyNormalized && titlesDescribeOneRole(job.normalizedTitle, exclusion.titleNormalized)) {
       return { exclusion, basis: 'COMPANY_TITLE' };
