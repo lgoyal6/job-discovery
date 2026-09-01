@@ -2,6 +2,16 @@ export type SponsorshipStatus = 'SUPPORTED' | 'UNKNOWN' | 'UNSUPPORTED';
 export type Category = 'SWE' | 'ML/AI' | 'Quant' | 'GTM Eng' | 'Other' | 'IB' | 'PE/VC' | 'AM/WM' | 'Corp Fin';
 export type Cycle = 'Summer 2027' | 'Fall 2026' | 'Winter 2027' | 'Spring 2027' | 'Later compatible';
 export type SourceStatus = 'SUCCESS' | 'DEGRADED' | 'FAILED' | 'SKIPPED';
+export type NotionExclusionKind = 'APPLIED' | 'INELIGIBLE' | 'DUPLICATE';
+export type NotionExclusionSource = 'LIVE_NOTION' | 'CACHE' | 'NONE';
+export type NotionMatchBasis = 'SOURCE_JOB_ID' | 'CANONICAL_URL' | 'COMPANY_TITLE';
+
+export interface NotionExclusionSample {
+  kind: NotionExclusionKind;
+  company: string;
+  title: string;
+  matchBasis: NotionMatchBasis;
+}
 
 export interface RawJob {
   sourceName: string;
@@ -83,6 +93,10 @@ export interface PipelineReport {
   };
   rejectionReasons: Record<string, number>;
   degradedSources: string[];
+  notionExclusions: {
+    source: NotionExclusionSource;
+    samples: NotionExclusionSample[];
+  };
   // True only when the run mirrored postings into the ledger, which requires
   // NOTION_MIRROR_ENABLED. Discovery itself still only reads Notion.
   notionModified: boolean;

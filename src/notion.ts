@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { config } from './config.js';
 import { fetchWithPolicy } from './http.js';
 import { canonicalizeUrl, normalizeText } from './normalization.js';
+import type { NotionExclusionKind, NotionMatchBasis } from './types.js';
 
 export interface LedgerExclusion {
   notionPageId: string;
@@ -9,7 +10,7 @@ export interface LedgerExclusion {
   titleNormalized: string;
   canonicalUrl?: string;
   sourceJobId?: string;
-  kind: 'APPLIED' | 'INELIGIBLE' | 'DUPLICATE';
+  kind: NotionExclusionKind;
 }
 
 const querySchema = z.object({ results: z.array(z.object({ id: z.string(), properties: z.record(z.string(), z.any()) })), has_more: z.boolean(), next_cursor: z.string().nullable().optional() });
@@ -342,12 +343,24 @@ export function titlesDescribeOneRole(a: string, b: string): boolean {
   return shared / Math.min(left.size, right.size) >= 0.8 && shared / Math.max(left.size, right.size) >= 0.6;
 }
 
+export interface LedgerExclusionMatch {
+  exclusion: LedgerExclusion;
+  basis: NotionMatchBasis;
+}
+
+export function findLedgerExclusionMatch(job: { normalizedCompany: string; normalizedTitle: string; canonicalUrl: string; sourceJobId?: string }, exclusions: LedgerExclusion[]): LedgerExclusionMatch | undefined {
+  for (const exclusion of exclusions) {
+    if (job.sourceJobId && job.sourceJobId === exclusion.sourceJobId) return { exclusion, basis: 'SOURCE_JOB_ID' };
+    if (job.canonicalUrl.startsWith('http') && job.canonicalUrl === exclusion.canonicalUrl) return { exclusion, basis: 'CANONICAL_URL' };
+    if (job.normalizedCompany === exclusion.companyNormalized && titlesDescribeOneRole(job.normalizedTitle, exclusion.titleNormalized)) {
+      return { exclusion, basis: 'COMPANY_TITLE' };
+    }
+  }
+  return undefined;
+}
+
 export function findLedgerExclusion(job: { normalizedCompany: string; normalizedTitle: string; canonicalUrl: string; sourceJobId?: string }, exclusions: LedgerExclusion[]): LedgerExclusion | undefined {
-  return exclusions.find(exclusion =>
-    (Boolean(job.sourceJobId) && job.sourceJobId === exclusion.sourceJobId) ||
-    (job.canonicalUrl.startsWith('http') && job.canonicalUrl === exclusion.canonicalUrl) ||
-    (job.normalizedCompany === exclusion.companyNormalized && titlesDescribeOneRole(job.normalizedTitle, exclusion.titleNormalized))
-  );
+  return findLedgerExclusionMatch(job, exclusions)?.exclusion;
 }
 
 export function isApplied(job: { normalizedCompany: string; normalizedTitle: string; canonicalUrl: string; sourceJobId?: string }, exclusions: LedgerExclusion[]): boolean {

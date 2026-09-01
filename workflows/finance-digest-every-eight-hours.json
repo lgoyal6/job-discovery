@@ -1,6 +1,6 @@
 {
  "id": "FinanceJobDigest6h",
- "name": "Finance Job Digest \u2014 Every Six Hours",
+ "name": "Finance Job Digest - Every Eight Hours",
  "nodes": [
   {
    "parameters": {
@@ -8,14 +8,14 @@
      "interval": [
       {
        "field": "hours",
-       "hoursInterval": 6,
+       "hoursInterval": 8,
        "triggerAtMinute": 37
       }
      ]
     }
    },
    "id": "16d61b25-8199-43bf-b682-660d39086d2d",
-   "name": "Every Six Hours",
+   "name": "Every Eight Hours",
    "type": "n8n-nodes-base.scheduleTrigger",
    "typeVersion": 1.2,
    "position": [
@@ -132,7 +132,7 @@
  ],
  "pinData": {},
  "connections": {
-  "Every Six Hours": {
+  "Every Eight Hours": {
    "main": [
     [
      {
@@ -197,7 +197,7 @@
   "callerPolicy": "workflowsFromSameOwner",
   "errorWorkflow": "LakshJobDiscoveryErrorAlert"
  },
- "versionId": "finance-digest-v1",
+ "versionId": "finance-digest-v2",
  "meta": {
   "templateCredsSetupCompleted": false
  },

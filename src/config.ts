@@ -192,6 +192,8 @@ const envSchema = z.object({
   // Absent either, the digest renders exactly as it does today.
   MARK_APPLIED_SECRET: z.string().min(16).optional(),
   MARK_APPLIED_BASE_URL: z.string().url().optional(),
+  DISCORD_DM_CHANNEL_ID: z.string().min(1).optional(),
+  DISCORD_BOT_TOKEN: z.string().min(1).optional(),
   REZZY_WEBHOOK_SECRET: z.string().optional(),
   REZZY_API_BASE_URL: z.string().url().default('https://api.rezzy.dev/v1')
 }).refine(value => value.NOTION_MIRROR_STATUS.trim().toLowerCase() !== 'applied', {

@@ -5,11 +5,12 @@ import { describe, expect, it } from 'vitest';
 async function workflow(name: string): Promise<any> { return JSON.parse(await readFile(resolve(process.cwd(), 'workflows', name), 'utf8')); }
 
 describe('exported n8n workflows', () => {
-  it('ships an inactive six-hour finance digest that runs under its own profile', async () => {
-    const value = await workflow('finance-digest-every-six-hours.json');
+  it('ships an inactive eight-hour finance digest that runs under its own profile', async () => {
+    const value = await workflow('finance-digest-every-eight-hours.json');
     expect(value.active).toBe(false);
+    expect(value.id).toBe('FinanceJobDigest6h');
     expect(value.id).not.toBe('LakshJobDiscovery2h');
-    expect(value.nodes.find((node: any) => node.type.endsWith('scheduleTrigger')).parameters.rule.interval[0].hoursInterval).toBe(6);
+    expect(value.nodes.find((node: any) => node.type.endsWith('scheduleTrigger')).parameters.rule.interval[0].hoursInterval).toBe(8);
     // Both commands, not just the pipeline: batch-sent writes the send state and
     // under this profile it has to write the finance database, not the technical
     // one. The two runs hold advisory locks in separate databases, so the offset
@@ -20,7 +21,7 @@ describe('exported n8n workflows', () => {
     // The entrypoint is what puts this workflow in n8n at all, and what keeps
     // the finance database on the same ordered migrations as the technical one.
     const entrypoint = await readFile(resolve(process.cwd(), 'scripts/railway-entrypoint.sh'), 'utf8');
-    expect(entrypoint).toContain('workflows/finance-digest-every-six-hours.json');
+    expect(entrypoint).toContain('workflows/finance-digest-every-eight-hours.json');
     expect(entrypoint).toContain('JOB_PROFILE=finance node dist/cli.js migrate');
     expect(value.nodes.find((node: any) => node.type.endsWith('scheduleTrigger')).parameters.rule.interval[0].triggerAtMinute).toBe(37);
     expect(value.nodes.find((node: any) => node.name === 'Send Gmail Digest').credentials).toBeUndefined();
@@ -37,7 +38,8 @@ describe('exported n8n workflows', () => {
     // job it was to say so failed too, silently.
     const value = await workflow('job-discovery-error-alert.json');
     const body: string = value.nodes.find((node: any) => node.name === 'DM Discord').parameters.jsonBody;
-    expect(body).toContain('slice(0, 3800)');
+    expect(body).toContain('slice(0, 1800)');
+    expect(body).toContain('allowed_mentions');
     // The noise is dropped before the tail is taken, or the eight lines kept
     // would all be source_complete and the actual error would not survive.
     expect(body).toContain('source_complete');
@@ -52,14 +54,14 @@ describe('exported n8n workflows', () => {
     const content = JSON.parse(rendered).content as string;
 
     expect(message.length).toBeGreaterThan(4000);
-    expect(content.length).toBeLessThanOrEqual(4000);
+    expect(content.length).toBeLessThanOrEqual(1800);
     expect(content).toContain('cli_failed');
     expect(content).not.toContain('source_complete');
 
     // A single unbroken line cannot be split, so the final clamp is what has to
     // hold, and it is the one guarantee that matters here.
     const oneLine = new Function('$json', `return ${body.replace(/^=\{\{/, '').replace(/\}\}$/, '')}`)({ workflow: { name: 'W' }, execution: { id: 1, error: { message: 'x'.repeat(50_000) } } });
-    expect((JSON.parse(oneLine).content as string).length).toBeLessThanOrEqual(4000);
+    expect((JSON.parse(oneLine).content as string).length).toBeLessThanOrEqual(1800);
 
     // Imported by the entrypoint now, and activated, because nothing imported it
     // before: the deployed copy and this one were free to drift, and they did.
@@ -96,7 +98,7 @@ describe('exported n8n workflows', () => {
   // send was already claimed by then. A claimed batch with no digest has to stop
   // at the gate, where stopping costs nothing, not at the node that mails it.
   it('refuses to open the send gate without a rendered subject', async () => {
-    for (const name of ['job-discovery-every-three-hours.json', 'finance-digest-every-six-hours.json']) {
+    for (const name of ['job-discovery-every-three-hours.json', 'finance-digest-every-eight-hours.json']) {
       const value = await workflow(name);
       const gate = value.nodes.find((node: any) => node.name === 'Has Claimed New Roles?');
       expect(gate.parameters.conditions.combinator).toBe('and');

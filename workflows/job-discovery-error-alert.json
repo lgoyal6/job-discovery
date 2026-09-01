@@ -28,7 +28,7 @@
     },
     "sendBody": true,
     "specifyBody": "json",
-    "jsonBody": "={{ JSON.stringify({ content: [\n  '\\ud83d\\udea8 **Job discovery failed** \\u2014 ' + ($json.workflow?.name ?? 'unknown workflow'),\n  'node: `' + ($json.execution?.lastNodeExecuted ?? '?') + '`',\n  'error: ' + String($json.execution?.error?.message ?? 'no message').split('\\n').filter(line => !line.includes('\"event\":\"source_complete\"')).slice(-8).join('\\n').slice(-1200),\n  ($json.execution?.error?.description ? 'why: ' + String($json.execution.error.description).slice(0, 300) : null),\n  'execution: ' + ($json.execution?.id ?? '?') + ' \\u2014 run `./scripts/diagnose.sh` for the full record'\n].filter(Boolean).join('\\n').slice(0, 3800) }) }}",
+    "jsonBody": "={{ JSON.stringify({ content: [\n  '\\ud83d\\udea8 **Job discovery failed** \\u2014 ' + ($json.workflow?.name ?? 'unknown workflow'),\n  'node: `' + ($json.execution?.lastNodeExecuted ?? '?') + '`',\n  'error: ' + String($json.execution?.error?.message ?? 'no message').split('\\n').filter(line => !line.includes('\"event\":\"source_complete\"')).slice(-8).join('\\n').slice(-1200),\n  ($json.execution?.error?.description ? 'why: ' + String($json.execution.error.description).slice(0, 300) : null),\n  'execution: ' + ($json.execution?.id ?? '?') + ' \\u2014 run `./scripts/diagnose.sh` for the full record'\n].filter(Boolean).join('\\n').slice(0, 1800), allowed_mentions: { parse: [] } }) }}",
     "options": {
      "timeout": 15000
     }
