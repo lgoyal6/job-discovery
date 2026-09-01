@@ -6,7 +6,7 @@ import { config, loadCompanyAliases, loadSponsorshipPatterns, projectRoot, watch
 import { applyLinkRank, buildAliasMap, canonicalizeUrl, canonicalKey, canonicalLocation, extractSourceJobId, locationBucket, normalizeCompany, normalizeText, requisitionSignature, titleSignature } from './normalization.js';
 import { classifyCycle, classifyEarlyCareer, classifyGraduation, classifyLocation, classifySponsorship, extractSkills, scoreJob, STUDENT_ROLE, rolePolicies } from './classification.js';
 import { parseWatchlist, rotateWatchlist, type WatchlistCompany } from './watchlist.js';
-import type { ClassifiedJob, DigestJob, PipelineReport, RawJob, SourceAdapter, SourceResult } from './types.js';
+import type { ClassifiedJob, DigestJob, NotionExclusionSample, NotionExclusionSource, PipelineReport, RawJob, SourceAdapter, SourceResult } from './types.js';
 import { enrichSponsorship } from './enrichment.js';
 import { resolveListingLinks } from './apply-links.js';
 import { mirrorNewPostings } from './mirror.js';
@@ -17,7 +17,7 @@ import { loadAtsSources } from './sources/ats.js';
 import { loadLinkedInSources } from './sources/linkedin.js';
 import { checkWatchedPages, loadWatchPages, type PageChange } from './sources/pagewatch.js';
 import { skippedSource } from './sources/base.js';
-import { findLedgerExclusion, readLedgerExclusions, type LedgerExclusion } from './notion.js';
+import { findLedgerExclusionMatch, readLedgerExclusions, type LedgerExclusion } from './notion.js';
 import { buildDigest, digestOrder, type ProgramChange } from './digest.js';
 import { getPageWatchState, savePageWatch, closeStaleJobs, getEnrichment, getSentRequisitions, getUnsentJobIds, isSourceDue, saveEnrichment, loadCachedLedgerExclusions, loadCompanyAliasRows, loadSponsorshipOverrides, prepareEmailBatch, recordSourceRuns, syncLedgerExclusions, upsertJob, withPipelineLock, type SponsorshipOverrideRow } from './db.js';
 import { log } from './logger.js';
@@ -36,7 +36,7 @@ async function fixtureRuns(): Promise<SourceResult[]> {
   return [{ sourceName: 'fixtures', status: 'SUCCESS', jobs: payload, startedAt: now, finishedAt: now, durationMs: 0, costUnits: 0 }, skippedSource('notion-applied', 'fixture mode: no network or credentials used'), skippedSource('apify:linkedin', 'fixture mode: credentialed actor calls disabled'), skippedSource('apify:indeed', 'fixture mode: credentialed actor calls disabled'), skippedSource('apify:monster', 'fixture mode: credentialed actor calls disabled')];
 }
 
-async function collectSources(options: RunOptions, watchlistCohort: WatchlistCompany[]): Promise<SourceResult[]> {
+async function collectSources(options: RunOptions, _watchlistCohort: WatchlistCompany[]): Promise<SourceResult[]> {
   if (options.fixtures) return fixtureRuns();
   const [community, internList, ats, linkedin] = await Promise.all([loadCommunitySources(), loadInternListSources(), loadAtsSources(), loadLinkedInSources()]);
   // Boards and LinkedIn queries now carry the profile they belong to and are
@@ -212,19 +212,32 @@ export function excludeLedgerMatches(jobs: ClassifiedJob[], exclusions: LedgerEx
   appliedExcluded: number;
   ineligibleExcluded: number;
   duplicateExcluded: number;
+  samples: NotionExclusionSample[];
 } {
   const kept: ClassifiedJob[] = [];
+  const matchedSamples: NotionExclusionSample[] = [];
   let appliedExcluded = 0;
   let ineligibleExcluded = 0;
   let duplicateExcluded = 0;
   for (const job of jobs) {
-    const exclusion = findLedgerExclusion(job, exclusions);
-    if (exclusion?.kind === 'APPLIED') appliedExcluded += 1;
-    else if (exclusion?.kind === 'INELIGIBLE') ineligibleExcluded += 1;
-    else if (exclusion?.kind === 'DUPLICATE') duplicateExcluded += 1;
-    else kept.push(job);
+    const match = findLedgerExclusionMatch(job, exclusions);
+    if (!match) { kept.push(job); continue; }
+    if (match.exclusion.kind === 'APPLIED') appliedExcluded += 1;
+    else if (match.exclusion.kind === 'INELIGIBLE') ineligibleExcluded += 1;
+    else duplicateExcluded += 1;
+    matchedSamples.push({ kind: match.exclusion.kind, company: job.company, title: job.title, matchBasis: match.basis });
   }
-  return { kept, appliedExcluded, ineligibleExcluded, duplicateExcluded };
+  const samples: NotionExclusionSample[] = [];
+  const selected = new Set<NotionExclusionSample>();
+  for (const kind of ['INELIGIBLE', 'APPLIED', 'DUPLICATE'] as const) {
+    const sample = matchedSamples.find(item => item.kind === kind);
+    if (sample) { samples.push(sample); selected.add(sample); }
+  }
+  for (const sample of matchedSamples) {
+    if (samples.length >= 3) break;
+    if (!selected.has(sample)) samples.push(sample);
+  }
+  return { kept, appliedExcluded, ineligibleExcluded, duplicateExcluded, samples };
 }
 
 function mergedLocation(members: DigestJob[]): string {
@@ -438,18 +451,19 @@ async function execute(options: RunOptions): Promise<PipelineReport> {
   const priorities = new Map(watchlist.flatMap(company => company.aliases.map(alias => [normalizeText(company.parent === alias ? company.parent : aliases.get(normalizeText(alias)) ?? alias), company.priority] as const)));
   let exclusions: LedgerExclusion[] = [];
   let notionReadSucceeded = false;
+  let notionExclusionSource: NotionExclusionSource = 'NONE';
   if (!options.fixtures && !options.liveFree) {
     // The Notion ledger is one person's applied history. Excluding their
     // applications from somebody else's digest is wrong, not conservative.
     if (activeProfile !== 'technical') {
       sourceRuns.push(skippedSource('notion-applied', `${activeProfile} profile: the applied ledger belongs to the technical digest`));
     } else if (!config.NOTION_TOKEN) {
-      if (options.persistent) exclusions = await loadCachedLedgerExclusions();
+      if (options.persistent) { exclusions = await loadCachedLedgerExclusions(); notionExclusionSource = 'CACHE'; }
       sourceRuns.push(skippedSource('notion-applied', `NOTION_TOKEN is not configured; using ${exclusions.length} cached exclusions`));
     } else {
-      try { exclusions = await readLedgerExclusions(); notionReadSucceeded = true; sourceRuns.push({ ...skippedSource('notion-applied', `read ${exclusions.length} applied, ineligible, or duplicate rows`), status: 'SUCCESS' }); }
+      try { exclusions = await readLedgerExclusions(); notionReadSucceeded = true; notionExclusionSource = 'LIVE_NOTION'; sourceRuns.push({ ...skippedSource('notion-applied', `read ${exclusions.length} applied, ineligible, or duplicate rows`), status: 'SUCCESS' }); }
       catch (error) {
-        if (options.persistent) exclusions = await loadCachedLedgerExclusions();
+        if (options.persistent) { exclusions = await loadCachedLedgerExclusions(); notionExclusionSource = 'CACHE'; }
         sourceRuns.push({ ...skippedSource('notion-applied', `${error instanceof Error ? error.message : String(error)}; using ${exclusions.length} cached exclusions`), status: 'FAILED' });
       }
     }
@@ -582,7 +596,8 @@ async function execute(options: RunOptions): Promise<PipelineReport> {
     subject: digestJobs.length ? digest.subject : null, html: digestJobs.length ? digest.html : null, text: digestJobs.length ? digest.text : null,
     jobs: digestJobs, sourceRuns: sourceRuns.map(run => ({ ...run, jobs: [], metrics: { ...(run.metrics ?? {}), fetchedCount: run.jobs.length } })),
     counts: { raw: raw.length, accepted: digestJobs.length, rejected: classified.length - eligible.length, deduplicated: deduped.count, appliedExcluded, ineligibleExcluded, duplicateExcluded },
-    rejectionReasons, degradedSources: sourceRuns.filter(run => run.status !== 'SUCCESS').map(run => run.sourceName), notionModified: mirrored > 0
+    rejectionReasons, degradedSources: sourceRuns.filter(run => run.status !== 'SUCCESS').map(run => run.sourceName),
+    notionExclusions: { source: notionExclusionSource, samples: ledgerFiltered.samples }, notionModified: mirrored > 0
   };
 }
 

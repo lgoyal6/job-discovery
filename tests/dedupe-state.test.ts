@@ -57,15 +57,22 @@ describe('deduplication and state', () => {
   it('suppresses applied, ineligible, and duplicate rows while keeping their reasons distinct', () => {
     const applied = job({ sourceJobId: 'applied', canonicalUrl: 'https://acme.test/jobs/applied' });
     const ineligible = job({ sourceJobId: 'ineligible', canonicalUrl: 'https://acme.test/jobs/ineligible' });
-    const duplicate = job({ sourceJobId: 'duplicate', canonicalUrl: 'https://acme.test/jobs/duplicate' });
+    const duplicate = job({ sourceJobId: 'duplicate', canonicalUrl: 'https://acme.test/jobs/duplicate', title: 'Data Science Intern', normalizedTitle: 'data science intern' });
     const open = job({ sourceJobId: 'open', canonicalUrl: 'https://acme.test/jobs/open' });
     const result = excludeLedgerMatches([applied, ineligible, duplicate, open], [
       { notionPageId: 'p1', companyNormalized: 'acme', titleNormalized: 'different applied role', sourceJobId: 'applied', kind: 'APPLIED' },
-      { notionPageId: 'p2', companyNormalized: 'acme', titleNormalized: 'different blocked role', sourceJobId: 'ineligible', kind: 'INELIGIBLE' },
-      { notionPageId: 'p3', companyNormalized: 'acme', titleNormalized: 'different duplicate role', sourceJobId: 'duplicate', kind: 'DUPLICATE' }
+      { notionPageId: 'p2', companyNormalized: 'acme', titleNormalized: 'different blocked role', canonicalUrl: 'https://acme.test/jobs/ineligible', kind: 'INELIGIBLE' },
+      { notionPageId: 'p3', companyNormalized: 'acme', titleNormalized: 'data science intern', kind: 'DUPLICATE' }
     ]);
 
-    expect(result).toEqual({ kept: [open], appliedExcluded: 1, ineligibleExcluded: 1, duplicateExcluded: 1 });
+    expect(result).toEqual({
+      kept: [open], appliedExcluded: 1, ineligibleExcluded: 1, duplicateExcluded: 1,
+      samples: [
+        { kind: 'INELIGIBLE', company: 'Acme', title: 'Software Intern Summer 2027', matchBasis: 'CANONICAL_URL' },
+        { kind: 'APPLIED', company: 'Acme', title: 'Software Intern Summer 2027', matchBasis: 'SOURCE_JOB_ID' },
+        { kind: 'DUPLICATE', company: 'Acme', title: 'Data Science Intern', matchBasis: 'COMPANY_TITLE' }
+      ]
+    });
   });
 
   it('makes email batch identity independent of job order', () => {

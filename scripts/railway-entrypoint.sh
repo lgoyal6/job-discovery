@@ -26,7 +26,7 @@ if [ "${N8N_IMPORT_WORKFLOWS_ON_START:-false}" = "true" ]; then
   # Inactive like the schedule above it. SEND_EMAIL_ENABLED is true in
   # production, so activating this one mails a real person: that belongs in the
   # UI, deliberately, not in a deploy.
-  n8n import:workflow --input=/opt/job-pipeline/workflows/finance-digest-every-six-hours.json --activeState=false
+  n8n import:workflow --input=/opt/job-pipeline/workflows/finance-digest-every-eight-hours.json --activeState=false
   printf '%s\n' '{"level":"info","event":"n8n_workflow_import_complete","workflow_id":"FinanceJobDigest6h","active":false}'
 
   # Imported inactive like the others, then activated on its own line, because

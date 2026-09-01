@@ -4,6 +4,7 @@ import { harvestBoardsFromSeenUrls, runDiscovery } from './discovery.js';
 import { runPipeline } from './pipeline.js';
 import { log } from './logger.js';
 import { activeProfile, financeDatabaseConfigured } from './config.js';
+import { sendDiscordAudit } from './discord-audit.js';
 
 function flag(name: string): string | undefined {
   const index = process.argv.indexOf(name);
@@ -31,6 +32,7 @@ async function main(): Promise<void> {
       throw new Error(`JOB_PROFILE=${activeProfile} requires FINANCE_DATABASE_URL: sharing the technical database would consume its send state`);
     }
     const report = await runPipeline({ persistent: true });
+    await sendDiscordAudit(report);
     process.stdout.write(`${JSON.stringify(report)}\n`);
     return;
   }

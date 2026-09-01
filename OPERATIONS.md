@@ -45,6 +45,14 @@ The expected steady state is no overlapping runs, no repeated digest hash, no `U
 `src/notion.ts`) and it is gated on `NOTION_MIRROR_ENABLED`, which defaults to
 `false`.
 
+Every persistent technical run sends a best-effort Discord audit DM. It reports
+whether exclusions came from live Notion or the database cache, counts suppressed
+postings by Applied, Ineligible and Duplicate, and samples up to three matches.
+`discord_audit_failed` is non-fatal and cannot block Gmail. The DM says whether an
+email batch was claimed, not whether Gmail later delivered it; delivery remains
+proven by `email_batches.status = 'SENT'`. Finance runs every eight hours at minute
+37 and do not send this technical Notion audit.
+
 ## Overrides
 
 Normalize values to lowercase words before inserting aliases:
