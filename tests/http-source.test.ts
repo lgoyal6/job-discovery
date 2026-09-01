@@ -44,6 +44,25 @@ describe('HTTP reliability policy', () => {
     expect((error as Error).message).toHaveLength('HTTP 400: '.length + 300);
   });
 
+  it('retries a 403 with browser headers, since a rejected client is not a missing page', async () => {
+    const calls: RequestInit[] = [];
+    vi.stubGlobal('fetch', vi.fn(async (_url: string, init: RequestInit) => {
+      calls.push(init);
+      return calls.length === 1 ? new Response('denied', { status: 403 }) : new Response('[]', { status: 200 });
+    }));
+    const response = await fetchWithPolicy('https://careers.bank.test/jobs', { sourceName: 'test', timeoutMs: 1_000, retries: 0 });
+    expect(response.status).toBe(200);
+    expect(calls).toHaveLength(2);
+    expect(calls[0]?.headers).toBeUndefined();
+    expect((calls[1]?.headers as Record<string, string>)['user-agent']).toContain('Mozilla/5.0');
+  });
+
+  it('gives up on a 403 the browser headers do not recover', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('denied', { status: 403 })));
+    await expect(fetchWithPolicy('https://careers.bank.test/jobs', { sourceName: 'test', timeoutMs: 1_000, retries: 0 }))
+      .rejects.toThrow('HTTP 403');
+  });
+
   it('converts adapter exceptions into an isolated failed source result', async () => {
     class BrokenSource extends SafeSource {
       readonly name = 'broken-source';
