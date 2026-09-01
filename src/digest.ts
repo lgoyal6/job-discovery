@@ -81,8 +81,20 @@ function roleHtml(job: DigestJob): string {
     ${escapeHtml(job.cycle)} · ${escapeHtml(job.location ?? 'Unspecified')} · ${escapeHtml(job.category)} · score ${job.score}<br>
     Posted: ${escapeHtml(postedLabel(job))} · Source: ${escapeHtml(job.sourceName)}<br>
     Sponsorship: <strong>${job.sponsorshipStatus}</strong> - ${escapeHtml(job.sponsorshipEvidence)}<br>
+      Claim graduation: ${escapeHtml(graduationLabel(job))}<br>
     ${links}${applied ? ` · <a href="${escapeHtml(applied)}">Mark applied</a>` : ''}<br>
     ${escapeHtml(job.summary)}<br><em>Required skills:</em> ${escapeHtml(skills)}</li>`;
+}
+
+// The date to put on this application's resume. June 2028 is the default and
+// needs no explanation; the other two are choices worth stating a reason for,
+// since the reader is the one deciding whether to take them.
+function graduationLabel(job: DigestJob): string {
+  switch (job.graduationClaim) {
+    case 'JUNE_2027': return 'June 2027, the only date that opens the class of 2027';
+    case 'DECEMBER_2027': return 'December 2027, no new-grad cohort seen so a rolling start converts sooner';
+    default: return 'June 2028';
+  }
 }
 
 function roleText(job: DigestJob): string {
@@ -92,6 +104,7 @@ function roleText(job: DigestJob): string {
     `${job.cycle} | ${job.location ?? 'Unspecified'} | ${job.category} | score ${job.score}`,
     `Posted: ${postedLabel(job)} | Source: ${job.sourceName}`,
     `Sponsorship: ${job.sponsorshipStatus} - ${job.sponsorshipEvidence}`,
+      `Claim graduation: ${graduationLabel(job)}`,
     ...applyLinks(job).map(link => `${link.label}: ${link.url}`),
     ...(applied ? [`Mark applied: ${applied}`] : []),
     `Summary: ${job.summary}`,

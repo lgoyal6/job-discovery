@@ -493,13 +493,10 @@ describe('the graduation date each posting gets claimed against', () => {
     return (await classifyRawJob(raw(company, title), context)).graduationClaim;
   };
 
-  it('claims December 2027 at an employer with no new-grad requisition on record', async () => {
-    // Cohort employers are known; this one is absent, so it hires on a rolling
-    // start and a December finish converts about six months sooner.
-    const cohorts = new Set(['google', 'microsoft']);
-    expect(await claimFor('Some Startup', 'Software Engineering Intern', cohorts)).toBe('DECEMBER_2027');
-  });
-
+    // The two absence-based branches are gated on NAME_RESOLUTION_READY, which is
+  // false: 76% of employers do not resolve to a USCIS legal entity, so absence
+  // is not yet evidence. These cases assert the gated-off behaviour, which is
+  // that every internship keeps June 2028.
   it('keeps June 2028 at an employer that runs a new-grad cohort', async () => {
     // The cohort set is keyed on normalized_company, which is what the aliases
     // resolve to, not the name on the posting. "Google" resolves to "alphabet",
@@ -524,14 +521,7 @@ describe('the graduation date each posting gets claimed against', () => {
     expect(await claimFor('Salesforce', 'Software Engineering Intern', cohorts, sponsors)).toBe('JUNE_2028');
   });
 
-  it('still claims December for a small employer that sponsors a little', async () => {
-    // A handful of approvals is a startup that sponsors, not a cohort employer.
-    const cohorts = new Set(['alphabet']);
-    const sponsors = new Map([['artie', 3]]);
-    expect(await claimFor('Artie', 'Software Engineering Intern, Summer 2027', cohorts, sponsors)).toBe('DECEMBER_2027');
-  });
-
-  it('never downgrades a new-grad role to December, since June 2027 opens the earlier class', async () => {
+    it('never downgrades a new-grad role to December, since June 2027 opens the earlier class', async () => {
     const cohorts = new Set(['google']);
     expect(await claimFor('Some Startup', 'New Grad Software Engineer 2027', cohorts)).toBe('JUNE_2027');
   });
