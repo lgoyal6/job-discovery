@@ -198,6 +198,28 @@ describe('digest shaping', () => {
     expect(top.filter(j => j.company === 'TikTok').length).toBeLessThanOrEqual(4);
     expect(new Set(top.map(j => j.company)).size).toBe(5);
   });
+
+  // The round-robin orders employers fairly but never limited one, so an
+  // employer with 28 live requisitions kept being dealt seconds and thirds
+  // until the cap ran out. Amex files one per degree level, role family and
+  // city; none of them are duplicates and none of them are suppressible.
+  it('never deals one employer more than the per-company ceiling', () => {
+    const amex = Array.from({ length: 28 }, (_, i) =>
+      job({ company: 'American Express', normalizedCompany: 'american express', normalizedTitle: `data engineer intern ${i}`, score: 95 }));
+    const others = ['Stripe', 'Ramp', 'Figma'].map(name =>
+      job({ company: name, normalizedCompany: name.toLowerCase(), score: 10 }));
+    const top = diversifiedTop([...amex, ...others], 100, 3);
+    expect(top.filter(j => j.company === 'American Express')).toHaveLength(3);
+    // The ceiling frees slots rather than shrinking the digest: everyone else
+    // still gets in, and the cap is the only thing Amex lost.
+    expect(top).toHaveLength(6);
+  });
+
+  it('leaves the deal alone when no ceiling is given', () => {
+    const amex = Array.from({ length: 28 }, (_, i) =>
+      job({ company: 'American Express', normalizedCompany: 'american express', normalizedTitle: `data engineer intern ${i}`, score: 95 }));
+    expect(diversifiedTop(amex, 100)).toHaveLength(28);
+  });
 });
 describe('normalization', () => {
   it('canonicalizes URLs by stripping tracking and preserving semantic parameters', () => {
