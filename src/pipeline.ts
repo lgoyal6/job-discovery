@@ -19,7 +19,7 @@ import { checkWatchedPages, loadWatchPages, type PageChange } from './sources/pa
 import { skippedSource } from './sources/base.js';
 import { findLedgerExclusionMatch, readLedgerExclusions, type LedgerExclusion } from './notion.js';
 import { buildDigest, digestOrder, type ProgramChange } from './digest.js';
-import { getPageWatchState, savePageWatch, closeStaleJobs, getEnrichment, getSentRequisitions, getUnsentJobIds, isSourceDue, saveEnrichment, loadCachedLedgerExclusions, loadH1bSponsors, loadCompanyAliasRows, loadSponsorshipOverrides, prepareEmailBatch, recordSourceRuns, syncLedgerExclusions, upsertJob, withPipelineLock, type SponsorshipOverrideRow } from './db.js';
+import { getPageWatchState, savePageWatch, closeStaleJobs, getEnrichment, getSentRequisitions, getUnsentJobIds, isSourceDue, saveEnrichment, loadCachedLedgerExclusions, loadH1bSponsors, loadCohortEmployers, loadCompanyAliasRows, loadSponsorshipOverrides, prepareEmailBatch, recordSourceRuns, syncLedgerExclusions, upsertJob, withPipelineLock, type SponsorshipOverrideRow } from './db.js';
 import { log } from './logger.js';
 
 interface RunOptions { fixtures?: boolean; liveFree?: boolean; persistent?: boolean }
@@ -149,7 +149,7 @@ export function shortSummary(description = ''): string {
   return text ? text.slice(0, 280) : 'The source did not provide a verifiable description summary.';
 }
 
-export async function classifyRawJob(raw: RawJob, context: { aliases: Map<string, string>; patterns: Awaited<ReturnType<typeof loadSponsorshipPatterns>>; priorities: Map<string, number>; sponsorshipOverrides?: SponsorshipOverrideRow[] ; h1bSponsors?: Set<string>}): Promise<ClassifiedJob> {
+export async function classifyRawJob(raw: RawJob, context: { aliases: Map<string, string>; patterns: Awaited<ReturnType<typeof loadSponsorshipPatterns>>; priorities: Map<string, number>; sponsorshipOverrides?: SponsorshipOverrideRow[] ; h1bSponsors?: Set<string>; cohortEmployers?: Set<string>}): Promise<ClassifiedJob> {
   const title = raw.title.trim();
   const company = normalizeCompany(raw.company, context.aliases);
   const location = raw.location?.trim() || 'Unspecified';
@@ -162,7 +162,7 @@ export async function classifyRawJob(raw: RawJob, context: { aliases: Map<string
   // London one both reached a US-only digest reading "Unspecified".
   const place = classifyLocation(location, `${title} ${raw.directApplyUrl ?? raw.sourceUrl ?? ''}`);
   const cycle = classifyCycle(title, description, raw.cycleHint ?? '');
-  const graduation = classifyGraduation(title, description);
+  let graduation = classifyGraduation(title, description);
   const earlyCareer = classifyEarlyCareer(title, description);
   let sponsorship = classifySponsorship(`${title}\n${description}`, context.patterns);
   const canonicalUrl = canonicalizeUrl(raw.directApplyUrl ?? raw.sourceUrl);
@@ -195,6 +195,15 @@ export async function classifyRawJob(raw: RawJob, context: { aliases: Map<string
   // call remains the reader's.
   if (sponsorship.status === 'UNKNOWN' && context.h1bSponsors?.size && !context.h1bSponsors.has(company.normalized)) {
     sponsorship = { status: 'UNKNOWN', evidence: `${sponsorship.evidence} This employer has no H-1B approvals on record, so sponsorship is unlikely.` };
+  }
+
+  // An internship at an employer we have never seen post a new-grad requisition.
+  // Those hire on a rolling start rather than a cohort, so finishing in December
+  // 2027 converts about six months after the internship instead of waiting for
+  // the next summer intake. At a cohort employer the start date is the cohort's
+  // and December buys nothing, so the claim stays June 2028.
+  if (graduation.claim === 'JUNE_2028' && context.cohortEmployers?.size && !context.cohortEmployers.has(company.normalized)) {
+    graduation = { ...graduation, claim: 'DECEMBER_2027', evidence: `${graduation.evidence} No new-grad requisition seen from this employer, so a rolling start makes December 2027 worth claiming.` };
   }
   return {
     ...raw, sourceJobId, company: company.display, location, canonicalUrl, normalizedCompany: company.normalized, normalizedTitle, normalizedLocation,
@@ -456,11 +465,13 @@ async function execute(options: RunOptions): Promise<PipelineReport> {
   const aliases = buildAliasMap(aliasesConfig);
   let sponsorshipOverrides: SponsorshipOverrideRow[] = [];
   let h1bSponsors = new Set<string>();
+  let cohortEmployers = new Set<string>();
   if (options.persistent) {
-    const [aliasRows, overrides, sponsors] = await Promise.all([loadCompanyAliasRows(), loadSponsorshipOverrides(), loadH1bSponsors()]);
+    const [aliasRows, overrides, sponsors, cohorts] = await Promise.all([loadCompanyAliasRows(), loadSponsorshipOverrides(), loadH1bSponsors(), loadCohortEmployers()]);
     for (const row of aliasRows) aliases.set(row.aliasNormalized, row.canonicalCompany);
     sponsorshipOverrides = overrides;
     h1bSponsors = sponsors;
+    cohortEmployers = cohorts;
   }
   for (const company of watchlist) for (const alias of company.aliases) aliases.set(normalizeText(alias), company.parent);
   const priorities = new Map(watchlist.flatMap(company => company.aliases.map(alias => [normalizeText(company.parent === alias ? company.parent : aliases.get(normalizeText(alias)) ?? alias), company.priority] as const)));
@@ -485,7 +496,7 @@ async function execute(options: RunOptions): Promise<PipelineReport> {
   }
   exclusions = exclusions.map(exclusion => ({ ...exclusion, companyNormalized: normalizeCompany(exclusion.companyNormalized, aliases).normalized }));
   const raw = sourceRuns.flatMap(run => run.jobs);
-  const classified = await Promise.all(raw.map(job => classifyRawJob(job, { aliases, patterns, priorities, sponsorshipOverrides, h1bSponsors })));
+  const classified = await Promise.all(raw.map(job => classifyRawJob(job, { aliases, patterns, priorities, sponsorshipOverrides, h1bSponsors, cohortEmployers })));
   for (const run of sourceRuns) {
     const fromSource = classified.filter(job => job.sourceName === run.sourceName);
     run.metrics = { ...(run.metrics ?? {}), acceptedCount: fromSource.filter(job => !job.rejectionReason).length, rejectedCount: fromSource.filter(job => Boolean(job.rejectionReason)).length };

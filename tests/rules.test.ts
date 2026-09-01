@@ -474,3 +474,48 @@ describe('program page watching', () => {
     expect(hashPageText('applications open in July')).not.toBe(hashPageText('applications are now open'));
   });
 });
+
+describe('the graduation date each posting gets claimed against', () => {
+  const raw = (company: string, title: string) => ({
+    sourceName: 'test', sourceJobId: `${company}-${title}`, company, title,
+    location: 'San Diego, CA', postedAt: '2026-09-01T00:00:00.000Z',
+    sourceUrl: 'https://example.test/1', directApplyUrl: 'https://example.test/1',
+    scrapedAt: '2026-09-01T00:00:00.000Z', description: 'Currently enrolled students.'
+  });
+  const claimFor = async (company: string, title: string, cohortEmployers?: Set<string>) => {
+    const context = {
+      aliases: buildAliasMap(await loadCompanyAliases()),
+      patterns: await loadSponsorshipPatterns(),
+      priorities: new Map<string, number>(),
+      cohortEmployers
+    };
+    return (await classifyRawJob(raw(company, title), context)).graduationClaim;
+  };
+
+  it('claims December 2027 at an employer with no new-grad requisition on record', async () => {
+    // Cohort employers are known; this one is absent, so it hires on a rolling
+    // start and a December finish converts about six months sooner.
+    const cohorts = new Set(['google', 'microsoft']);
+    expect(await claimFor('Some Startup', 'Software Engineering Intern', cohorts)).toBe('DECEMBER_2027');
+  });
+
+  it('keeps June 2028 at an employer that runs a new-grad cohort', async () => {
+    // The cohort set is keyed on normalized_company, which is what the aliases
+    // resolve to, not the name on the posting. "Google" resolves to "alphabet",
+    // and a set built from raw names would silently miss every aliased employer.
+    const cohorts = new Set(['alphabet', 'microsoft']);
+    expect(await claimFor('Google', 'Software Engineering Intern', cohorts)).toBe('JUNE_2028');
+  });
+
+  it('keeps June 2028 when the cohort set is empty, rather than flipping every employer', async () => {
+    // An empty set means the database was not consulted, not that no employer
+    // runs a cohort. Absence of data is not evidence.
+    expect(await claimFor('Some Startup', 'Software Engineering Intern', new Set())).toBe('JUNE_2028');
+    expect(await claimFor('Some Startup', 'Software Engineering Intern')).toBe('JUNE_2028');
+  });
+
+  it('never downgrades a new-grad role to December, since June 2027 opens the earlier class', async () => {
+    const cohorts = new Set(['google']);
+    expect(await claimFor('Some Startup', 'New Grad Software Engineer 2027', cohorts)).toBe('JUNE_2027');
+  });
+});

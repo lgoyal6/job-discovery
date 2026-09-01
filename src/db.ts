@@ -151,6 +151,18 @@ export async function loadSponsorshipOverrides(): Promise<SponsorshipOverrideRow
   return rows.rows.map(row => ({ companyNormalized: row.company_normalized, sourceJobId: row.source_job_id ?? undefined, canonicalUrl: row.canonical_url ?? undefined, status: row.status, evidence: row.evidence }));
 }
 
+// Employers we have ever seen post a separate new-grad requisition. Those hire
+// on a cohort calendar, so a December finish buys nothing there: the start date
+// is the cohort's, not the graduate's. An employer that only ever posts
+// internships and experienced roles hires on a rolling start, which is where
+// finishing in December actually pays.
+export async function loadCohortEmployers(): Promise<Set<string>> {
+  const rows = await pool.query<{ normalized_company: string }>(
+    `SELECT DISTINCT normalized_company FROM jobs
+     WHERE title ~* '(new grad|new graduate|university graduate|campus hire|early career)'`);
+  return new Set(rows.rows.map(row => row.normalized_company));
+}
+
 export async function loadH1bSponsors(): Promise<Set<string>> {
   const rows = await pool.query<{ company_normalized: string }>('SELECT company_normalized FROM employer_h1b_approvals');
   return new Set(rows.rows.map(row => row.company_normalized));
