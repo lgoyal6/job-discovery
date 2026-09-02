@@ -356,6 +356,22 @@ describe('deterministic role rules', () => {
     expect(classifyGraduation('New Grad Software Engineer', 'Join our team')).toMatchObject({ claim: 'JUNE_2027' });
   });
 
+  it('reads the graduation window a posting names, and refuses a class already closed', async () => {
+    // Laksh finishes at a UC San Diego quarter boundary: June 2027, December
+    // 2027, or June 2028. A posting naming one is an instruction, not a guess.
+    expect(classifyGraduation('Software Engineer, New Grad (December 2027)', '')).toMatchObject({ eligible: true, claim: 'DECEMBER_2027' });
+    expect(classifyGraduation('New Grad Software Engineer', 'Graduating Fall 2027')).toMatchObject({ eligible: true, claim: 'DECEMBER_2027' });
+
+    // A 2026 class is earlier than any date he can finish. This fell through to
+    // the no-window default and claimed June 2027 on 14 live roles.
+    expect(classifyGraduation('Software Engineer - New Grad (December 2026)', '')).toMatchObject({ eligible: false });
+    expect(classifyGraduation('Software Engineer, New Grad (Dec 2026)', '')).toMatchObject({ eligible: false });
+    expect(classifyGraduation('December 2026 New Graduate Engineer - Software / GNC', '')).toMatchObject({ eligible: false });
+
+    // A window spanning 2026 into 2027 is still open to him.
+    expect(classifyGraduation('Software Engineer - New Grad - 2026-2027', '')).toMatchObject({ eligible: true });
+  });
+
   it('classifies sponsorship positive, negative, and ambiguous language', async () => {
     const patterns = await loadSponsorshipPatterns();
     expect(classifySponsorship('International students are eligible and visa sponsorship is available.', patterns).status).toBe('SUPPORTED');

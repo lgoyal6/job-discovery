@@ -207,11 +207,29 @@ export function classifyLocation(location: string, context = ''): { eligible: bo
 // here: it only pays at an employer that hires on a rolling start date rather
 // than a cohort. March 2028 was considered and dropped, since it carries
 // December's off-cycle cost without December's speed.
-export type ClaimedGraduation = 'JUNE_2027' | 'JUNE_2028';
+export type ClaimedGraduation = 'JUNE_2027' | 'DECEMBER_2027' | 'JUNE_2028';
+
+// Laksh finishes at a UC San Diego quarter boundary, and there are three:
+// June 2027, December 2027, June 2028. A posting that names one of them is not
+// a judgement call, it is an instruction, so read it rather than infer.
+//
+// A window entirely before June 2027 is the case this missed. "New Grad
+// (December 2026)" states a class he cannot join, and the 2027 test did not
+// match it, so it fell through to the no-window default and claimed June 2027
+// on 14 roles that had already closed to him. An earlier class is a rejection,
+// not an absent window.
+const DECEMBER_2027_WINDOW = /\b(december|dec\.?|fall|winter)\s*'?\s*2027\b/i;
+const PRE_2027_WINDOW = /\b(december|dec\.?|fall|winter|spring|may|summer)\s*'?\s*2026\b|\b2026\s+grad(?:uate)?s?\b/i;
 
 export function classifyGraduation(title: string, description = ''): { eligible: boolean; evidence: string; claim: ClaimedGraduation } {
   const text = `${title} ${description}`;
   if (/\bnew grad(?:uate)?\b|university graduate/i.test(title)) {
+    if (PRE_2027_WINDOW.test(text) && !/\b2027\b|\b2028\b/i.test(text)) {
+      return { eligible: false, evidence: 'New-grad posting names a 2026 graduating class, which is earlier than any date Laksh can finish.', claim: 'JUNE_2027' };
+    }
+    if (DECEMBER_2027_WINDOW.test(text) && !/\b2028\b/i.test(text)) {
+      return { eligible: true, evidence: 'New-grad posting names a December 2027 graduation, so claim December 2027.', claim: 'DECEMBER_2027' };
+    }
     if (/graduat(?:e|ing|ion).{0,45}\b2027\b/i.test(text) && !/\b2028\b/i.test(text)) return { eligible: true, evidence: 'New-grad posting requires 2027 graduation, so claim June 2027.', claim: 'JUNE_2027' };
     if (/graduat(?:e|ing|ion).{0,60}\b2028\b/i.test(text)) return { eligible: true, evidence: 'New-grad graduation window explicitly includes 2028.', claim: 'JUNE_2028' };
     return { eligible: true, evidence: 'New-grad role states no graduation window, so claim June 2027 to reach the earlier class.', claim: 'JUNE_2027' };

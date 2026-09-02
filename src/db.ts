@@ -159,7 +159,7 @@ export interface ResumeBrief {
   category: string;
   location: string;
   applyUrl: string;
-  graduationClaim: 'JUNE_2027' | 'JUNE_2028';
+  graduationClaim: 'JUNE_2027' | 'DECEMBER_2027' | 'JUNE_2028';
   sponsorshipStatus: string;
   sponsorshipEvidence: string;
   requiredSkills: string[];
@@ -187,7 +187,7 @@ export async function findJobForBrief(handle: string): Promise<{ brief?: ResumeB
     id: String(r.id), company: String(r.company), title: String(r.title), cycle: String(r.cycle),
     category: String(r.category), location: String(r.location ?? 'Unspecified'),
     applyUrl: String(r.apply_url ?? ''),
-    graduationClaim: (r.graduation_claim as 'JUNE_2027' | 'JUNE_2028') ?? 'JUNE_2028',
+    graduationClaim: (r.graduation_claim as 'JUNE_2027' | 'DECEMBER_2027' | 'JUNE_2028') ?? 'JUNE_2028',
     sponsorshipStatus: String(r.sponsorship_status), sponsorshipEvidence: String(r.sponsorship_evidence ?? ''),
     requiredSkills: (r.required_skills as string[]) ?? [], description: String(r.description ?? '')
   } };
