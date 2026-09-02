@@ -9,10 +9,14 @@ describe('fixture dry run', () => {
     expect(report.notionModified).toBe(false);
     // A posting that says it cannot sponsor is reported, not rejected: the
     // wording is boilerplate that employers do depart from.
-    expect(report.counts).toMatchObject({ raw: 7, accepted: 4, deduplicated: 1 });
-    expect(report.jobs.map(job => job.sponsorshipStatus).sort()).toEqual(['SUPPORTED', 'SUPPORTED', 'UNKNOWN', 'UNSUPPORTED']);
+    // 5 not 4 since Sep 1 2026: "Software Engineer, New Grad 2027" sat in this
+    // fixture being rejected as outside_target_cycles, because a new-grad
+    // requisition names no season and the cycle gate demanded one. Full-time
+    // entry roles are in scope now, so it survives.
+    expect(report.counts).toMatchObject({ raw: 7, accepted: 5, deduplicated: 1 });
+    expect(report.jobs.map(job => job.sponsorshipStatus).sort()).toEqual(['SUPPORTED', 'SUPPORTED', 'UNKNOWN', 'UNKNOWN', 'UNSUPPORTED']);
     expect(report.rejectionReasons.sponsorship_unsupported).toBeUndefined();
-    expect(report.subject).toContain('4 roles');
+    expect(report.subject).toContain('5 roles');
     // The report still records every source that did not succeed, which is what
     // a diagnostic field is for.
     expect(report.degradedSources).toEqual(expect.arrayContaining(['notion-applied', 'apify:linkedin', 'apify:monster']));

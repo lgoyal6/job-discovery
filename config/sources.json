@@ -115,6 +115,21 @@
       "url": "https://raw.githubusercontent.com/zapplyjobs/Internships-2027/main/README.md",
       "format": "markdown",
       "profile": "finance"
+    },
+    {
+      "name": "simplify-newgrad",
+      "url": "https://raw.githubusercontent.com/SimplifyJobs/New-Grad-Positions/dev/README.md",
+      "format": "markdown"
+    },
+    {
+      "name": "vanshb03-newgrad",
+      "url": "https://raw.githubusercontent.com/vanshb03/New-Grad-2027/dev/README.md",
+      "format": "markdown"
+    },
+    {
+      "name": "speedyapply-newgrad",
+      "url": "https://raw.githubusercontent.com/speedyapply/2027-SWE-College-Jobs/main/NEW_GRAD_USA.md",
+      "format": "markdown"
     }
   ],
   "ats": [
@@ -4344,6 +4359,30 @@
       "location": "United States",
       "profile": "finance",
       "pages": 8
+    },
+    {
+      "name": "linkedin:swe-new-grad",
+      "keywords": "software engineer new grad",
+      "location": "United States",
+      "pages": 8
+    },
+    {
+      "name": "linkedin:swe-university-grad",
+      "keywords": "software engineer university graduate",
+      "location": "United States",
+      "pages": 5
+    },
+    {
+      "name": "linkedin:ml-new-grad",
+      "keywords": "machine learning engineer new grad",
+      "location": "United States",
+      "pages": 5
+    },
+    {
+      "name": "linkedin:quant-new-grad",
+      "keywords": "quantitative trader new grad",
+      "location": "United States",
+      "pages": 5
     }
   ],
   "watchPages": [
