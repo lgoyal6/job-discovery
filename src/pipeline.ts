@@ -4,7 +4,7 @@ import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import { config, loadCompanyAliases, loadVerifiedNonSponsors, loadSponsorshipPatterns, projectRoot, watchlistPath, activeProfile } from './config.js';
 import { applyLinkRank, buildAliasMap, canonicalizeUrl, canonicalKey, canonicalLocation, extractSourceJobId, locationBucket, normalizeCompany, normalizeText, requisitionSignature, titleSignature } from './normalization.js';
-import { classifyCycle, classifyEarlyCareer, classifyGraduation, classifyLocation, classifySponsorship, extractSkills, scoreJob, STUDENT_ROLE, rolePolicies } from './classification.js';
+import { NEW_GRAD_ROLE, classifyCycle, classifyEarlyCareer, classifyGraduation, classifyLocation, classifySponsorship, extractSkills, scoreJob, STUDENT_ROLE, rolePolicies } from './classification.js';
 import { parseWatchlist, rotateWatchlist, type WatchlistCompany } from './watchlist.js';
 import type { ClassifiedJob, DigestJob, NotionExclusionSample, NotionExclusionSource, PipelineReport, RawJob, SourceAdapter, SourceResult } from './types.js';
 import { enrichSponsorship } from './enrichment.js';
@@ -176,7 +176,7 @@ export async function classifyRawJob(raw: RawJob, context: { aliases: Map<string
   if (raw.status === 'CLOSED') rejectionReason = 'closed_or_expired';
   else if (policy.requireStudentRole && !STUDENT_ROLE.test(`${title} ${description}`)) rejectionReason = 'not_student_role';
   else if (!place.eligible) rejectionReason = 'outside_us';
-  else if (policy.requireCycle && !cycle) rejectionReason = 'outside_target_cycles';
+  else if (policy.requireCycle && !cycle && !NEW_GRAD_ROLE.test(`${title} ${description}`)) rejectionReason = 'outside_target_cycles';
   else if (!role.eligible) rejectionReason = role.reason ?? 'not_technical';
   else if (policy.requireGraduationFit && !graduation.eligible) rejectionReason = 'graduation_incompatible';
   else if (policy.requireEarlyCareer && !earlyCareer.eligible) rejectionReason = 'not_open_to_a_student_or_new_grad';

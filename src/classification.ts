@@ -26,7 +26,14 @@ const categories: Array<[Category, RegExp]> = [
 // "Quant Analyst Internships 2027" read as not a student role at all. The same
 // held for "Interns" and "Students". "Internal" and "International" still do
 // not match, because \b fails on the letter after "intern".
-export const STUDENT_ROLE = /\b(interns?(?:hips?)?|co-?ops?|students?|early career|new grad(?:uate)?s?)\b/i;
+export const STUDENT_ROLE = /\b(interns?(?:hips?)?|co-?ops?|students?|early career|new grad(?:uate)?s?|university graduates?|campus hires?)\b/i;
+
+// A new-grad requisition names no season, so it can never carry a target cycle
+// the way an internship does. Requiring one rejected every full-time entry role
+// as "outside_target_cycles", which is why 3 of 2,939 stored titles said new
+// grad. The cycle gate exists to keep Summer 2026 internships out of a Summer
+// 2027 digest; a role with no season is not that.
+export const NEW_GRAD_ROLE = /\b(new grad(?:uate)?s?|university graduates?|campus hires?|graduate (?:programme?|scheme))\b/i;
 
 const nonTechnical = /\b(marketing|accounting|human resources|recruiter|sales intern|business development|communications|legal|finance intern|operations intern|product marketing|governance,? risk,? and compliance|\bgrc\b|compliance|paralegal|talent acquisition|people operations)\b/i;
 
