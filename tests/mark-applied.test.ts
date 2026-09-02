@@ -30,34 +30,17 @@ const role = (): DigestJob => ({
 // writes to the ledger. Unconfigured it must not render at all, and configured
 // it must not be forgeable from the job id alone.
 // ---------------------------------------------------------------------------
-describe('the mark-applied link in the digest', () => {
-  it('renders nothing at all when the secret or the URL is unset', async () => {
+describe('the digest carries a ref, not a link', () => {
+  // The link was removed: applications are filed by the resume build, which
+  // calls `applied <ref>` the moment a PDF renders, so a button nobody pressed
+  // was a second source of truth that could only ever disagree with the first.
+  it('prints a short job ref and no Mark applied link', async () => {
+    configure();
     const { buildDigest } = await import('../src/digest.js');
     const digest = buildDigest([role()], []);
     expect(digest.html).not.toContain('Mark applied');
     expect(digest.text).not.toContain('Mark applied');
-  });
-
-  it('renders a signed link the verifier accepts, in both HTML and text', async () => {
-    configure();
-    const { buildDigest } = await import('../src/digest.js');
-    const { verifyJobSignature } = await import('../src/applied.js');
-    const digest = buildDigest([role()], []);
-
-    const match = digest.html.match(/href="(https:\/\/n8n\.example\.test\/webhook\/mark-applied\?[^"]+)"/);
-    expect(match).not.toBeNull();
-    const url = new URL(String(match?.[1]).replace(/&amp;/g, '&'));
-    expect(url.searchParams.get('job')).toBe(JOB_ID);
-    expect(verifyJobSignature(JOB_ID, url.searchParams.get('sig') ?? '')).toBe(true);
-    expect(digest.text).toContain('Mark applied: https://n8n.example.test/webhook/mark-applied?job=');
-  });
-
-  it('rejects a signature lifted from a different job', async () => {
-    configure();
-    const { signJobId, verifyJobSignature } = await import('../src/applied.js');
-    const other = '99999999-8888-4777-8666-555555555555';
-    expect(verifyJobSignature(other, signJobId(JOB_ID))).toBe(false);
-    expect(verifyJobSignature(JOB_ID, '')).toBe(false);
+    expect(digest.text).toMatch(/ref [0-9a-f]{8}/);
   });
 });
 

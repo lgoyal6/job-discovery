@@ -76,6 +76,32 @@ async function main(): Promise<void> {
     void boardKey;
     return;
   }
+  if (command === 'brief') {
+    // Everything a resume build needs about one posting, addressed by the ref
+    // the digest prints or by the apply URL.
+    const { findJobForBrief } = await import('./db.js');
+    const handle = process.argv[3];
+    if (!handle) throw new Error('brief needs a job ref or apply URL');
+    const { brief, ambiguous } = await findJobForBrief(handle);
+    if (ambiguous) throw new Error(`ref matches ${ambiguous.length} jobs:\n${ambiguous.join('\n')}`);
+    if (!brief) throw new Error(`no job matches ${handle}`);
+    process.stdout.write(`${JSON.stringify(brief, null, 2)}\n`);
+    return;
+  }
+  if (command === 'applied') {
+    // Called by the resume build the moment a PDF renders, so the ledger records
+    // what was actually produced rather than what someone remembered to click.
+    const { findJobForBrief } = await import('./db.js');
+    const { markAppliedLocally } = await import('./applied.js');
+    const handle = process.argv[3];
+    if (!handle) throw new Error('applied needs a job ref or apply URL');
+    const { brief, ambiguous } = await findJobForBrief(handle);
+    if (ambiguous) throw new Error(`ref matches ${ambiguous.length} jobs:\n${ambiguous.join('\n')}`);
+    if (!brief) throw new Error(`no job matches ${handle}`);
+    const result = await markAppliedLocally(brief.id);
+    process.stdout.write(`${JSON.stringify({ ...result, company: brief.company, title: brief.title })}\n`);
+    return;
+  }
   if (command === 'mark-applied') {
     // Reached from a link in the digest, so a refused click is an answer to
     // render, not a crash: exit 0 with ok:false and let the webhook say why.

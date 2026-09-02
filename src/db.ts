@@ -151,6 +151,48 @@ export async function loadSponsorshipOverrides(): Promise<SponsorshipOverrideRow
   return rows.rows.map(row => ({ companyNormalized: row.company_normalized, sourceJobId: row.source_job_id ?? undefined, canonicalUrl: row.canonical_url ?? undefined, status: row.status, evidence: row.evidence }));
 }
 
+export interface ResumeBrief {
+  id: string;
+  company: string;
+  title: string;
+  cycle: string;
+  category: string;
+  location: string;
+  applyUrl: string;
+  graduationClaim: 'JUNE_2027' | 'JUNE_2028';
+  sponsorshipStatus: string;
+  sponsorshipEvidence: string;
+  requiredSkills: string[];
+  description: string;
+}
+
+// A resume build starts from a row in the digest, so it has to find that row
+// from what the digest shows. A full uuid is unreadable in an email, so an id
+// prefix or the apply URL both resolve, and an ambiguous prefix is reported
+// rather than guessed at.
+export async function findJobForBrief(handle: string): Promise<{ brief?: ResumeBrief; ambiguous?: string[] }> {
+  const rows = await pool.query<Record<string, unknown>>(
+    `SELECT DISTINCT ON (j.id) j.id, j.company, j.title, j.cycle, j.category, j.location,
+            j.sponsorship_status, j.sponsorship_evidence, j.required_skills, j.description,
+            j.graduation_claim, coalesce(s.direct_apply_url, s.source_url) AS apply_url
+     FROM jobs j
+     LEFT JOIN job_sources s ON s.job_id = j.id
+     WHERE j.id::text LIKE $1 || '%' OR s.source_url = $1 OR s.direct_apply_url = $1
+     ORDER BY j.id, s.scraped_at DESC`,
+    [handle]);
+  if (rows.rows.length > 1) return { ambiguous: rows.rows.map(r => `${String(r.id).slice(0, 8)}  ${String(r.company)} - ${String(r.title)}`) };
+  const r = rows.rows[0];
+  if (!r) return {};
+  return { brief: {
+    id: String(r.id), company: String(r.company), title: String(r.title), cycle: String(r.cycle),
+    category: String(r.category), location: String(r.location ?? 'Unspecified'),
+    applyUrl: String(r.apply_url ?? ''),
+    graduationClaim: (r.graduation_claim as 'JUNE_2027' | 'JUNE_2028') ?? 'JUNE_2028',
+    sponsorshipStatus: String(r.sponsorship_status), sponsorshipEvidence: String(r.sponsorship_evidence ?? ''),
+    requiredSkills: (r.required_skills as string[]) ?? [], description: String(r.description ?? '')
+  } };
+}
+
 export async function loadH1bSponsors(): Promise<Map<string, number>> {
   const rows = await pool.query<{ company_normalized: string; approvals: number }>(
     'SELECT company_normalized, approvals FROM employer_h1b_approvals');
@@ -288,6 +330,10 @@ export async function upsertJob(job: ClassifiedJob): Promise<UpsertResult> {
        )`,
       [id, job.sourceName, job.sourceJobId ?? '', job.sourceUrl, job.directApplyUrl ?? null, job.postedAt ?? null, job.scrapedAt, job.directApplyUrl ? 'DIRECT_URL' : 'SOURCE_ONLY', JSON.stringify(job.raw ?? {})]);
     await client.query('COMMIT');
+    // Its own statement on purpose. The insert above already carries eighteen
+    // parameters across two branches, and threading a nineteenth through both
+    // for one nullable column buys nothing but a chance to misalign them.
+    if (job.graduationClaim) await client.query('UPDATE jobs SET graduation_claim=$2 WHERE id=$1', [id, job.graduationClaim]);
     return { job: { ...job, id, meaningfulStateChange: stateChanged }, isNew, stateChanged };
   } catch (error) { await client.query('ROLLBACK'); throw error; } finally { client.release(); }
 }
