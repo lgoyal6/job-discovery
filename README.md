@@ -75,7 +75,13 @@ idempotent SQL that is safe to re-run.
 
 ## Deploying it
 
-The pipeline runs on a schedule under n8n, with Postgres for send history.
+The pipeline runs under n8n every three hours at minute 15, with Postgres for
+send history. The finance profile runs every eight hours at minute 37, against a
+separate database, so one reader's send history never suppresses the other's mail.
+
+Individual sources run slower than that tick where fetching them is expensive:
+Greenhouse and the community lists every six hours, LinkedIn every twelve, Apify
+every twenty-four, page watches daily.
 
 ```bash
 # local or a single box

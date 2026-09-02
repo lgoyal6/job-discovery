@@ -313,7 +313,7 @@ export async function upsertJob(job: ClassifiedJob): Promise<UpsertResult> {
     // job_sources_job_id_source_url_key against the row the INSERT above had
     // just created. The transaction rolled back, the run aborted before it could
     // claim an email batch, and because the migration is re-attempted from the
-    // same state every two hours it failed identically 10 runs in a row.
+    // same state every run it failed identically 10 runs in a row.
     //
     // NOT EXISTS leaves a row where it is rather than moving it onto a collision,
     // and DISTINCT ON keeps the statement from moving two rows that share a
