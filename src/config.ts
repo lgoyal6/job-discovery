@@ -54,7 +54,7 @@ const envSchema = z.object({
   // title without a year had no cycle and was dropped: 145 student roles a
   // run, Epic's "Gameplay Programmer Intern" among them. Asking for content
   // costs about 300 MB a pass, Anduril's board being 38 MB of it, so the pass
-  // runs on its own slower cadence instead of every two hours. A posting is
+  // runs on its own slower cadence instead of every tick. A posting is
   // still found the same day; only the wait for it is longer.
   GREENHOUSE_CONTENT_ENABLED: z.enum(['true', 'false']).default('true').transform(v => v === 'true'),
   GREENHOUSE_MIN_INTERVAL_HOURS: z.coerce.number().int().min(1).max(168).default(6),
@@ -81,8 +81,8 @@ const envSchema = z.object({
   // intern-list holds its roles in the markup but its list page carries no
   // location and no prose, so each row that can still qualify costs a second
   // request to the posting's own page. About 130 pages a list a pass, which is
-  // why it runs on the boards' cadence rather than every two hours; six hours
-  // is also well inside the 72-hour window closeStaleJobs closes against.
+  // why it runs on the boards' cadence rather than every tick; six hours is
+  // also well inside the 72-hour window closeStaleJobs closes against.
   INTERN_LIST_MIN_INTERVAL_HOURS: z.coerce.number().int().min(1).max(168).default(6),
   INTERN_LIST_DETAIL_CONCURRENCY: z.coerce.number().int().min(1).max(16).default(4),
   // Workday's own cap on a page is 20, so the shared per-source ceiling costs 13
@@ -153,7 +153,7 @@ const envSchema = z.object({
   ENRICHMENT_TIMEOUT_MS: z.coerce.number().int().min(1000).max(30000).default(10000),
   // Watch program and early-careers pages for change. Daily by default: these
   // announce a cycle weeks ahead, so the signal is measured in days, and a
-  // marketing page does not need polling every two hours.
+  // marketing page does not need polling on the pipeline's own tick.
   PAGEWATCH_ENABLED: z.enum(['true', 'false']).default('true').transform(v => v === 'true'),
   PAGEWATCH_MIN_INTERVAL_HOURS: z.coerce.number().int().min(1).max(168).default(24),
   PAGEWATCH_CONCURRENCY: z.coerce.number().int().min(1).max(16).default(4),

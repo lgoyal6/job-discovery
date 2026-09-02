@@ -50,7 +50,7 @@ async function collectSources(options: RunOptions, _watchlistCohort: WatchlistCo
   const deferred: SourceResult[] = [];
   // A Greenhouse board carrying descriptions is the most expensive fetch here,
   // about 300 MB across the 93 of them, so it runs on its own cadence rather
-  // than every two hours. Same watermark machinery as LinkedIn and Apify.
+  // than every tick. Same watermark machinery as LinkedIn and Apify.
   for (const source of greenhouse) {
     const due = !options.persistent || await isSourceDue(source.name, config.GREENHOUSE_MIN_INTERVAL_HOURS);
     if (due) sources.push(source);
@@ -90,7 +90,7 @@ async function collectSources(options: RunOptions, _watchlistCohort: WatchlistCo
     // this asks for, so the two searches configured here cost $1.15 a run and
     // $34 a month against a $5 plan. It has not completed a run in weeks: every
     // one answers HTTP 402 "not enough usage to run paid actor", which spends no
-    // money but reports a failed source to the reader every two hours. LinkedIn
+    // money but reports a failed source to the reader every run. LinkedIn
     // and Monster both charge per result and both fit.
     // Monster, on both profiles, and nothing else paid. Measured over the
     // pipeline's own history: a posting published in the last ten days reaches
