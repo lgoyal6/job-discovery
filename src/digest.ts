@@ -1,5 +1,4 @@
 import { activeProfile } from './config.js';
-import { markAppliedUrl } from './applied.js';
 import { INVESTING_CATEGORIES } from './classification.js';
 import { applyLinkRank } from './normalization.js';
 import type { DigestJob, SourceResult } from './types.js';
@@ -75,14 +74,13 @@ function applyLinks(job: DigestJob): Array<{ label: string; url: string }> {
 
 function roleHtml(job: DigestJob): string {
   const skills = job.requiredSkills.length ? job.requiredSkills.join(', ') : 'Not stated';
-  const applied = markAppliedUrl(job.id);
   const links = applyLinks(job).map(link => `<a href="${escapeHtml(link.url)}">${link.label}</a>`).join(' · ');
   return `<li style="margin-bottom:18px"><strong>${escapeHtml(job.company)} - ${escapeHtml(job.title)}</strong><br>
     ${escapeHtml(job.cycle)} · ${escapeHtml(job.location ?? 'Unspecified')} · ${escapeHtml(job.category)} · score ${job.score}<br>
     Posted: ${escapeHtml(postedLabel(job))} · Source: ${escapeHtml(job.sourceName)}<br>
     Sponsorship: <strong>${job.sponsorshipStatus}</strong> - ${escapeHtml(job.sponsorshipEvidence)}<br>
-      Claim graduation: ${escapeHtml(graduationLabel(job))}<br>
-    ${links}${applied ? ` · <a href="${escapeHtml(applied)}">Mark applied</a>` : ''}<br>
+      Claim graduation: ${escapeHtml(graduationLabel(job))} · ref ${escapeHtml((job.id ?? '').slice(0, 8))}<br>
+    ${links}<br>
     ${escapeHtml(job.summary)}<br><em>Required skills:</em> ${escapeHtml(skills)}</li>`;
 }
 
@@ -97,15 +95,13 @@ function graduationLabel(job: DigestJob): string {
 }
 
 function roleText(job: DigestJob): string {
-  const applied = markAppliedUrl(job.id);
   return [
     `${job.company} - ${job.title}`,
     `${job.cycle} | ${job.location ?? 'Unspecified'} | ${job.category} | score ${job.score}`,
     `Posted: ${postedLabel(job)} | Source: ${job.sourceName}`,
     `Sponsorship: ${job.sponsorshipStatus} - ${job.sponsorshipEvidence}`,
-      `Claim graduation: ${graduationLabel(job)}`,
+      `Claim graduation: ${graduationLabel(job)} | ref ${(job.id ?? '').slice(0, 8)}`,
     ...applyLinks(job).map(link => `${link.label}: ${link.url}`),
-    ...(applied ? [`Mark applied: ${applied}`] : []),
     `Summary: ${job.summary}`,
     `Required skills: ${job.requiredSkills.join(', ') || 'Not stated'}`
   ].join('\n');

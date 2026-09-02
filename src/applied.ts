@@ -57,6 +57,20 @@ export function markAppliedUrl(jobId: string | undefined): string | undefined {
  * and some mail clients scan links on their own - so an entry already in the
  * ledger is reported as success and written once.
  */
+/**
+ * Files a role applied from the machine, not from a link.
+ *
+ * The signature on the webhook path exists because anyone who can read the
+ * email could otherwise guess a uuid. A local CLI run is already the person
+ * whose ledger it is, so it signs its own id rather than inventing a second
+ * unsigned path into the same writes.
+ */
+export async function markAppliedLocally(jobId: string): Promise<MarkAppliedResult> {
+  if (!config.MARK_APPLIED_SECRET) return { ok: false, reason: 'disabled' };
+  if (!UUID.test(jobId)) return { ok: false, reason: 'bad_signature' };
+  return markApplied(jobId, signJobId(jobId));
+}
+
 export async function markApplied(jobId: string, signature: string): Promise<MarkAppliedResult> {
   if (!config.MARK_APPLIED_SECRET) return { ok: false, reason: 'disabled' };
   if (!UUID.test(jobId) || !verifyJobSignature(jobId, signature)) return { ok: false, reason: 'bad_signature' };
