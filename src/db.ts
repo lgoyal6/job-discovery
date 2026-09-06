@@ -349,7 +349,7 @@ export async function prepareEmailBatch(runId: string, jobs: DigestJob[], subjec
   const digestHash = makeDigestHash(identity);
   const batchKey = makeBatchKey(identity, new Date());
   // A SENT batch is never re-claimable. An ABANDONED one is, and so is a claim
-  // left stale by a send that died before confirming — otherwise that digest is
+  // left stale by a send that died before confirming - otherwise that digest is
   // blocked forever while the pipeline keeps reporting success every run.
   const inserted = await pool.query<{ batch_key: string; reclaimed: boolean }>(
     `INSERT INTO email_batches(batch_key,pipeline_run_id,job_ids,subject,digest_hash) VALUES($1,$2,$3,$4,$5)
@@ -360,6 +360,21 @@ export async function prepareEmailBatch(runId: string, jobs: DigestJob[], subjec
      RETURNING batch_key, (xmax <> 0) AS reclaimed`,
     [batchKey, runId, jobIds, subject, digestHash, config.EMAIL_BATCH_STALE_MINUTES]);
   const row = inserted.rows[0];
+  // Record which version of each row this digest was built from, read out of
+  // the jobs table rather than off the DigestJob, so the number stored is the
+  // one the database holds at the moment the batch is claimed. Re-claiming an
+  // abandoned batch re-reads it: the digest is rebuilt from whatever the rows
+  // say now, so its provenance is now too.
+  if (row?.batch_key && jobIds.length) {
+    await pool.query(
+      `INSERT INTO email_batch_jobs(batch_key, job_id, material_version, material_fingerprint)
+       SELECT $1, j.id, j.material_version, j.material_fingerprint FROM jobs j WHERE j.id = ANY($2::uuid[])
+       ON CONFLICT (batch_key, job_id)
+         DO UPDATE SET material_version=EXCLUDED.material_version,
+                       material_fingerprint=EXCLUDED.material_fingerprint,
+                       recorded_at=now()`,
+      [row.batch_key, jobIds]);
+  }
   // Re-claiming keeps the row's original batch_key, which is hour-stamped and so
   // differs from the one computed above. Return the stored key or batch-sent
   // would target a row that does not exist and never confirm the send.
@@ -484,6 +499,97 @@ export async function savePageWatch(result: { url: string; company: string; labe
        http_ok=EXCLUDED.http_ok, last_error=EXCLUDED.last_error, last_checked_at=now(),
        last_changed_at=CASE WHEN $8 THEN now() ELSE page_watches.last_changed_at END`,
     [result.url, result.company, result.label, result.hash, result.textLength, result.httpOk, result.error ?? null, changed]);
+}
+
+export interface ForgetResult {
+  found: boolean;
+  /** The ledger page this role was exported to, if it ever reached one. */
+  notionPageId?: string;
+  removed: {
+    sources: number;
+    enrichment: number;
+    batchProvenance: number;
+    batchIdReferences: number;
+    sponsorshipOverrides: number;
+    ledgerExclusions: number;
+  };
+}
+
+/**
+ * Removes one role and everything downstream of it that would otherwise keep
+ * showing it.
+ *
+ * Written because nothing else deletes a job. The only DELETE in this file
+ * empties applied_exclusions wholesale, so the sole way to drop a posting was
+ * DELETE FROM jobs by hand, and that leaves it in four places:
+ *
+ *   - email_batches.job_ids is uuid[] with no foreign key, so the id survives,
+ *     and migrations 007 and 008 both rebuild send state by unnesting it. A
+ *     backfill run after a hand-deletion re-reads a role that is gone.
+ *   - sponsorship_overrides and applied_exclusions key on canonical_url and
+ *     source_job_id rather than job_id, so the cached verdict and the applied
+ *     marker outlive the row and re-attach to the posting when a source finds
+ *     it again. Forgetting a role has to forget what was concluded about it.
+ *   - the Notion page is an export to a system this transaction cannot reach.
+ *     It is returned rather than silently left behind, so the caller archives
+ *     it and the operator is told when that is still outstanding.
+ *
+ * job_sources, job_enrichment and email_batch_jobs cascade, and are counted
+ * before the delete so the caller learns what went rather than being told a
+ * bare "ok".
+ */
+export async function forgetJob(jobId: string): Promise<ForgetResult> {
+  const empty = { sources: 0, enrichment: 0, batchProvenance: 0, batchIdReferences: 0, sponsorshipOverrides: 0, ledgerExclusions: 0 };
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    // Lock the row first: without it a concurrent pipeline pass can re-upsert
+    // the same posting between the read and the delete, and the scrub below
+    // would then be cleaning up around a row that has just come back.
+    const job = await client.query<{ id: string; notion_page_id: string | null }>(
+      'SELECT id, notion_page_id FROM jobs WHERE id=$1 FOR UPDATE', [jobId]);
+    if (!job.rows[0]) { await client.query('ROLLBACK'); return { found: false, removed: empty }; }
+
+    // Every URL and requisition id this role was ever seen under, because the
+    // caches key on those and a role carried by three lists has three of each.
+    const handles = await client.query<{ urls: string[]; source_ids: string[] }>(
+      `SELECT COALESCE(array_agg(DISTINCT u) FILTER (WHERE u <> ''), '{}') AS urls,
+              COALESCE(array_agg(DISTINCT source_job_id) FILTER (WHERE source_job_id IS NOT NULL), '{}') AS source_ids
+         FROM job_sources, LATERAL unnest(ARRAY[source_url, COALESCE(direct_apply_url,'')]) AS u
+        WHERE job_id=$1`, [jobId]);
+    const urls = handles.rows[0]?.urls ?? [];
+    const sourceIds = handles.rows[0]?.source_ids ?? [];
+
+    const counted = async (sql: string, params: unknown[]): Promise<number> =>
+      (await client.query(sql, params)).rowCount ?? 0;
+
+    const sources = await counted('SELECT 1 FROM job_sources WHERE job_id=$1', [jobId]);
+    const enrichment = await counted('SELECT 1 FROM job_enrichment WHERE job_id=$1', [jobId]);
+    const batchProvenance = await counted('SELECT 1 FROM email_batch_jobs WHERE job_id=$1', [jobId]);
+
+    const overrides = await counted(
+      `DELETE FROM sponsorship_overrides
+        WHERE (canonical_url IS NOT NULL AND canonical_url = ANY($1::text[]))
+           OR (source_job_id IS NOT NULL AND source_job_id = ANY($2::text[]))`, [urls, sourceIds]);
+    const exclusions = await counted(
+      `DELETE FROM applied_exclusions
+        WHERE (canonical_url IS NOT NULL AND canonical_url = ANY($1::text[]))
+           OR (source_job_id IS NOT NULL AND source_job_id = ANY($2::text[]))`, [urls, sourceIds]);
+
+    // The uuid[] column the foreign key cannot reach. array_remove rather than a
+    // rewrite of the whole array, so a batch carrying five other roles keeps
+    // them, and the WHERE keeps this off every batch that never held this id.
+    const batchIds = await counted(
+      `UPDATE email_batches SET job_ids = array_remove(job_ids, $1::uuid) WHERE $1::uuid = ANY(job_ids)`, [jobId]);
+
+    await client.query('DELETE FROM jobs WHERE id=$1', [jobId]);
+    await client.query('COMMIT');
+    return {
+      found: true,
+      notionPageId: job.rows[0].notion_page_id ?? undefined,
+      removed: { sources, enrichment, batchProvenance, batchIdReferences: batchIds, sponsorshipOverrides: overrides, ledgerExclusions: exclusions }
+    };
+  } catch (error) { await client.query('ROLLBACK'); throw error; } finally { client.release(); }
 }
 
 export function newRunId(): string { return randomUUID(); }
