@@ -17,11 +17,59 @@ const pending = [
   { id: '22222222-2222-4222-8222-222222222222', company: 'Anduril', title: '2027 Software Engineer Intern', url: 'https://example.test/2', sourceJobId: 'src-2' }
 ];
 
+// The mirror now goes through the outbox, so the roles it files arrive as
+// claimed messages rather than as a SELECT. The fake pool answers the relay's
+// four statements and records what the relay wrote, which is how "remembers the
+// page" is still checked: the page id lands through the relay's delivered
+// transaction instead of through a recordNotionPage call.
+//
+// Everything between the claim and Notion is real - the relay, the sink
+// adapter, the page builder - so these tests still fail if the payload or the
+// ordering changes.
+interface Recorded { sql: string; params: unknown[] }
+
+function fakePool(rows: typeof pending) {
+  const recorded: Recorded[] = [];
+  const answer = (sql: string, params: unknown[] = []) => {
+    recorded.push({ sql, params });
+    if (/UPDATE outbox SET state='INFLIGHT'/.test(sql)) {
+      return {
+        rowCount: rows.length,
+        rows: rows.map((row, index) => ({
+          id: String(index + 1), idempotency_key: `mirror:${row.id}`,
+          topic: 'notion.ledger.page', payload: { jobId: row.id }, attempts: 1
+        }))
+      };
+    }
+    if (/RETURNING state/.test(sql)) return { rowCount: 1, rows: [{ state: 'PENDING' }] };
+    return { rowCount: 0, rows: [] };
+  };
+  const client = {
+    query: vi.fn((sql: string, params?: unknown[]) => Promise.resolve(answer(sql, params))),
+    release: vi.fn()
+  };
+  const pool = {
+    query: vi.fn((sql: string, params?: unknown[]) => Promise.resolve(answer(sql, params))),
+    connect: vi.fn(() => Promise.resolve(client))
+  };
+  return { pool, client, recorded };
+}
+
 function mockDb(rows = pending) {
-  const getJobsToMirror = vi.fn().mockResolvedValue(rows);
-  const recordNotionPage = vi.fn().mockResolvedValue(undefined);
-  vi.doMock('../src/db.js', () => ({ getJobsToMirror, recordNotionPage }));
-  return { getJobsToMirror, recordNotionPage };
+  const fake = fakePool(rows);
+  const getJobForLedger = vi.fn((id: string) => Promise.resolve(rows.find(row => row.id === id)));
+  const claimJobsForMirror = vi.fn().mockResolvedValue(rows);
+  vi.doMock('../src/db.js', () => ({ pool: fake.pool, getJobForLedger }));
+  vi.doMock('../src/outbox-mirror.js', async (importOriginal) => ({
+    ...(await importOriginal<typeof import('../src/outbox-mirror.js')>()),
+    claimJobsForMirror
+  }));
+  // The page ids the relay wrote onto jobs, which is what recordNotionPage used
+  // to be asserted on.
+  const pagesRecorded = (): unknown[][] => fake.recorded
+    .filter(entry => /UPDATE jobs SET notion_page_id/.test(entry.sql))
+    .map(entry => entry.params);
+  return { claimJobsForMirror, getJobForLedger, pagesRecorded, recorded: fake.recorded, client: fake.client };
 }
 
 describe('mirroring postings into the Notion ledger', () => {
@@ -33,7 +81,7 @@ describe('mirroring postings into the Notion ledger', () => {
     const { mirrorNewPostings } = await import('../src/mirror.js');
 
     expect(await mirrorNewPostings('run-1')).toEqual({ attempted: 0, created: 0, failed: 0 });
-    expect(db.getJobsToMirror).not.toHaveBeenCalled();
+    expect(db.claimJobsForMirror).not.toHaveBeenCalled();
     expect(mockedFetch).not.toHaveBeenCalled();
   });
 
@@ -66,8 +114,15 @@ describe('mirroring postings into the Notion ledger', () => {
     }
     // The schema is read once, not once per page.
     expect(mockedFetch.mock.calls.filter(call => String(call[0]).includes('/data_sources/'))).toHaveLength(1);
-    expect(db.recordNotionPage).toHaveBeenCalledTimes(2);
-    expect(db.recordNotionPage).toHaveBeenCalledWith(pending[0]!.id, 'page-x');
+    expect(db.pagesRecorded()).toHaveLength(2);
+    expect(db.pagesRecorded()[0]).toEqual([pending[0]!.id, 'page-x']);
+    // The page id and the message's completion are one transaction. Two
+    // commits here would be the dual write again, one layer down.
+    const statements = db.client.query.mock.calls.map(call => String(call[0]));
+    const first = statements.indexOf('BEGIN');
+    const commit = statements.indexOf('COMMIT');
+    expect(statements.slice(first, commit).some(sql => /UPDATE jobs SET notion_page_id/.test(sql))).toBe(true);
+    expect(statements.slice(first, commit).some(sql => /state='DELIVERED'/.test(sql))).toBe(true);
   }, 15_000);
 
   // The ledger already had a column for each of these and its select options
@@ -145,7 +200,7 @@ describe('mirroring postings into the Notion ledger', () => {
     const { mirrorNewPostings } = await import('../src/mirror.js');
 
     await mirrorNewPostings('run-1');
-    expect(db.getJobsToMirror).toHaveBeenCalledWith(25);
+    expect(db.claimJobsForMirror).toHaveBeenCalledWith(expect.anything(), 25, 'New');
   });
 
   // The digest is the product; the ledger is a record of it. A workspace that
@@ -160,7 +215,7 @@ describe('mirroring postings into the Notion ledger', () => {
     const result = await mirrorNewPostings('run-1');
     expect(result.created).toBe(0);
     expect(result.failed).toBeGreaterThan(0);
-    expect(db.recordNotionPage).not.toHaveBeenCalled();
+    expect(db.pagesRecorded()).toHaveLength(0);
   }, 15_000);
 
   it('refuses to start if the mirror status is the one the applied read filters on', async () => {
