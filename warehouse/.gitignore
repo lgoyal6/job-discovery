@@ -1,0 +1,9 @@
+target/
+dbt_packages/
+logs/
+
+# Compiled bytecode and dbt's machine-local anonymous-usage id. Neither belongs
+# in a shared history, and `git add -A` sweeps both in without them here.
+__pycache__/
+*.pyc
+.user.yml

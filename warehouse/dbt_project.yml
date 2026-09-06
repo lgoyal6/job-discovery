@@ -1,0 +1,23 @@
+name: jobmarket_warehouse
+version: 1.0.0
+config-version: 2
+profile: jobmarket_warehouse
+
+model-paths: ["models"]
+macro-paths: ["macros"]
+test-paths: ["tests"]
+target-path: "target"
+clean-targets: ["target", "dbt_packages"]
+
+# No package dependencies. dbt_utils would shorten a few tests, but this project
+# has to build on a laptop with no network guarantee, and every test here is
+# short enough to write in plain SQL.
+
+models:
+  jobmarket_warehouse:
+    staging:
+      +materialized: incremental
+    canonical:
+      +materialized: table
+    marts:
+      +materialized: table

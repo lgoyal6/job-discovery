@@ -1,0 +1,25 @@
+# Two targets against one database.
+#   dev  -> jm_wh       the incrementally built warehouse
+#   full -> jm_wh_full  a clean rebuild of the same models on the same snapshot
+# The parity proof is "these two schemas are row-identical".
+jobmarket_warehouse:
+  target: dev
+  outputs:
+    dev:
+      type: postgres
+      host: "{{ env_var('WH_HOST', '127.0.0.1') }}"
+      port: "{{ env_var('WH_PORT', '55439') | int }}"
+      user: "{{ env_var('WH_USER', 'warehouse') }}"
+      password: "{{ env_var('WH_PASSWORD', 'warehouse') }}"
+      dbname: "{{ env_var('WH_DB', 'jobmarket_wh') }}"
+      schema: jm_wh
+      threads: 4
+    full:
+      type: postgres
+      host: "{{ env_var('WH_HOST', '127.0.0.1') }}"
+      port: "{{ env_var('WH_PORT', '55439') | int }}"
+      user: "{{ env_var('WH_USER', 'warehouse') }}"
+      password: "{{ env_var('WH_PASSWORD', 'warehouse') }}"
+      dbname: "{{ env_var('WH_DB', 'jobmarket_wh') }}"
+      schema: jm_wh_full
+      threads: 4
