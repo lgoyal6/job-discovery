@@ -19,7 +19,7 @@ import { checkWatchedPages, loadWatchPages, type PageChange } from './sources/pa
 import { skippedSource } from './sources/base.js';
 import { findLedgerExclusionMatch, readLedgerExclusions, type LedgerExclusion } from './notion.js';
 import { buildDigest, digestOrder, type ProgramChange } from './digest.js';
-import { getPageWatchState, savePageWatch, closeStaleJobs, getEnrichment, getSentRequisitions, getUnsentJobIds, isSourceDue, saveEnrichment, loadCachedLedgerExclusions, loadH1bSponsors, loadCompanyAliasRows, loadSponsorshipOverrides, prepareEmailBatch, recordSourceRuns, syncLedgerExclusions, upsertJob, withPipelineLock, type SponsorshipOverrideRow } from './db.js';
+import { getPageWatchState, savePageWatch, closeStaleJobs, getEnrichment, getSentRequisitions, getUnsentJobIds, isSourceDue, saveEnrichment, spendLedger, loadCachedLedgerExclusions, loadH1bSponsors, loadCompanyAliasRows, loadSponsorshipOverrides, prepareEmailBatch, recordSourceRuns, syncLedgerExclusions, upsertJob, withPipelineLock, type SponsorshipOverrideRow } from './db.js';
 import { log } from './logger.js';
 
 interface RunOptions { fixtures?: boolean; liveFree?: boolean; persistent?: boolean }
@@ -101,7 +101,20 @@ async function collectSources(options: RunOptions, _watchlistCohort: WatchlistCo
     // $2.10 a month of a $5 plan to do it. Monster earns its place on different
     // ground: it is the only source that returns the employer's own
     // description, which is what the sponsorship rules read.
-    const apify = [new ApifySource('monster', config.APIFY_MONSTER_ACTOR, config.APIFY_MONSTER_MAX_RESULTS)];
+    // Every paid call goes through the ledger, so the month has a ceiling and
+    // not only each individual run. A dry run has no database to spend against
+    // and makes no paid calls either, so it gets no ledger.
+    const ledger = options.persistent ? spendLedger() : undefined;
+    if (ledger) {
+      // Reservations from a run that died between authorising a call and
+      // hearing back. They are closed out as abandoned before anything new is
+      // authorised, or a crashed pipeline would hold budget for the rest of the
+      // month and refuse every run after it.
+      const recovered = await ledger.recoverOutstanding(undefined, config.PAID_SOURCE_RESERVATION_TTL_MINUTES * 60_000);
+      if (recovered > 0) log('warn', 'paid_source_reservations_recovered', { count: recovered });
+      log('info', 'paid_source_budget', { summary: await ledger.describe() });
+    }
+    const apify = [new ApifySource('monster', config.APIFY_MONSTER_ACTOR, config.APIFY_MONSTER_MAX_RESULTS, [], ledger)];
     for (const source of apify.slice(0, config.APIFY_MAX_ACTOR_RUNS_PER_PIPELINE)) {
       const due = !options.persistent || await isSourceDue(source.name, config.APIFY_MIN_INTERVAL_HOURS);
       if (due) sources.push(source);

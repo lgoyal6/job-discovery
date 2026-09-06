@@ -41,6 +41,16 @@ const envSchema = z.object({
   APIFY_MAX_ACTOR_RUNS_PER_PIPELINE: z.coerce.number().int().min(0).max(3).default(3),
   APIFY_MAX_COMPUTE_UNITS_PER_RUN: z.coerce.number().min(0).max(10).default(1),
   APIFY_MAX_TOTAL_CHARGE_USD: z.coerce.number().min(0).max(10).default(0.5),
+  // The cap Apify enforces is per run. Three runs a pipeline at $0.50 each, on
+  // a 24 hour cadence, is $45 a month against a $5 credit, and nothing anywhere
+  // added those up: the only ceiling was one the provider applied to a single
+  // call. This is the month's ceiling, checked before a call is authorised
+  // rather than discovered on the invoice. $5 is the free plan's credit.
+  PAID_SOURCE_MONTHLY_BUDGET_USD: z.coerce.number().min(0).max(1000).default(5),
+  // How long a reservation may stay open before it is treated as money that
+  // went somewhere we cannot see. Longer than the actor timeout plus its socket
+  // grace, so a slow run is never written off while it is still working.
+  PAID_SOURCE_RESERVATION_TTL_MINUTES: z.coerce.number().int().min(5).max(720).default(30),
   // How long the actor may run, which is not how long we wait for a socket.
   // These were the same number, so a LinkedIn scraper was given 30 seconds to
   // crawl eight search pages and answered "status: TIMED-OUT" every time. Monster

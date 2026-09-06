@@ -8,6 +8,7 @@ import type { ClassifiedJob, DigestJob, SourceResult } from './types.js';
 import type { LedgerExclusion } from './notion.js';
 import { batchKey as makeBatchKey, digestHash as makeDigestHash } from './state.js';
 import { materialFingerprint } from './normalization.js';
+import { SpendLedger, type SpendEntry, type SpendStore } from './spend.js';
 
 const { Pool } = pg;
 export const pool = new Pool({ connectionString: config.DATABASE_URL, max: 10, idleTimeoutMillis: 30_000 });
@@ -593,3 +594,38 @@ export async function forgetJob(jobId: string): Promise<ForgetResult> {
 }
 
 export function newRunId(): string { return randomUUID(); }
+
+/**
+ * The durable side of the paid-source spend ledger.
+ *
+ * Append-only, and idempotent through the database rather than through
+ * whoever remembers: `paid_source_spend_reserve_once` and
+ * `paid_source_spend_closed_once` make a second RESERVE or a second closing row
+ * for one run key a no-op, which is what stops a retry charging twice when two
+ * pipeline runs overlap and neither can see the other's uncommitted work.
+ */
+export class PgSpendStore implements SpendStore {
+  async read(period: string): Promise<SpendEntry[]> {
+    const rows = await pool.query<{ run_key: string; source_name: string; kind: SpendEntry['kind']; micros: string; period: string; measured: boolean; note: string; at: Date }>(
+      'SELECT run_key, source_name, kind, micros, period, measured, note, at FROM paid_source_spend WHERE period=$1 ORDER BY id', [period]);
+    return rows.rows.map(row => ({
+      runKey: row.run_key, source: row.source_name, kind: row.kind, micros: Number(row.micros),
+      period: row.period, measured: row.measured, note: row.note, at: row.at.toISOString()
+    }));
+  }
+
+  async append(entry: SpendEntry): Promise<void> {
+    // ON CONFLICT DO NOTHING against both partial unique indexes: a duplicate
+    // reserve or a duplicate close is the retry case, and it must cost nothing
+    // rather than raise.
+    await pool.query(
+      `INSERT INTO paid_source_spend(run_key,source_name,kind,micros,period,measured,note,at)
+       VALUES($1,$2,$3,$4,$5,$6,$7,$8) ON CONFLICT DO NOTHING`,
+      [entry.runKey, entry.source, entry.kind, entry.micros, entry.period, entry.measured, entry.note, entry.at]);
+  }
+}
+
+/** The ledger the pipeline spends through, over the real database. */
+export function spendLedger(): SpendLedger {
+  return new SpendLedger({ store: new PgSpendStore(), monthlyBudgetUsd: config.PAID_SOURCE_MONTHLY_BUDGET_USD });
+}
