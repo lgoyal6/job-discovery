@@ -55,19 +55,48 @@ delivery, which is what makes "exactly once" true rather than aspirational.
 
 ## Running it
 
-Requires Node 22+ and Postgres.
+Requires Node 22+. Postgres is needed only by `migrate` and `pipeline`; both dry
+runs below store nothing and so need no database.
 
 ```bash
 npm install
 npm run build
 npm run test:unit
+```
 
-# Fetch every free source and render a digest without sending or storing anything
+The CLI validates its whole environment when it loads, before it looks at which
+verb you typed, so four variables have to be set for any command at all -
+including `--help`. Three of them are the recipient and the Notion ledger ids,
+which a dry run never reads and never contacts. Placeholders are the honest
+values there, and are what the two commands below were run with:
+
+```bash
+export EMAIL_TO=you@example.com
+export NOTION_DATABASE_ID=unused-for-a-dry-run
+export NOTION_DATA_SOURCE_ID=unused-for-a-dry-run
+# The watchlist lives beside the project when deployed and inside it in a
+# checkout, so a checkout has to say where it is.
+export WATCHLIST_PATH=automation/job-company-watchlist.md
+```
+
+```bash
+# Offline. Runs the whole classify → identity → rank → cap path over the
+# committed fixtures, in seconds, touching no network: 7 raw, 5 accepted.
+node dist/cli.js dry-run --fixtures
+
+# Every free source for real, rendering a digest without sending or storing
+# anything. Around 70,000 postings, about six minutes, no credentials.
 node dist/cli.js dry-run --live-free
 
-# The real thing: stores, dedupes against send history, prepares a batch
+# The real thing: stores, dedupes against send history, prepares a batch.
+# This one needs Postgres and a real DATABASE_URL.
 node dist/cli.js pipeline
 ```
+
+`.env.example` documents every remaining setting. It is read by
+`docker compose`, not by the CLI - there is no dotenv call in `src/config.ts` -
+so for a CLI run export what you need rather than writing a `.env` and expecting
+it to be picked up.
 
 `JOB_PROFILE=finance` switches profiles. `config/` holds the sources, the
 company aliases and the sponsorship patterns; `migrations/` holds ordered,
