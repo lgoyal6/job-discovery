@@ -99,7 +99,9 @@ export async function readLedgerExclusions(): Promise<LedgerExclusion[]> {
         ? `https://api.notion.com/v1/databases/${config.NOTION_DATABASE_ID}/query`
         : `https://api.notion.com/v1/data_sources/${config.NOTION_DATA_SOURCE_ID}/query`, {
         sourceName: 'notion-applied', timeoutMs: config.SOURCE_TIMEOUT_MS, retries: config.SOURCE_RETRIES,
-        method: 'POST', headers: {
+        // A data source query: a read that happens to be a POST, so repeating it
+        // returns the same page and changes nothing in the workspace.
+        method: 'POST', repeatable: true, headers: {
           authorization: `Bearer ${config.NOTION_TOKEN}`,
           'notion-version': useLegacyDatabaseQuery ? '2022-06-28' : '2025-09-03',
           'content-type': 'application/json'
@@ -113,7 +115,9 @@ export async function readLedgerExclusions(): Promise<LedgerExclusion[]> {
         useLegacyDatabaseQuery = true;
         response = await fetchWithPolicy(`https://api.notion.com/v1/databases/${config.NOTION_DATABASE_ID}/query`, {
           sourceName: 'notion-applied', timeoutMs: config.SOURCE_TIMEOUT_MS, retries: config.SOURCE_RETRIES,
-          method: 'POST', headers: { authorization: `Bearer ${config.NOTION_TOKEN}`, 'notion-version': '2022-06-28', 'content-type': 'application/json' }, body
+          // A data source query: a read that happens to be a POST, so repeating it
+          // returns the same page and changes nothing in the workspace.
+          method: 'POST', repeatable: true, headers: { authorization: `Bearer ${config.NOTION_TOKEN}`, 'notion-version': '2022-06-28', 'content-type': 'application/json' }, body
         });
       } else throw error;
     }

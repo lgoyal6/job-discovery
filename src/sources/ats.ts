@@ -296,7 +296,7 @@ export class AtsSource extends SafeSource {
         const found: RawJob[] = [];
         for (let offset = 0; offset < config.WORKDAY_MAX_RESULTS_PER_SOURCE; offset += WORKDAY_PAGE_SIZE) {
           const limit = Math.min(WORKDAY_PAGE_SIZE, config.WORKDAY_MAX_RESULTS_PER_SOURCE - offset);
-          const response = await fetchWithPolicy(endpoint, { sourceName: this.name, timeoutMs: config.SOURCE_TIMEOUT_MS, retries: config.SOURCE_RETRIES, method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ appliedFacets: {}, limit, offset, searchText }) });
+          const response = await fetchWithPolicy(endpoint, { sourceName: this.name, timeoutMs: config.SOURCE_TIMEOUT_MS, retries: config.SOURCE_RETRIES, method: 'POST', repeatable: true, headers: { 'content-type': 'application/json' }, body: JSON.stringify({ appliedFacets: {}, limit, offset, searchText }) });
           const items = genericItems(await response.json());
           found.push(...items.map(item => {
             const externalPath = String(item.externalPath ?? '');
@@ -352,7 +352,7 @@ export class AtsSource extends SafeSource {
       const sweep = async (keywords: string): Promise<RawJob[]> => {
         const response = await fetchWithPolicy(endpoint, {
           sourceName: this.name, timeoutMs: config.SOURCE_TIMEOUT_MS, retries: config.SOURCE_RETRIES,
-          method: 'POST', headers: { 'content-type': 'application/json', accept: 'application/json' }, body: phenomBody(keywords, 0)
+          method: 'POST', repeatable: true, headers: { 'content-type': 'application/json', accept: 'application/json' }, body: phenomBody(keywords, 0)
         });
         return normalizePhenom(await response.json(), phenom, now, this.name);
       };
