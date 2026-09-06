@@ -1,5 +1,6 @@
 import { config, projectRoot, watchlistPath } from './config.js';
 import { log } from './logger.js';
+import { guardedFetch } from './net-guard.js';
 import { parseWatchlist } from './watchlist.js';
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
@@ -32,7 +33,7 @@ export function slugCandidates(name: string): string[] {
 
 async function probe(company: string, slug: string, spec: typeof PROBES[number]): Promise<BoardHit | null> {
   try {
-    const response = await fetch(spec.url(slug), { signal: AbortSignal.timeout(8000), headers: { 'user-agent': 'laksh-job-discovery/1.0 (+personal job search)' } });
+    const response = await guardedFetch(spec.url(slug), { signal: AbortSignal.timeout(8000), headers: { 'user-agent': 'laksh-job-discovery/1.0 (+personal job search)' } });
     if (!response.ok) return null;
     const jobs = spec.count(await response.json() as { jobs?: unknown[] });
     // An empty board is indistinguishable from a wrong slug, so require postings.
@@ -166,7 +167,7 @@ export interface HarvestedSource { company: string; board: HarvestedBoard; jobs:
 async function confirm(board: HarvestedBoard): Promise<number> {
   const get = async (url: string, init?: RequestInit): Promise<any> => {
     try {
-      const response = await fetch(url, { signal: AbortSignal.timeout(10_000), headers: { 'user-agent': 'laksh-job-discovery/1.0 (+personal job search)' }, ...init });
+      const response = await guardedFetch(url, { signal: AbortSignal.timeout(10_000), headers: { 'user-agent': 'laksh-job-discovery/1.0 (+personal job search)' }, ...init });
       return response.ok ? await response.json() : null;
     } catch { return null; }
   };

@@ -102,6 +102,13 @@ const envSchema = z.object({
   // the board was reported as degraded on every pass.
   SOURCE_TIMEOUT_MS: z.coerce.number().int().min(1000).max(120000).default(30000),
   SOURCE_RETRIES: z.coerce.number().int().min(0).max(5).default(3),
+  // A budget for one posting's page, spent on decoded bytes rather than wire
+  // bytes: 30,605 bytes of gzip expand to 31,457,280 characters and announce
+  // no content-length, and six postings are fetched at once. LinkedIn's
+  // heaviest posting page is 315 KB, so this is thirty times the real ceiling
+  // and a thousandth of what a hostile link can ask for. Board listings are
+  // not read through this: OpenAI's Ashby board is legitimately 12 MB.
+  POSTING_MAX_RESPONSE_BYTES: z.coerce.number().int().min(65536).max(268435456).default(10485760),
   WATCHLIST_COMPANIES_PER_RUN: z.coerce.number().int().positive().max(500).default(30),
   // A batch claimed but never confirmed sent blocks its digest forever, because
   // only ABANDONED rows are re-claimable. Treat a claim older than this as dead

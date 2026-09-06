@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { activeProfile, config, projectRoot } from '../config.js';
 import { log } from '../logger.js';
+import { guardedFetch } from '../net-guard.js';
 import type { RawJob } from '../types.js';
 import { SafeSource } from './base.js';
 import { readFile } from 'node:fs/promises';
@@ -108,7 +109,7 @@ export class LinkedInGuestSource extends SafeSource {
         + `&location=${encodeURIComponent(this.query.location)}`
         + `&f_TPR=r${config.LINKEDIN_RECENCY_SECONDS}`
         + `&start=${page * PAGE_SIZE}`;
-      const response = await paced(() => fetch(url, {
+      const response = await paced(() => guardedFetch(url, {
         signal: AbortSignal.timeout(config.SOURCE_TIMEOUT_MS),
         headers: { 'user-agent': BROWSER_UA, accept: 'text/html,application/xhtml+xml' }
       }));

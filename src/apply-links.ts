@@ -1,5 +1,6 @@
 import { config } from './config.js';
 import { log } from './logger.js';
+import { guardedFetch } from './net-guard.js';
 import { applyLinkRank, normalizeText } from './normalization.js';
 import { paced } from './sources/linkedin.js';
 import type { DigestJob } from './types.js';
@@ -77,7 +78,7 @@ async function resolveOne(job: DigestJob): Promise<string | undefined> {
   const query = `${job.title} ${job.company}`.slice(0, 120);
   const url = `${GUEST_SEARCH}?keywords=${encodeURIComponent(query)}&location=${encodeURIComponent('United States')}&start=0`;
   try {
-    const response = await paced(() => fetch(url, {
+    const response = await paced(() => guardedFetch(url, {
       signal: AbortSignal.timeout(config.ENRICHMENT_TIMEOUT_MS),
       headers: { 'user-agent': BROWSER_UA, accept: 'text/html,application/xhtml+xml' }
     }));
