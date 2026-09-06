@@ -1,0 +1,74 @@
+version: 2
+
+models:
+  - name: int_fetch_observations
+    description: "GRAIN: one source observation per fetch. Highest revision of that fetch wins."
+    columns:
+      - name: fetch_key
+        description: "Explicit key: hash of (source_name, source_job_id, observed_at)."
+        tests: [not_null, unique]
+      - name: canonical_key
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_requisition_version')
+                field: canonical_key
+      - name: observed_at
+        tests: [not_null]
+
+  - name: dim_requisition_version
+    description: "GRAIN: one version per canonical requisition change, (canonical_key, version_seq)."
+    columns:
+      - name: requisition_version_key
+        description: "Explicit key: canonical_key + version sequence."
+        tests: [not_null, unique]
+      - name: canonical_key
+        tests: [not_null]
+      - name: version_seq
+        tests: [not_null]
+      - name: material_fingerprint
+        tests: [not_null]
+      - name: valid_from_observed_at
+        tests: [not_null]
+      - name: built_from_ingested_at
+        tests: [not_null]
+
+  - name: dim_requisition_current
+    description: "The current version of each requisition plus observation-derived facts."
+    columns:
+      - name: canonical_key
+        tests:
+          - not_null
+          - unique
+          - relationships:
+              arguments:
+                to: ref('dim_requisition_version')
+                field: canonical_key
+      - name: role_family
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['SWE','ML/AI','Quant','GTM Eng','Other','IB','PE/VC','AM/WM','Corp Fin']
+      - name: observation_count
+        tests: [not_null]
+
+  - name: fct_application_status_transition
+    description: "GRAIN: one recorded application-status transition, sequenced within its requisition."
+    columns:
+      - name: event_id
+        tests: [not_null, unique]
+      - name: canonical_key
+        description: >
+          Every tracked transition must belong to a requisition the warehouse
+          actually holds. A status event for an unknown requisition means the
+          tracker and the pipeline have diverged, which is worth an error.
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_requisition_current')
+                field: canonical_key
+      - name: transition_seq
+        tests: [not_null]

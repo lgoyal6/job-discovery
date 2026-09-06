@@ -1,0 +1,28 @@
+version: 2
+
+sources:
+  - name: raw
+    description: >
+      Append-only landing zone. Nothing in here is ever updated in place, which
+      is the only reason a late correction is representable at all.
+    schema: raw
+    tables:
+      - name: source_observations
+        description: "GRAIN: one source observation per fetch, plus restatements of that fetch."
+        columns:
+          - name: observation_id
+            tests: [not_null, unique]
+          - name: observed_at
+            tests: [not_null]
+          - name: ingested_at
+            tests: [not_null]
+          - name: posting_status
+            tests:
+              - accepted_values:
+                  arguments:
+                    values: ['OPEN', 'CLOSED']
+      - name: application_status_events
+        description: "GRAIN: one recorded application-status transition."
+        columns:
+          - name: event_id
+            tests: [not_null, unique]

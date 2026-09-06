@@ -1,0 +1,59 @@
+version: 2
+
+models:
+  - name: fct_source_observation_day
+    description: "GRAIN: one row per (source_name, observation_date). Incremental with interval reprocessing."
+    columns:
+      - name: source_day_key
+        tests: [not_null, unique]
+      - name: source_name
+        tests: [not_null]
+      - name: observation_date
+        tests: [not_null]
+      - name: source_high_watermark
+        description: "Newest ingestion time folded into this day. The model's own cursor."
+        tests: [not_null]
+
+  - name: mart_source_unique_yield
+    description: "Q1. Denominator: distinct eligible requisitions in the window."
+    columns:
+      - name: source_name
+        tests: [not_null, unique]
+      - name: eligible_requisition_universe
+        tests: [not_null]
+
+  - name: mart_stale_detection_latency
+    description: "Q2. One row per requisition with a measurable open-to-closed detection window."
+    columns:
+      - name: canonical_key
+        tests:
+          - not_null
+          - unique
+          - relationships:
+              arguments:
+                to: ref('dim_requisition_current')
+                field: canonical_key
+      - name: detection_latency_hours
+        tests: [not_null]
+
+  - name: mart_stale_detection_coverage
+    description: "Q2's denominator, written down. Buckets partition the population."
+    columns:
+      - name: coverage_bucket
+        tests: [not_null, unique]
+
+  - name: mart_requirement_recurrence
+    description: "Q3. Denominator: requisitions in the family that had parseable requirements text."
+    columns:
+      - name: role_family
+        tests: [not_null]
+      - name: requirement
+        tests: [not_null]
+      - name: family_requisitions_with_requirements
+        tests: [not_null]
+
+  - name: mart_application_funnel
+    description: "Tracker flags by role family. Flags, not confirmations."
+    columns:
+      - name: role_family
+        tests: [not_null, unique]
