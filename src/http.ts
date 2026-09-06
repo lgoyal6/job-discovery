@@ -5,6 +5,19 @@ export interface FetchOptions extends RequestInit {
   timeoutMs: number;
   retries: number;
   sourceName: string;
+  /**
+   * Whether sending this request twice is harmless.
+   *
+   * Defaults to true for GET and HEAD and false for everything else, because a
+   * retry is triggered by a lost answer and a lost answer says nothing about
+   * whether the far end acted. The Discord audit posts a message with
+   * retries: 1, so before this existed a timed-out send put two copies of the
+   * audit in the channel.
+   *
+   * Workday and Phenom express a search as a POST. Those are reads wearing a
+   * write's method, so they set this and keep the retries they need.
+   */
+  repeatable?: boolean;
 }
 
 // Sent only on a 403 retry, never on the first request: a source that works
@@ -18,7 +31,9 @@ const BROWSER_HEADERS: Record<string, string> = {
 class NonRetryableHttpError extends Error {}
 
 export async function fetchWithPolicy(url: string, options: FetchOptions): Promise<Response> {
-  const { timeoutMs, retries, sourceName, ...init } = options;
+  const { timeoutMs, retries, sourceName, repeatable, ...init } = options;
+  const method = (typeof init.method === 'string' ? init.method : 'GET').toUpperCase();
+  const mayRepeat = repeatable ?? (method === 'GET' || method === 'HEAD');
   let lastError: unknown;
   for (let attempt = 0; attempt <= retries; attempt += 1) {
     try {
@@ -32,7 +47,7 @@ export async function fetchWithPolicy(url: string, options: FetchOptions): Promi
       // A 403 is a rejected client, not a missing page. Most corporate and bank
       // career sites serve browsers fine and refuse the default fetch user
       // agent, so retry once with browser headers before giving up.
-      if (response.status === 403 && !init.headers) {
+      if (response.status === 403 && !init.headers && mayRepeat) {
         const browser = await guardedFetch(url, { ...init, headers: BROWSER_HEADERS, signal: AbortSignal.timeout(timeoutMs) });
         if (browser.ok) {
           log('info', 'source_403_recovered', { sourceName, url });
@@ -46,6 +61,14 @@ export async function fetchWithPolicy(url: string, options: FetchOptions): Promi
       // A refused destination is not a flaky one: retrying it is three more
       // attempts to reach somewhere this pipeline is not allowed to reach.
       if (error instanceof NonRetryableHttpError || error instanceof BlockedDestinationError) throw error;
+      // The request may already have been acted on. Retrying a search costs an
+      // extra read; retrying a message send costs a second message, and the
+      // error is the same either way, so the method decides rather than the
+      // error.
+      if (!mayRepeat) {
+        log('warn', 'source_write_not_retried', { sourceName, method, error: String(error) });
+        break;
+      }
       if (attempt === retries) break;
       const delayMs = Math.min(4000, 250 * 2 ** attempt) + Math.floor(Math.random() * 100);
       log('warn', 'source_retry', { sourceName, attempt: attempt + 1, delayMs, error: String(error) });
