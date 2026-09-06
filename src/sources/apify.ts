@@ -1,6 +1,9 @@
+import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import { activeProfile, config, type Profile } from '../config.js';
 import { fetchWithPolicy } from '../http.js';
+import { log } from '../logger.js';
+import type { SpendLedger } from '../spend.js';
 import type { RawJob, SourceResult } from '../types.js';
 import { SafeSource, skippedSource } from './base.js';
 
@@ -72,11 +75,52 @@ const SEARCHES: Record<Profile, { primary: string; secondary: string }> = {
 
 export class ApifySource extends SafeSource {
   readonly name: string;
-  constructor(private readonly board: 'linkedin' | 'indeed' | 'monster', private readonly actorId: string, private readonly maxResults: number, private readonly watchlistCompanies: string[] = []) { super(); this.name = `apify:${board}`; }
+  constructor(private readonly board: 'linkedin' | 'indeed' | 'monster', private readonly actorId: string, private readonly maxResults: number, private readonly watchlistCompanies: string[] = [], private readonly ledger?: SpendLedger) { super(); this.name = `apify:${board}`; }
+
+  /**
+   * Authorise, call, account. In that order, and the order is the point.
+   *
+   * The run used to be made and then recorded as `costUnits: 0` whatever
+   * happened to it. Three things go wrong with that and all three cost money:
+   *
+   *   Nothing stopped the month. `maxTotalChargeUsd` is a ceiling the provider
+   *   applies to one call; three calls a pipeline on a daily cadence is $45 a
+   *   month against a $5 credit. The budget is checked here, before the socket
+   *   is opened, because after the call there is nothing left to decide.
+   *
+   *   A run we gave up on was recorded as free. `run-sync` does not cancel the
+   *   actor when the socket dies: it stays up and bills to its own cap. The
+   *   only defensible number is the cap we authorised, and it is recorded as
+   *   abandoned rather than as spend that bought something.
+   *
+   *   A run that succeeded was also recorded as free. The endpoint answers with
+   *   the dataset and no usage figure, so the cost is known as an upper bound
+   *   and is written down that way instead of as zero.
+   */
   override async fetch(): Promise<SourceResult> {
     if (!config.APIFY_ENABLED && !config.PAID_SOURCES_ENABLED) return skippedSource(this.name, 'Apify disabled; set APIFY_ENABLED=true to use free-plan credits');
     if (!config.APIFY_TOKEN) return skippedSource(this.name, 'APIFY_TOKEN is not configured');
-    return super.fetch();
+    if (!this.ledger) return super.fetch();
+
+    const runKey = `${this.name}:${randomUUID()}`;
+    const authorised = await this.ledger.reserve({ runKey, source: this.name, maxChargeUsd: config.APIFY_MAX_TOTAL_CHARGE_USD });
+    if (!authorised.ok) {
+      log('warn', 'paid_source_refused', { source: this.name, reason: authorised.reason, shortfallUsd: authorised.shortfallUsd });
+      return { ...skippedSource(this.name, authorised.reason), metrics: { refusedOnBudget: true, shortfallUsd: authorised.shortfallUsd } };
+    }
+
+    const result = await super.fetch();
+    if (result.status === 'SUCCESS') {
+      // No usage in the response, so the authorised cap stands as the upper
+      // bound. A provider that does report one would be passed here instead.
+      await this.ledger.settle({ runKey });
+    } else {
+      // Conservative on purpose. We cannot tell a request that never left from
+      // one the actor picked up and is still billing for, and only one of those
+      // two guesses understates a bill.
+      await this.ledger.abandon({ runKey, reason: result.error ?? 'the run did not complete' });
+    }
+    return { ...result, costUnits: config.APIFY_MAX_TOTAL_CHARGE_USD };
   }
   protected async collect(): Promise<RawJob[]> {
     if (!config.APIFY_TOKEN) return [];
