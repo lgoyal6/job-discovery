@@ -1,6 +1,7 @@
 import { classifySponsorship, extractSkills } from './classification.js';
 import { config, type SponsorshipPatterns } from './config.js';
 import { log } from './logger.js';
+import { guardedFetch, readCappedText } from './net-guard.js';
 import { paced } from './sources/linkedin.js';
 import type { DigestJob, SponsorshipStatus } from './types.js';
 
@@ -90,9 +91,10 @@ async function fetchOne(job: DigestJob, patterns: SponsorshipPatterns): Promise<
   try {
     // No retries: this is best-effort enrichment behind a digest, and a slow
     // careers site must never extend the pipeline run.
-    const request = (): Promise<Response> => fetch(jsonUrl ?? guestUrl ?? url, {
+    // guardedFetch, not fetch: this URL came off a public README or a scraped
+    // list, so it is the one destination in the pipeline an outsider chooses.
+    const request = (): Promise<Response> => guardedFetch(jsonUrl ?? guestUrl ?? url, {
       signal: AbortSignal.timeout(config.ENRICHMENT_TIMEOUT_MS),
-      redirect: 'follow',
       headers: { 'user-agent': 'laksh-job-discovery/1.0 (+personal job search)', accept: jsonUrl ? 'application/json' : 'text/html,*/*' }
     });
     // Through the same gate the search queries use. LinkedIn rate-limits per
@@ -101,7 +103,8 @@ async function fetchOne(job: DigestJob, patterns: SponsorshipPatterns): Promise<
     // each other is what got the pipeline throttled in the first place.
     const response = guestUrl ? await paced(request) : await request();
     if (!response.ok) return { ...base, evidence: `HTTP ${response.status}` };
-    const text = jsonUrl ? extractText(workdayDescription(await response.json())) : extractText(await response.text());
+    const body = await readCappedText(response, config.POSTING_MAX_RESPONSE_BYTES);
+    const text = jsonUrl ? extractText(workdayDescription(JSON.parse(body))) : extractText(body);
     // Some boards still render client-side, so a 200 can carry no job text.
     // Treat that as "asked and learned nothing", not as a verdict.
     if (text.length < 400) return { ...base, httpOk: true, evidence: `Page returned ${text.length} characters of text; nothing to classify.` };

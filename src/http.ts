@@ -1,4 +1,5 @@
 import { log } from './logger.js';
+import { BlockedDestinationError, guardedFetch } from './net-guard.js';
 
 export interface FetchOptions extends RequestInit {
   timeoutMs: number;
@@ -21,7 +22,7 @@ export async function fetchWithPolicy(url: string, options: FetchOptions): Promi
   let lastError: unknown;
   for (let attempt = 0; attempt <= retries; attempt += 1) {
     try {
-      const response = await fetch(url, { ...init, signal: AbortSignal.timeout(timeoutMs) });
+      const response = await guardedFetch(url, { ...init, signal: AbortSignal.timeout(timeoutMs) });
       if (response.ok) return response;
       // Carry the body into the message. A bare "HTTP 400" is undiagnosable:
       // Apify names the offending input field in the body and we were dropping
@@ -32,7 +33,7 @@ export async function fetchWithPolicy(url: string, options: FetchOptions): Promi
       // career sites serve browsers fine and refuse the default fetch user
       // agent, so retry once with browser headers before giving up.
       if (response.status === 403 && !init.headers) {
-        const browser = await fetch(url, { ...init, headers: BROWSER_HEADERS, signal: AbortSignal.timeout(timeoutMs) });
+        const browser = await guardedFetch(url, { ...init, headers: BROWSER_HEADERS, signal: AbortSignal.timeout(timeoutMs) });
         if (browser.ok) {
           log('info', 'source_403_recovered', { sourceName, url });
           return browser;
@@ -42,7 +43,9 @@ export async function fetchWithPolicy(url: string, options: FetchOptions): Promi
       throw new Error(`retryable ${status}`);
     } catch (error) {
       lastError = error;
-      if (error instanceof NonRetryableHttpError) throw error;
+      // A refused destination is not a flaky one: retrying it is three more
+      // attempts to reach somewhere this pipeline is not allowed to reach.
+      if (error instanceof NonRetryableHttpError || error instanceof BlockedDestinationError) throw error;
       if (attempt === retries) break;
       const delayMs = Math.min(4000, 250 * 2 ** attempt) + Math.floor(Math.random() * 100);
       log('warn', 'source_retry', { sourceName, attempt: attempt + 1, delayMs, error: String(error) });

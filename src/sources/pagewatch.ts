@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { config, projectRoot } from '../config.js';
 import { extractText } from '../enrichment.js';
 import { log } from '../logger.js';
+import { guardedFetch, readCappedText } from '../net-guard.js';
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { createHash } from 'node:crypto';
@@ -44,9 +45,8 @@ export function hashPageText(text: string): string {
 async function checkOne(page: WatchPage): Promise<PageWatchResult> {
   const base = { url: page.url, company: page.company, label: page.label, hash: '', textLength: 0, httpOk: false };
   try {
-    const response = await fetch(page.url, {
+    const response = await guardedFetch(page.url, {
       signal: AbortSignal.timeout(config.PAGEWATCH_TIMEOUT_MS),
-      redirect: 'follow',
       headers: { 'user-agent': BROWSER_UA, accept: 'text/html,application/xhtml+xml' }
     });
     if (!response.ok) return { ...base, error: `HTTP ${response.status}` };
@@ -58,7 +58,7 @@ async function checkOne(page: WatchPage): Promise<PageWatchResult> {
     if (landed.pathname.replace(/\/+$/, '').length === 0) {
       return { ...base, httpOk: true, error: `redirected to site root ${landed.origin}, not a program page` };
     }
-    const text = extractText(await response.text());
+    const text = extractText(await readCappedText(response, config.POSTING_MAX_RESPONSE_BYTES));
     if (text.length < MIN_TEXT_LENGTH) return { ...base, httpOk: true, textLength: text.length, error: `only ${text.length} characters of text` };
     // Watch where the request landed, not where it was aimed: a redirect to a
     // renamed program page is the page we actually want to track.
