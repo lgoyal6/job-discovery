@@ -127,8 +127,9 @@ suite('a role that has been emailed does not come back', () => {
     expect((await db.getUnsentJobIds([restated.job.id!])).size).toBe(0);
   });
 
-  // The counterpart: a real change still reaches the inbox.
-  it('still re-emails when the role itself changes', async () => {
+  // A location correction alone is not a repost. Different sources regularly
+  // disagree on city spelling, so only a long close/reopen cycle re-mails.
+  it('does not re-email a location correction without a genuine repost', async () => {
     process.env.DATABASE_URL = process.env.TEST_DATABASE_URL;
     const db = await import('../src/db.js');
     const suffix = randomUUID();
@@ -137,6 +138,6 @@ suite('a role that has been emailed does not come back', () => {
 
     const moved = await db.upsertJob({ ...base(suffix), location: 'Austin, TX', normalizedLocation: 'austin tx' });
     expect(moved.job.id).toBe(first.job.id);
-    expect((await db.getUnsentJobIds([moved.job.id!])).size).toBe(1);
+    expect((await db.getUnsentJobIds([moved.job.id!])).size).toBe(0);
   });
 });

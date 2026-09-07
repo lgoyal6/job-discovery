@@ -219,7 +219,20 @@ export async function isSourceDue(sourceName: string, minimumIntervalHours: numb
   return !lastRun || now.getTime() - lastRun.getTime() >= minimumIntervalHours * 3_600_000;
 }
 
-export interface UpsertResult { job: DigestJob; isNew: boolean; stateChanged: boolean }
+export interface UpsertResult {
+  job: DigestJob;
+  isNew: boolean;
+  stateChanged: boolean;
+  forgotten?: boolean;
+}
+
+export async function writeGraduationClaim(
+  client: Pick<pg.PoolClient, 'query'>,
+  jobId: string,
+  claim: 'JUNE_2027' | 'DECEMBER_2027' | 'JUNE_2028'
+): Promise<void> {
+  await client.query('UPDATE jobs SET graduation_claim=$2 WHERE id=$1', [jobId, claim]);
+}
 
 // How long a role must have been absent before its return counts as a repost
 // rather than a gap in what the sources happened to sample.
@@ -253,6 +266,19 @@ export async function upsertJob(job: ClassifiedJob): Promise<UpsertResult> {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
+    const forgotten = await client.query(
+      `SELECT 1 FROM forgotten_jobs
+        WHERE canonical_key=$1
+           OR ($2 <> '' AND $2 = ANY(urls))
+           OR ($3 <> '' AND $3 = ANY(urls))
+           OR ($4 <> '' AND normalized_company=$5 AND $4 = ANY(source_ids))
+        LIMIT 1`,
+      [job.canonicalKey, job.canonicalUrl, job.directApplyUrl ?? '', job.sourceJobId ?? '', job.normalizedCompany]
+    );
+    if (forgotten.rowCount) {
+      await client.query('ROLLBACK');
+      return { job, isNew: false, stateChanged: false, forgotten: true };
+    }
     const fingerprint = materialFingerprint({ title: job.title, location: job.location ?? 'Unspecified', cycle: job.cycle });
     const existing = await client.query<any>(
       `SELECT j.* FROM jobs j
@@ -266,7 +292,14 @@ export async function upsertJob(job: ClassifiedJob): Promise<UpsertResult> {
           -- the same digest. Company-scoped: a Workday R-number is unique only
           -- within its tenant.
           OR ($7 <> '' AND j.normalized_company=$3 AND EXISTS (SELECT 1 FROM job_sources s2 WHERE s2.job_id=j.id AND s2.source_job_id=$7))
-       ORDER BY j.first_seen_at LIMIT 1 FOR UPDATE`,
+       ORDER BY CASE
+                  WHEN j.canonical_key=$1 THEN 0
+                  WHEN $2 <> '' AND EXISTS (SELECT 1 FROM job_sources s WHERE s.job_id=j.id AND (s.direct_apply_url=$2 OR s.source_url=$2)) THEN 1
+                  WHEN j.normalized_company=$3 AND j.normalized_title=$4 AND j.normalized_location=$5 AND j.cycle=$6 THEN 2
+                  ELSE 3
+                END,
+                j.first_seen_at
+       LIMIT 1 FOR UPDATE`,
       [job.canonicalKey, job.canonicalUrl, job.normalizedCompany, job.normalizedTitle, job.normalizedLocation, job.cycle, job.sourceJobId ?? '']);
     let id: string;
     let isNew = false;
@@ -304,6 +337,18 @@ export async function upsertJob(job: ClassifiedJob): Promise<UpsertResult> {
        VALUES($1,$2,NULLIF($3,''),$4,$5,$6,$7,$8,$9)
        ON CONFLICT DO NOTHING`,
       [id, job.sourceName, job.sourceJobId ?? '', job.sourceUrl, job.directApplyUrl ?? null, job.postedAt ?? null, job.scrapedAt, job.directApplyUrl ? 'DIRECT_URL' : 'SOURCE_ONLY', JSON.stringify(job.raw ?? {})]);
+    // When a source id moves to a job that already has this list's shared URL,
+    // the unique (job_id, source_url) row on the destination is the durable
+    // record. Remove the stale source-id row before the update below; otherwise
+    // the conflict avoidance keeps it attached to the old job forever.
+    await client.query(
+      `DELETE FROM job_sources s
+        WHERE s.source_name=$2 AND s.source_job_id=NULLIF($3,'') AND s.job_id<>$1
+          AND EXISTS (
+            SELECT 1 FROM job_sources t
+             WHERE t.job_id=$1 AND t.source_url=s.source_url
+          )`,
+      [id, job.sourceName, job.sourceJobId ?? '']);
     // The second branch of this WHERE re-points a source row at the job it now
     // belongs to, so that a list which changed its link refreshes the row it
     // already has instead of growing a second one. Unrestricted, it is also what
@@ -334,7 +379,7 @@ export async function upsertJob(job: ClassifiedJob): Promise<UpsertResult> {
     // Its own statement on purpose. The insert above already carries eighteen
     // parameters across two branches, and threading a nineteenth through both
     // for one nullable column buys nothing but a chance to misalign them.
-    if (job.graduationClaim) await client.query('UPDATE jobs SET graduation_claim=$2 WHERE id=$1', [id, job.graduationClaim]);
+    if (job.graduationClaim) await writeGraduationClaim(client, id, job.graduationClaim);
     return { job: { ...job, id, meaningfulStateChange: stateChanged }, isNew, stateChanged };
   } catch (error) { await client.query('ROLLBACK'); throw error; } finally { client.release(); }
 }
@@ -513,6 +558,7 @@ export interface ForgetResult {
     batchIdReferences: number;
     sponsorshipOverrides: number;
     ledgerExclusions: number;
+    outboxMessages: number;
   };
 }
 
@@ -540,26 +586,57 @@ export interface ForgetResult {
  * bare "ok".
  */
 export async function forgetJob(jobId: string): Promise<ForgetResult> {
-  const empty = { sources: 0, enrichment: 0, batchProvenance: 0, batchIdReferences: 0, sponsorshipOverrides: 0, ledgerExclusions: 0 };
+  const empty = { sources: 0, enrichment: 0, batchProvenance: 0, batchIdReferences: 0, sponsorshipOverrides: 0, ledgerExclusions: 0, outboxMessages: 0 };
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
     // Lock the row first: without it a concurrent pipeline pass can re-upsert
     // the same posting between the read and the delete, and the scrub below
     // would then be cleaning up around a row that has just come back.
-    const job = await client.query<{ id: string; notion_page_id: string | null }>(
-      'SELECT id, notion_page_id FROM jobs WHERE id=$1 FOR UPDATE', [jobId]);
+    const job = await client.query<{
+      id: string; notion_page_id: string | null; canonical_key: string;
+      normalized_company: string; normalized_title: string; cycle: string;
+    }>(
+      `SELECT id, notion_page_id, canonical_key, normalized_company,
+              normalized_title, cycle
+         FROM jobs WHERE id=$1 FOR UPDATE`, [jobId]);
     if (!job.rows[0]) { await client.query('ROLLBACK'); return { found: false, removed: empty }; }
 
     // Every URL and requisition id this role was ever seen under, because the
     // caches key on those and a role carried by three lists has three of each.
-    const handles = await client.query<{ urls: string[]; source_ids: string[] }>(
+    const handles = await client.query<{
+      urls: string[]; tombstone_urls: string[]; source_ids: string[];
+    }>(
       `SELECT COALESCE(array_agg(DISTINCT u) FILTER (WHERE u <> ''), '{}') AS urls,
+              COALESCE(array_agg(DISTINCT direct_apply_url)
+                FILTER (WHERE direct_apply_url IS NOT NULL AND direct_apply_url <> ''), '{}') AS tombstone_urls,
               COALESCE(array_agg(DISTINCT source_job_id) FILTER (WHERE source_job_id IS NOT NULL), '{}') AS source_ids
          FROM job_sources, LATERAL unnest(ARRAY[source_url, COALESCE(direct_apply_url,'')]) AS u
         WHERE job_id=$1`, [jobId]);
     const urls = handles.rows[0]?.urls ?? [];
+    const tombstoneUrls = handles.rows[0]?.tombstone_urls ?? [];
     const sourceIds = handles.rows[0]?.source_ids ?? [];
+
+    // Keep only non-private posting identities after the row is erased. Without
+    // this suppression record, the next source pass recreates and re-exports
+    // the role that the user explicitly asked to forget.
+    await client.query(
+      `INSERT INTO forgotten_jobs(
+         canonical_key, normalized_company, normalized_title, cycle, urls, source_ids
+       ) VALUES($1,$2,$3,$4,$5,$6)
+       ON CONFLICT(canonical_key) DO UPDATE SET
+         urls=(SELECT array_agg(DISTINCT value) FROM unnest(forgotten_jobs.urls || EXCLUDED.urls) value),
+         source_ids=(SELECT array_agg(DISTINCT value) FROM unnest(forgotten_jobs.source_ids || EXCLUDED.source_ids) value),
+         deleted_at=now()`,
+      [
+        job.rows[0].canonical_key,
+        job.rows[0].normalized_company,
+        job.rows[0].normalized_title,
+        job.rows[0].cycle,
+        tombstoneUrls,
+        sourceIds,
+      ]
+    );
 
     const counted = async (sql: string, params: unknown[]): Promise<number> =>
       (await client.query(sql, params)).rowCount ?? 0;
@@ -582,13 +659,18 @@ export async function forgetJob(jobId: string): Promise<ForgetResult> {
     // them, and the WHERE keeps this off every batch that never held this id.
     const batchIds = await counted(
       `UPDATE email_batches SET job_ids = array_remove(job_ids, $1::uuid) WHERE $1::uuid = ANY(job_ids)`, [jobId]);
+    // The outbox payload is an independent JSON copy with no foreign key to
+    // jobs. Remove every state, including DELIVERED and UNKNOWN, so forgetting
+    // the role does not leave its company, title, URL, or id in the relay log.
+    const outboxMessages = await counted(
+      `DELETE FROM outbox WHERE payload->>'jobId'=$1`, [jobId]);
 
     await client.query('DELETE FROM jobs WHERE id=$1', [jobId]);
     await client.query('COMMIT');
     return {
       found: true,
       notionPageId: job.rows[0].notion_page_id ?? undefined,
-      removed: { sources, enrichment, batchProvenance, batchIdReferences: batchIds, sponsorshipOverrides: overrides, ledgerExclusions: exclusions }
+      removed: { sources, enrichment, batchProvenance, batchIdReferences: batchIds, sponsorshipOverrides: overrides, ledgerExclusions: exclusions, outboxMessages }
     };
   } catch (error) { await client.query('ROLLBACK'); throw error; } finally { client.release(); }
 }

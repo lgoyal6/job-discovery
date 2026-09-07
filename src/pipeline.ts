@@ -534,6 +534,11 @@ async function execute(options: RunOptions): Promise<PipelineReport> {
     if (notionReadSucceeded) await syncLedgerExclusions(exclusions);
     await recordSourceRuns(runId, sourceRuns);
     const stored = await Promise.all(deduped.unique.map(upsertJob));
+    const forgotten = stored.filter(item => item.forgotten).length;
+    if (forgotten) {
+      rejectionReasons.forgotten = forgotten;
+      log('info', 'forgotten_jobs_suppressed', { runId, suppressed: forgotten });
+    }
     await closeStaleJobs();
     const unsentIds = await getUnsentJobIds(stored.map(item => item.job.id).filter((id): id is string => Boolean(id)));
     digestJobs = stored.map(item => item.job).filter(job => job.id && unsentIds.has(job.id));
