@@ -99,6 +99,16 @@ board has, it is how many survive the filters. A board with 187 postings and one
 eligible role is still worth adding; a board with 60 postings and none may not
 be. Both facts belong in the PR description.
 
+## Changing the warehouse
+
+`warehouse/` is a separate dbt project with its own Postgres container, its own
+dependency pin in `warehouse/requirements.txt` and its own synthetic dataset. It
+is not covered by `npm run test:unit`. If you change a model there, run
+`bash warehouse/scripts/demonstrate.sh` and check that stages 3 and 6 report
+`PARITY: PASS` while stages 1, 2, 4 and 5 still fail. A negative control that
+starts passing means the check stopped checking.
+[warehouse/README.md](warehouse/README.md) has the rest.
+
 ## House rules for code changes
 
 **Every fix carries a regression test.** The suite is the record of what has

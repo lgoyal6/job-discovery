@@ -133,6 +133,23 @@ Postgres private, and leave `N8N_IMPORT_WORKFLOWS_ON_START` off except for the
 one-time workflow import. Full runbook, including source-health triage, is in
 [OPERATIONS.md](OPERATIONS.md).
 
+## The warehouse
+
+`warehouse/` is a dbt project over Postgres that is not part of the pipeline and
+does not touch the operational database. It demonstrates one failure and its
+fix: an incremental model that quietly loses a late-arriving correction. Six
+stages, two of them deliberately broken negative controls, each checked by
+rebuilding every model from scratch and comparing the two schemas row by row.
+
+One command from a clean clone, needing only Docker and Python 3.11 or newer:
+
+```bash
+bash warehouse/scripts/demonstrate.sh   # ~2 min; scripts/down.sh cleans up after
+```
+
+The dataset it runs on is entirely invented. See
+[warehouse/README.md](warehouse/README.md).
+
 ## Contributing
 
 The most useful contribution is a job board we do not read yet. See

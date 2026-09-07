@@ -53,6 +53,13 @@ email batch was claimed, not whether Gmail later delivered it; delivery remains
 proven by `email_batches.status = 'SENT'`. Finance runs every eight hours at minute
 37 and do not send this technical Notion audit.
 
+## What is not in this runbook
+
+`warehouse/` is a local demonstration project, not a deployed component. It runs
+in its own throwaway Postgres container against an invented dataset, it is never
+started by `docker compose up`, and no incident here involves it. See
+[warehouse/README.md](warehouse/README.md).
+
 ## Overrides
 
 Normalize values to lowercase words before inserting aliases:
