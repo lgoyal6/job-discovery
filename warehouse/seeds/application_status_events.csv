@@ -1,0 +1,22 @@
+event_id,batch_id,canonical_key,from_status,to_status,recorded_at,ingested_at,evidence
+evt_0001,1,northwindsystems::softwareengineerintern::summer2027,,DISCOVERED,2026-08-03 09:00:00+00,2026-08-03 09:05:00+00,first observation accepted by the pipeline
+evt_0002,1,northwindsystems::softwareengineerintern::summer2027,DISCOVERED,MIRRORED,2026-08-03 12:00:00+00,2026-08-03 12:05:00+00,written to the tracker
+evt_0003,3,northwindsystems::softwareengineerintern::summer2027,MIRRORED,APPLIED_FLAGGED,2026-08-05 20:00:00+00,2026-08-05 20:05:00+00,tracker checkbox set by hand
+evt_0004,1,northwindsystems::machinelearningintern::summer2027,,DISCOVERED,2026-08-03 09:00:00+00,2026-08-03 09:05:00+00,first observation accepted by the pipeline
+evt_0005,2,northwindsystems::machinelearningintern::summer2027,DISCOVERED,MIRRORED,2026-08-04 12:00:00+00,2026-08-04 12:05:00+00,written to the tracker
+evt_0006,1,bluewatercapital::softwareengineerintern::summer2027,,DISCOVERED,2026-08-03 11:00:00+00,2026-08-03 11:05:00+00,first observation accepted by the pipeline
+evt_0007,1,bluewatercapital::softwareengineerintern::summer2027,DISCOVERED,MIRRORED,2026-08-03 12:00:00+00,2026-08-03 12:05:00+00,written to the tracker
+evt_0008,2,bluewatercapital::softwareengineerintern::summer2027,MIRRORED,APPLIED_FLAGGED,2026-08-04 21:00:00+00,2026-08-04 21:05:00+00,tracker checkbox set by hand
+evt_0009,6,bluewatercapital::softwareengineerintern::summer2027,APPLIED_FLAGGED,REJECTED_FLAGGED,2026-08-08 18:00:00+00,2026-08-08 18:05:00+00,tracker status set to Rejected
+evt_0010,1,cedaranalytics::dataengineerintern::summer2027,,DISCOVERED,2026-08-03 09:00:00+00,2026-08-03 09:05:00+00,first observation accepted by the pipeline
+evt_0011,1,cedaranalytics::dataengineerintern::summer2027,DISCOVERED,MIRRORED,2026-08-03 12:00:00+00,2026-08-03 12:05:00+00,written to the tracker
+evt_0012,4,cedaranalytics::dataengineerintern::summer2027,MIRRORED,APPLIED_FLAGGED,2026-08-06 19:00:00+00,2026-08-06 19:05:00+00,tracker checkbox set by hand
+evt_0013,2,deltagrid::backendengineerintern::summer2027,,DISCOVERED,2026-08-04 10:00:00+00,2026-08-04 10:05:00+00,first observation accepted by the pipeline
+evt_0014,2,deltagrid::backendengineerintern::summer2027,DISCOVERED,MIRRORED,2026-08-04 12:00:00+00,2026-08-04 12:05:00+00,written to the tracker
+evt_0015,1,foxgloveai::researchengineerintern::summer2027,,DISCOVERED,2026-08-03 11:00:00+00,2026-08-03 11:05:00+00,first observation accepted by the pipeline
+evt_0016,1,foxgloveai::researchengineerintern::summer2027,DISCOVERED,MIRRORED,2026-08-03 12:00:00+00,2026-08-03 12:05:00+00,written to the tracker
+evt_0017,2,foxgloveai::researchengineerintern::summer2027,MIRRORED,APPLIED_FLAGGED,2026-08-04 22:00:00+00,2026-08-04 22:05:00+00,tracker checkbox set by hand
+evt_0018,1,northwindsystems::platformengineerintern::fall2026,,DISCOVERED,2026-08-03 09:00:00+00,2026-08-03 09:05:00+00,first observation accepted by the pipeline
+evt_0019,3,northwindsystems::platformengineerintern::fall2026,DISCOVERED,MIRRORED,2026-08-05 12:00:00+00,2026-08-05 12:05:00+00,written to the tracker
+evt_0020,3,foxgloveai::appliedscientistintern::summer2027,,DISCOVERED,2026-08-05 11:00:00+00,2026-08-05 11:05:00+00,first observation accepted by the pipeline
+evt_0021,3,foxgloveai::appliedscientistintern::summer2027,DISCOVERED,MIRRORED,2026-08-05 12:00:00+00,2026-08-05 12:05:00+00,written to the tracker
