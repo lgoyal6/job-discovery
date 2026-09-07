@@ -36,7 +36,13 @@ run_stage() {   # run_stage <label>
 
 trap 'echo; echo "restoring shipped models"; "$WH_ROOT/scripts/swap.sh" shipped >/dev/null' EXIT
 
-"$WH_ROOT/scripts/bootstrap.sh"
+# Prerequisites, in order, each fatal. This script runs with `set -uo pipefail`
+# and no `-e`, so without the explicit exits below a dead database produced a
+# full six-stage transcript with an error interleaved into every stage, which
+# reads like a demo that ran.
+"$WH_ROOT/scripts/up.sh"        || exit 1
+"$WH_ROOT/scripts/venv.sh"      || exit 1
+"$WH_ROOT/scripts/bootstrap.sh" || exit 1
 
 stage "1/6  MISTAKE 1 + 2 -- naive staging cursor (observed_at) and naive day fact"
 "$WH_ROOT/scripts/swap.sh" naive

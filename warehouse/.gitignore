@@ -7,3 +7,6 @@ logs/
 __pycache__/
 *.pyc
 .user.yml
+
+# The dbt virtualenv scripts/venv.sh builds.
+.venv/
