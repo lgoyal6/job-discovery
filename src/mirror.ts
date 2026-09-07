@@ -2,7 +2,7 @@ import { activeProfile, config } from './config.js';
 import { getJobForLedger, pool } from './db.js';
 import { log } from './logger.js';
 import { createLedgerPage } from './notion.js';
-import { NoLookupError, type OutboxMessage, type Sink } from './outbox.js';
+import { DeliveryRefusedError, NoLookupError, type OutboxMessage, type Sink } from './outbox.js';
 import { claimJobsForMirror, mirrorRelay } from './outbox-mirror.js';
 
 export interface MirrorResult { attempted: number; created: number; failed: number }
@@ -27,7 +27,7 @@ class NotionLedgerSink implements Sink {
   async deliver(message: OutboxMessage): Promise<{ receipt: string; duplicate: boolean }> {
     const jobId = String(message.payload.jobId);
     const job = await getJobForLedger(jobId);
-    if (!job) throw new Error(`job ${jobId} disappeared before its page could be filed`);
+    if (!job) throw new DeliveryRefusedError(`job ${jobId} disappeared before its page could be filed`);
     return { receipt: await createLedgerPage(job, this.status), duplicate: false };
   }
 
@@ -89,7 +89,7 @@ export async function mirrorNewPostings(runId: string): Promise<MirrorResult> {
     const pass = await relay.once();
     result.attempted = pass.claimed;
     result.created = pass.delivered;
-    result.failed = pass.retrying + pass.failed;
+    result.failed = pass.retrying + pass.failed + pass.unknown;
   } catch (error) {
     log('error', 'notion_mirror_failed', { runId, error: error instanceof Error ? error.message : String(error) });
     return result;

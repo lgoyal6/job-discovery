@@ -1,7 +1,8 @@
 import { z } from 'zod';
 import { config } from './config.js';
-import { fetchWithPolicy } from './http.js';
+import { fetchWithPolicy, HttpResponseError } from './http.js';
 import { canonicalizeUrl, normalizeText } from './normalization.js';
+import { DeliveryRefusedError } from './outbox.js';
 import type { NotionExclusionKind, NotionMatchBasis } from './types.js';
 
 export interface LedgerExclusion {
@@ -204,7 +205,13 @@ async function ledgerBinding(): Promise<LedgerBinding> {
  * mirror fill the ledger with postings without one of them reading as applied.
  */
 export async function createLedgerPage(entry: AppliedLedgerEntry, status: string): Promise<string> {
-  const { version, parent, schema } = await ledgerBinding();
+  let binding: LedgerBinding;
+  try {
+    binding = await ledgerBinding();
+  } catch (error) {
+    throw new DeliveryRefusedError(`ledger schema unavailable before delivery: ${String(error)}`);
+  }
+  const { version, parent, schema } = binding;
   const properties = buildProperties(schema, [
     [LEDGER_FIELDS.company, entry.company],
     [LEDGER_FIELDS.title, entry.title],
@@ -223,11 +230,22 @@ export async function createLedgerPage(entry: AppliedLedgerEntry, status: string
   ]);
   const statusProperty = findProperty(schema, LEDGER_FIELDS.status);
   if (!statusProperty || !(statusProperty[0] in properties)) {
-    throw new Error(`The ledger has no Status option that can carry "${status}".`);
+    throw new DeliveryRefusedError(`The ledger has no Status option that can carry "${status}".`);
   }
-  const created = await notionCall('https://api.notion.com/v1/pages', version, {
-    method: 'POST', body: JSON.stringify({ parent, properties })
-  });
+  let created: Response;
+  try {
+    created = await notionCall('https://api.notion.com/v1/pages', version, {
+      method: 'POST', body: JSON.stringify({ parent, properties })
+    });
+  } catch (error) {
+    // A received 4xx, including 429, is an explicit refusal. No page was
+    // created, so retrying is safe. Transport failures and 5xx responses stay
+    // ambiguous because the page may have been committed before the answer was lost.
+    if (error instanceof HttpResponseError && error.status >= 400 && error.status < 500) {
+      throw new DeliveryRefusedError(error.message);
+    }
+    throw error;
+  }
   return z.object({ id: z.string() }).parse(await created.json()).id;
 }
 
@@ -257,6 +275,14 @@ export async function setLedgerStatus(pageId: string, status: string, appliedOn?
   }
   await notionCall(`https://api.notion.com/v1/pages/${pageId}`, version, {
     method: 'PATCH', body: JSON.stringify({ properties })
+  });
+}
+
+/** Removes a pipeline export from active Notion views before local deletion. */
+export async function archiveLedgerPage(pageId: string): Promise<void> {
+  const { version } = await ledgerBinding();
+  await notionCall(`https://api.notion.com/v1/pages/${pageId}`, version, {
+    method: 'PATCH', body: JSON.stringify({ archived: true })
   });
 }
 

@@ -76,7 +76,12 @@ export class NoLookupError extends Error {
   constructor() { super('the downstream cannot be asked whether it holds a key'); this.name = 'NoLookupError'; }
 }
 
-export interface PassResult { expired: number; claimed: number; delivered: number; retrying: number; failed: number }
+/** A sink may use this only when it knows the downstream effect did not occur. */
+export class DeliveryRefusedError extends Error {
+  constructor(message: string) { super(message); this.name = 'DeliveryRefusedError'; }
+}
+
+export interface PassResult { expired: number; claimed: number; delivered: number; retrying: number; failed: number; unknown: number }
 export interface ReconcileResult { examined: number; confirmed: number; absent: number; unresolved: number }
 
 export interface RelayOptions {
@@ -162,7 +167,7 @@ export class Relay {
   }
 
   async once(): Promise<PassResult> {
-    const result: PassResult = { expired: await this.expireLeases(), claimed: 0, delivered: 0, retrying: 0, failed: 0 };
+    const result: PassResult = { expired: await this.expireLeases(), claimed: 0, delivered: 0, retrying: 0, failed: 0, unknown: 0 };
     const messages = await this.claim();
     result.claimed = messages.length;
 
@@ -178,7 +183,12 @@ export class Relay {
       try {
         receipt = (await this.sink.deliver(message)).receipt;
       } catch (error) {
-        if (await this.recordFailure(message, error)) result.failed += 1; else result.retrying += 1;
+        if (error instanceof DeliveryRefusedError) {
+          if (await this.recordFailure(message, error)) result.failed += 1; else result.retrying += 1;
+        } else {
+          await this.recordUnknown(message, error);
+          result.unknown += 1;
+        }
         continue;
       }
       // The consumer has the effect. Nothing here knows it yet.
@@ -225,6 +235,20 @@ export class Relay {
         WHERE id = $1 RETURNING state`,
       [message.id, backoffSeconds, cause instanceof Error ? cause.message : String(cause)]);
     return result.rows[0]?.state === 'FAILED';
+  }
+
+  /**
+   * A thrown transport result is ambiguous unless the sink explicitly proves it
+   * refused the request before applying the effect. Keep it visible for
+   * reconciliation instead of creating a duplicate by retrying blindly.
+   */
+  private async recordUnknown(message: OutboxMessage, cause: unknown): Promise<void> {
+    await this.pool.query(
+      `UPDATE outbox SET state='UNKNOWN', lease_owner=NULL, lease_expires_at=NULL,
+              last_error=$2, updated_at=now()
+        WHERE id=$1`,
+      [message.id, `delivery outcome unknown: ${cause instanceof Error ? cause.message : String(cause)}`]
+    );
   }
 
   /**

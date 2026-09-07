@@ -208,7 +208,13 @@ describe('mirroring postings into the Notion ledger', () => {
   it('never throws when Notion refuses, and records no page for a failed write', async () => {
     process.env.NOTION_TOKEN = 'test-token';
     process.env.NOTION_MIRROR_ENABLED = 'true';
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('nope', { status: 503 })));
+    const json = (body: unknown): Response => new Response(JSON.stringify(body), {
+      status: 200, headers: { 'content-type': 'application/json' }
+    });
+    vi.stubGlobal('fetch', vi.fn().mockImplementation((url: string) =>
+      Promise.resolve(String(url).includes('/pages')
+        ? new Response('committed but reply failed', { status: 503 })
+        : json(LEDGER_SCHEMA))));
     const db = mockDb();
     const { mirrorNewPostings } = await import('../src/mirror.js');
 
@@ -216,6 +222,26 @@ describe('mirroring postings into the Notion ledger', () => {
     expect(result.created).toBe(0);
     expect(result.failed).toBeGreaterThan(0);
     expect(db.pagesRecorded()).toHaveLength(0);
+    expect(db.recorded.some(entry => /SET state='UNKNOWN'[\s\S]*last_error=\$2/.test(entry.sql))).toBe(true);
+  }, 15_000);
+
+  it('retries an explicit Notion 400 because the response proves no page was created', async () => {
+    process.env.NOTION_TOKEN = 'test-token';
+    process.env.NOTION_MIRROR_ENABLED = 'true';
+    const json = (body: unknown): Response => new Response(JSON.stringify(body), {
+      status: 200, headers: { 'content-type': 'application/json' }
+    });
+    vi.stubGlobal('fetch', vi.fn().mockImplementation((url: string) =>
+      Promise.resolve(String(url).includes('/pages')
+        ? new Response('invalid property', { status: 400 })
+        : json(LEDGER_SCHEMA))));
+    const db = mockDb([pending[0]!]);
+    const { mirrorNewPostings } = await import('../src/mirror.js');
+
+    const result = await mirrorNewPostings('run-1');
+    expect(result).toMatchObject({ attempted: 1, created: 0, failed: 1 });
+    expect(db.recorded.some(entry => /RETURNING state/.test(entry.sql))).toBe(true);
+    expect(db.recorded.some(entry => /SET state='UNKNOWN'[\s\S]*last_error=\$2/.test(entry.sql))).toBe(false);
   }, 15_000);
 
   it('refuses to start if the mirror status is the one the applied read filters on', async () => {
