@@ -8,7 +8,7 @@ function enforcedClaims(sql: string): string[] {
   const definitions = [...sql.matchAll(/graduation_claim\s+IN\s*\(([^)]*)\)/gi)];
   const live = definitions.at(-1);
   if (!live) throw new Error('no graduation_claim CHECK found in migrations');
-  return [...live[1].matchAll(/'([^']+)'/g)].map(match => match[1]).sort();
+  return [...live[1]!.matchAll(/'([^']+)'/g)].map(match => match[1]!).sort();
 }
 
 // Read as text because the union is a type: it does not exist at runtime, and
@@ -16,7 +16,7 @@ function enforcedClaims(sql: string): string[] {
 function emittedClaims(source: string): string[] {
   const union = /export type ClaimedGraduation\s*=\s*([^;]+);/.exec(source);
   if (!union) throw new Error('ClaimedGraduation union not found in src/classification.ts');
-  return [...union[1].matchAll(/'([^']+)'/g)].map(match => match[1]).sort();
+  return [...union[1]!.matchAll(/'([^']+)'/g)].map(match => match[1]!).sort();
 }
 
 describe('database migrations', () => {

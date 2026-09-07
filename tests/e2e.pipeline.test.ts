@@ -21,10 +21,10 @@ suite('complete fixture-to-email-batch pipeline', () => {
     const first = await runPipeline({ fixtures: true, persistent: true });
     expect(first).toMatchObject({ dryRun: false, shouldSend: true, notionModified: false });
     // Four, not three: the posting that says it cannot sponsor is reported in
-    // its own section now rather than rejected outright.
-    expect(first.counts).toMatchObject({ raw: 7, accepted: 4, rejected: 2, deduplicated: 1 });
+    // its own section now rather than rejected outright; the 2027 new-grad fixture is also Later-compatible.
+    expect(first.counts).toMatchObject({ raw: 7, accepted: 5, rejected: 1, deduplicated: 1 });
     expect(first.batchKey).toBeTruthy();
-    expect(first.jobs.map(job => job.sponsorshipStatus).sort()).toEqual(['SUPPORTED', 'SUPPORTED', 'UNKNOWN', 'UNSUPPORTED']);
+    expect(first.jobs.map(job => job.sponsorshipStatus).sort()).toEqual(['SUPPORTED', 'SUPPORTED', 'UNKNOWN', 'UNKNOWN', 'UNSUPPORTED']);
 
     expect(await db.markBatchSent(first.batchKey!, 'mock-gmail-message-id')).toBe(true);
     expect(await db.markBatchSent(first.batchKey!, 'duplicate-confirmation')).toBe(false);
