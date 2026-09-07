@@ -1,0 +1,7 @@
+# dbt for the warehouse demo only. Deliberately separate from the TypeScript
+# pipeline's dependencies: nothing in src/ imports Python, and a contributor who
+# never touches warehouse/ never needs this.
+#
+# Pinned to the versions the demo's published output was produced with.
+# scripts/venv.sh installs it into warehouse/.venv.
+dbt-postgres==1.11.0
