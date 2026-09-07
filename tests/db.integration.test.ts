@@ -71,7 +71,6 @@ suite('PostgreSQL persistence integration', () => {
     await expect(db.withPipelineLock(async () => undefined)).rejects.toThrow('already active');
     releaseLock();
     await firstLock;
-    await db.pool.end();
   });
 });
 
@@ -115,7 +114,11 @@ suite('a source row migrating between job rows', () => {
     });
     // The point of the test is that this resolved at all rather than throwing.
     expect(migrated.job.id).toBe(beta.job.id);
-    await db.pool.end();
+    const stale = await db.pool.query(
+      'SELECT 1 FROM job_sources WHERE source_name=$1 AND source_job_id=$2 AND job_id=$3',
+      [`list:${suffix}`, `alpha-${suffix}`, alpha.job.id]
+    );
+    expect(stale.rowCount).toBe(0);
   });
 });
 
@@ -152,8 +155,11 @@ suite('a fingerprint that flip-flops between sources', () => {
     await db.upsertJob({ ...base, sourceName: `other:${suffix}`, title: 'SWE Intern (Summer 2027)', location: 'San Francisco' });
     const unsent = await db.getUnsentJobIds([first.job.id!]);
     expect(unsent.has(first.job.id!)).toBe(false);
-    await db.pool.end();
   });
 });
 
-afterAll(() => undefined);
+afterAll(async () => {
+  if (!enabled) return;
+  const db = await import('../src/db.js');
+  await db.pool.end();
+});

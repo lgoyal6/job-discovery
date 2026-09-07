@@ -102,6 +102,20 @@ async function main(): Promise<void> {
     process.stdout.write(`${JSON.stringify({ ...result, company: brief.company, title: brief.title })}\n`);
     return;
   }
+  if (command === 'forget') {
+    const { forgetJob, getJobForLedger } = await import('./db.js');
+    const { archiveLedgerPage } = await import('./notion.js');
+    const jobId = process.argv[3];
+    if (!jobId) throw new Error('forget needs an exact job id');
+    const job = await getJobForLedger(jobId);
+    if (!job) throw new Error(`no job matches ${jobId}`);
+    // Archive the external export first. If that fails, keep the local record so
+    // the same command can be retried without losing the page handle.
+    if (job.notionPageId) await archiveLedgerPage(job.notionPageId);
+    const result = await forgetJob(jobId);
+    process.stdout.write(`${JSON.stringify({ ok: result.found, notionArchived: Boolean(job.notionPageId), ...result })}\n`);
+    return;
+  }
   if (command === 'mark-applied') {
     // Reached from a link in the digest, so a refused click is an answer to
     // render, not a crash: exit 0 with ok:false and let the webhook say why.
@@ -117,7 +131,7 @@ async function main(): Promise<void> {
     process.stdout.write(`${JSON.stringify({ ok: marked, batchKey })}\n`);
     return;
   }
-  throw new Error('Usage: cli.ts migrate | dry-run [--fixtures|--live-free] | pipeline | discover-boards | harvest-boards | mark-applied --job ID --sig SIG | batch-sent --batch-key KEY [--message-id ID]');
+  throw new Error('Usage: cli.ts migrate | dry-run [--fixtures|--live-free] | pipeline | discover-boards | harvest-boards | brief REF | applied REF | forget JOB_ID | mark-applied --job ID --sig SIG | batch-sent --batch-key KEY [--message-id ID]');
 }
 
 main().catch(error => { log('error', 'cli_failed', { error: error instanceof Error ? error.message : String(error) }); process.exitCode = 1; }).finally(() => pool.end());

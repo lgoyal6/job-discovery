@@ -70,11 +70,16 @@ suite('a role that has been forgotten stops appearing anywhere', () => {
     const db = await import('../src/db.js');
     const suffix = randomUUID();
     const applyUrl = `https://example.test/jobs/${suffix}`;
+    const sharedListing = `https://example.test/list-${suffix}/README.md`;
 
-    const { job } = await db.upsertJob(posting(suffix));
+    const { job } = await db.upsertJob(posting(suffix, { sourceUrl: sharedListing }));
     const jobId = job.id;
     if (!jobId) throw new Error('upsertJob returned a row with no id');
     await db.saveEnrichment([{ jobId, status: 'UNSUPPORTED', evidence: 'no sponsorship', sourceUrl: applyUrl, httpOk: true }]);
+    await db.pool.query(
+      `INSERT INTO outbox(idempotency_key, topic, payload) VALUES($1, 'notion.ledger.page', $2::jsonb)`,
+      [`mirror:${jobId}`, JSON.stringify({ jobId, company: job.company, title: job.title, url: applyUrl, status: 'Found' })]
+    );
     await db.recordNotionPage(jobId, `notion-${suffix}`);
 
     // A batch that also carries an unrelated role, so the scrub has to be
@@ -103,6 +108,7 @@ suite('a role that has been forgotten stops appearing anywhere', () => {
     expect(result.removed.batchIdReferences).toBe(1);
     expect(result.removed.sponsorshipOverrides).toBe(1);
     expect(result.removed.ledgerExclusions).toBe(1);
+    expect(result.removed.outboxMessages).toBe(1);
 
     const gone = async (sql: string, params: unknown[]): Promise<number> => (await db.pool.query(sql, params)).rowCount ?? 0;
     expect(await gone('SELECT 1 FROM jobs WHERE id=$1', [job.id])).toBe(0);
@@ -111,6 +117,7 @@ suite('a role that has been forgotten stops appearing anywhere', () => {
     expect(await gone('SELECT 1 FROM email_batch_jobs WHERE job_id=$1', [job.id])).toBe(0);
     expect(await gone('SELECT 1 FROM sponsorship_overrides WHERE canonical_url=$1', [applyUrl])).toBe(0);
     expect(await gone('SELECT 1 FROM applied_exclusions WHERE canonical_url=$1', [applyUrl])).toBe(0);
+    expect(await gone("SELECT 1 FROM outbox WHERE payload->>'jobId'=$1", [job.id])).toBe(0);
     // The uuid[] with no foreign key: this is the one a plain DELETE leaves.
     expect(await gone('SELECT 1 FROM email_batches WHERE $1::uuid = ANY(job_ids)', [job.id])).toBe(0);
 
@@ -118,6 +125,20 @@ suite('a role that has been forgotten stops appearing anywhere', () => {
     const survivors = await db.pool.query<{ job_ids: string[] }>('SELECT job_ids FROM email_batches WHERE batch_key=$1', [batchKey]);
     expect(survivors.rows[0]?.job_ids).toEqual([other.job.id]);
     expect(await gone('SELECT 1 FROM jobs WHERE id=$1', [other.job.id])).toBe(1);
+
+    // A later source pass must not recreate or re-export the forgotten role.
+    const reingested = await db.upsertJob(posting(suffix));
+    expect(reingested.forgotten).toBe(true);
+    expect(reingested.job.id).toBeUndefined();
+    expect(await gone('SELECT 1 FROM jobs WHERE canonical_key=$1', [job.canonicalKey])).toBe(0);
+    expect(await gone("SELECT 1 FROM outbox WHERE payload->>'jobId'=$1", [job.id])).toBe(0);
+    expect(await gone('SELECT 1 FROM forgotten_jobs WHERE canonical_key=$1', [job.canonicalKey])).toBe(1);
+
+    // A community feed URL is shared by many roles and is not a tombstone key.
+    const siblingSuffix = randomUUID();
+    const sibling = await db.upsertJob(posting(siblingSuffix, { sourceUrl: sharedListing }));
+    expect(sibling.forgotten).not.toBe(true);
+    expect(sibling.job.id).toBeDefined();
   }, 30_000);
 
   it('reports a role it has never heard of rather than claiming to have removed one', async () => {
