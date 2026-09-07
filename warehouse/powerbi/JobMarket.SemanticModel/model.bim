@@ -1,0 +1,82 @@
+{
+  "name": "JobMarket",
+  "compatibilityLevel": 1600,
+  "model": {
+    "culture": "en-US",
+    "expressions": [
+      {"name": "SnowflakeAccount", "kind": "m", "expression": "\"replace-me.snowflakecomputing.com\""},
+      {"name": "SnowflakeWarehouse", "kind": "m", "expression": "\"replace-me\""},
+      {"name": "SnowflakeDatabase", "kind": "m", "expression": "\"replace-me\""},
+      {"name": "SnowflakeSchema", "kind": "m", "expression": "\"JM_WH_CODEX\""}
+    ],
+    "tables": [
+      {
+        "name": "fct_source_observation_day",
+        "columns": [
+          {"name": "source_day_key", "dataType": "string", "sourceColumn": "SOURCE_DAY_KEY"},
+          {"name": "source_name", "dataType": "string", "sourceColumn": "SOURCE_NAME"},
+          {"name": "observation_date", "dataType": "dateTime", "sourceColumn": "OBSERVATION_DATE", "formatString": "yyyy-MM-dd"},
+          {"name": "observation_count", "dataType": "int64", "sourceColumn": "OBSERVATION_COUNT", "summarizeBy": "sum"},
+          {"name": "requisition_count", "dataType": "int64", "sourceColumn": "REQUISITION_COUNT", "summarizeBy": "sum"},
+          {"name": "eligible_requisition_count", "dataType": "int64", "sourceColumn": "ELIGIBLE_REQUISITION_COUNT", "summarizeBy": "sum"},
+          {"name": "closed_observation_count", "dataType": "int64", "sourceColumn": "CLOSED_OBSERVATION_COUNT", "summarizeBy": "sum"},
+          {"name": "late_arriving_observation_count", "dataType": "int64", "sourceColumn": "LATE_ARRIVING_OBSERVATION_COUNT", "summarizeBy": "sum"}
+        ],
+        "measures": [
+          {"name": "Observed Requisitions", "expression": "SUM ( fct_source_observation_day[requisition_count] )", "formatString": "0"},
+          {"name": "Eligible Requisitions", "expression": "SUM ( fct_source_observation_day[eligible_requisition_count] )", "formatString": "0"},
+          {"name": "Eligibility Yield Pct", "expression": "DIVIDE ( [Eligible Requisitions], [Observed Requisitions] )", "formatString": "0.0%"},
+          {"name": "Late Arrival Pct", "expression": "DIVIDE ( SUM ( fct_source_observation_day[late_arriving_observation_count] ), SUM ( fct_source_observation_day[observation_count] ) )", "formatString": "0.0%"},
+          {"name": "Closed Observation Pct", "expression": "DIVIDE ( SUM ( fct_source_observation_day[closed_observation_count] ), SUM ( fct_source_observation_day[observation_count] ) )", "formatString": "0.0%"}
+        ],
+        "partitions": [{
+          "name": "fct_source_observation_day",
+          "mode": "import",
+          "source": {
+            "type": "m",
+            "expression": [
+              "let",
+              "  Source = Snowflake.Databases(SnowflakeAccount, SnowflakeWarehouse),",
+              "  Db = Source{[Name=SnowflakeDatabase]}[Data],",
+              "  Schema = Db{[Name=SnowflakeSchema, Kind=\"Schema\"]}[Data],",
+              "  Fact = Schema{[Name=\"FCT_SOURCE_OBSERVATION_DAY\", Kind=\"Table\"]}[Data]",
+              "in",
+              "  Fact"
+            ]
+          }
+        }]
+      },
+      {
+        "name": "dim_requisition_current",
+        "columns": [
+          {"name": "canonical_key", "dataType": "string", "sourceColumn": "CANONICAL_KEY"},
+          {"name": "company", "dataType": "string", "sourceColumn": "COMPANY"},
+          {"name": "title", "dataType": "string", "sourceColumn": "TITLE"},
+          {"name": "role_family", "dataType": "string", "sourceColumn": "ROLE_FAMILY"},
+          {"name": "sponsorship_status", "dataType": "string", "sourceColumn": "SPONSORSHIP_STATUS"},
+          {"name": "is_eligible", "dataType": "boolean", "sourceColumn": "IS_ELIGIBLE"}
+        ],
+        "measures": [
+          {"name": "Eligible Requisition Universe", "expression": "CALCULATE ( DISTINCTCOUNT ( dim_requisition_current[canonical_key] ), dim_requisition_current[is_eligible] = TRUE () )", "formatString": "0"},
+          {"name": "Unknown Sponsorship", "expression": "CALCULATE ( DISTINCTCOUNT ( dim_requisition_current[canonical_key] ), dim_requisition_current[sponsorship_status] = \"UNKNOWN\" )", "formatString": "0"}
+        ],
+        "partitions": [{
+          "name": "dim_requisition_current",
+          "mode": "import",
+          "source": {
+            "type": "m",
+            "expression": [
+              "let",
+              "  Source = Snowflake.Databases(SnowflakeAccount, SnowflakeWarehouse),",
+              "  Db = Source{[Name=SnowflakeDatabase]}[Data],",
+              "  Schema = Db{[Name=SnowflakeSchema, Kind=\"Schema\"]}[Data],",
+              "  Dim = Schema{[Name=\"DIM_REQUISITION_CURRENT\", Kind=\"View\"]}[Data]",
+              "in",
+              "  Dim"
+            ]
+          }
+        }]
+      }
+    ]
+  }
+}

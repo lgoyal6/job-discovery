@@ -1,66 +1,67 @@
-# Power BI semantic model - SPECIFICATION ONLY, NOT EXECUTED
+# Power BI semantic model
 
-**Status: BLOCKED. Nothing in this file has been run, opened, refreshed or
-validated in Power BI.** It is a written design, and it should be read as a
-design document rather than as a report of something that works.
+`JobMarket.SemanticModel/model.bim` is a machine-readable, two-table Tabular
+model with Snowflake Import partitions and seven DAX measures.
+`refresh_model.py` validates its structure locally and can trigger a
+transactional enhanced refresh for an already deployed Power BI dataset
+through the official REST API.
 
-## Why it is blocked, measured
+**External status: LIVE, with bounded scope.** On 2026-09-07, Power BI Service
+imported `JOBMARKET.JM_WH_CODEX.DIM_REQUISITION_CURRENT` and
+`JOBMARKET.JM_WH_CODEX.FCT_SOURCE_OBSERVATION_DAY` from Snowflake into the
+semantic model `Job Market Snowflake Analytics`. The model accepted all seven
+measures through TMDL view, completed an explicit service refresh, and executed
+the declared DAX through DAX query view.
 
+The deployed service model is the bounded two-table model represented by
+`model.bim`. The six-table model and three date relationships described later
+in this document remain a design for a broader analytical surface. They were
+not silently treated as deployed.
+
+## Live Power BI Service verification
+
+- Workspace ID: `2220fdb8-7dd4-4a83-b554-cf0bee7d3808`
+- Semantic model ID: `ff41aace-8ea6-4e4b-bed8-108aa5890ff7`
+- Report: `Job Market Snowflake Analytics Report`
+- Report ID: `930ca212-36a5-44f4-890d-314db8eaafb0`
+- Import preview: 15 dimension rows and 33 fact rows
+- TMDL apply: succeeded with zero problems
+- Explicit semantic-model refresh: workspace timestamp advanced from
+  `9/7/2026, 12:23:03 AM` to `9/7/2026, 12:37:10 AM`
+- Post-refresh DAX query: succeeded in 957.5 ms with one seven-column row
+
+```text
+Observed Requisitions           113
+Eligible Requisitions           103
+Eligibility Yield Pct           91.2%
+Late Arrival Pct                2.6%
+Closed Observation Pct          9.6%
+Eligible Requisition Universe   13
+Unknown Sponsorship             4
 ```
-$ ls /Applications | grep -iE "power ?bi|tabular|dax"
-no Power BI / Tabular Editor / DAX Studio app
-$ command -v pbi-tools pbicmd TabularEditor tabular-editor dax
-not found: pbi-tools
-not found: pbicmd
-not found: TabularEditor
-not found: tabular-editor
-not found: dax
-$ brew list --cask | grep -iE "power|tabular|dax"
-no matching cask installed
-$ brew search --cask powerbi
-powder                      # unrelated formula, no Power BI cask exists
-$ dotnet --version
-no dotnet
-```
 
-Power BI Desktop is a Windows-only application. Microsoft ships no macOS build,
-and the authoring surface that produces a `.pbix` is that application. The
-alternatives are equally unavailable here: Tabular Editor and DAX Studio are
-.NET desktop applications with no macOS build and no dotnet runtime installed,
-and the XMLA endpoint route needs a Power BI Premium or Fabric capacity plus an
-Entra ID tenant, none of which exists for this project.
+The saved report was reopened in reading view and rendered four cards plus a
+source-by-observation-date table. The table totals matched the DAX query: 113
+observed and 103 eligible requisitions.
 
-**PREREQUISITE, exactly.** One of:
-
-1. A Windows machine (or a Windows VM, or Parallels on this Mac) running Power
-   BI Desktop, plus the Npgsql provider so it can read PostgreSQL; **or**
-2. A Power BI / Fabric workspace on Premium or Fabric capacity with the XMLA
-   read-write endpoint enabled, an Entra ID service principal with workspace
-   contributor rights, and a network path from that capacity to the warehouse
-   (a gateway, since the warehouse here is a container on localhost).
-
-Neither exists. Until one does, the correct output is this specification and an
-honest BLOCKED label, not a screenshot of a dashboard that was never built.
-
-## What "would work" is and is not claimed
-
-The SQL side of every measure below **is** exercised: each measure has a SQL
-equivalent in `powerbi/measure_equivalents.sql`, run against the built
-warehouse, and the numbers it returns are recorded there. That proves the
-*arithmetic and the denominators* are right. It does not prove the DAX is
-syntactically valid, that the relationships behave as described, or that the
-report renders. Nobody has compiled this DAX.
+The live refresh used Power BI Service's `Refresh now` action, not
+`refresh_model.py`. The service-principal REST helper remains locally contract
+tested only. This substitution is stated because the repository helper and the
+service UI are different mechanisms even though both refresh the same model.
 
 ---
 
 ## 1. Storage mode and source
 
-Import mode against the `jm_wh` schema. Not DirectQuery: the warehouse is
-rebuilt by a scheduled dbt run, so the data is only as fresh as the last run
-anyway, and DirectQuery would put a Postgres query behind every visual
-interaction for no gain in freshness.
+Import mode against the Snowflake `JOBMARKET.JM_WH_CODEX` schema. Not
+DirectQuery: the warehouse is rebuilt by a dbt run, so the data is only as fresh
+as the last run anyway, and DirectQuery would put a Snowflake query behind every
+visual interaction for no gain in freshness.
 
-## 2. Tables
+## 2. Broader six-table design
+
+The live model imports the first and third rows below. The other four rows and
+the relationships in section 3 are still proposed scope.
 
 | Table | Role | Grain | Source |
 |---|---|---|---|
