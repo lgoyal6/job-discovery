@@ -1,0 +1,24 @@
+name: jobmarket_snowflake
+version: 1.0.0
+config-version: 2
+profile: jobmarket_snowflake
+model-paths: ["models"]
+seed-paths: ["../seeds"]
+test-paths: ["tests"]
+target-path: "target"
+clean-targets: ["target", "dbt_packages"]
+
+models:
+  jobmarket_snowflake:
+    +on_schema_change: fail
+
+seeds:
+  jobmarket_snowflake:
+    source_observations:
+      +column_types:
+        observation_id: varchar
+        batch_id: integer
+        observed_at: timestamp_tz
+        posted_at: timestamp_tz
+        ingested_at: timestamp_tz
+        graduation_eligible: boolean

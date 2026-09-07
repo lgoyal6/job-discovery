@@ -1,0 +1,19 @@
+jobmarket_snowflake:
+  target: dev
+  outputs:
+    dev: &snowflake
+      type: snowflake
+      account: "{{ env_var('SNOWFLAKE_ACCOUNT') }}"
+      user: "{{ env_var('SNOWFLAKE_USER') }}"
+      password: "{{ env_var('SNOWFLAKE_PASSWORD', '') if env_var('SNOWFLAKE_AUTHENTICATOR', 'snowflake') | lower == 'externalbrowser' else env_var('SNOWFLAKE_PASSWORD') }}"
+      authenticator: "{{ env_var('SNOWFLAKE_AUTHENTICATOR', 'snowflake') }}"
+      role: "{{ env_var('SNOWFLAKE_ROLE') }}"
+      database: "{{ env_var('SNOWFLAKE_DATABASE') }}"
+      warehouse: "{{ env_var('SNOWFLAKE_WAREHOUSE') }}"
+      schema: "{{ env_var('SNOWFLAKE_SCHEMA', 'JM_WH_CODEX') }}"
+      threads: 4
+      client_session_keep_alive: false
+      query_tag: jobmarket_dbt_incremental
+    full:
+      <<: *snowflake
+      schema: "{{ env_var('SNOWFLAKE_FULL_SCHEMA', 'JM_WH_CODEX_FULL') }}"
