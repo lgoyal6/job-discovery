@@ -28,7 +28,12 @@ const BROWSER_HEADERS: Record<string, string> = {
   'accept-language': 'en-US,en;q=0.9'
 };
 
-class NonRetryableHttpError extends Error {}
+export class HttpResponseError extends Error {
+  constructor(message: string, readonly status: number) {
+    super(message);
+    this.name = 'HttpResponseError';
+  }
+}
 
 export async function fetchWithPolicy(url: string, options: FetchOptions): Promise<Response> {
   const { timeoutMs, retries, sourceName, repeatable, ...init } = options;
@@ -54,13 +59,14 @@ export async function fetchWithPolicy(url: string, options: FetchOptions): Promi
           return browser;
         }
       }
-      if (response.status < 500 && response.status !== 429) throw new NonRetryableHttpError(status);
-      throw new Error(`retryable ${status}`);
+      if (response.status < 500 && response.status !== 429) throw new HttpResponseError(status, response.status);
+      throw new HttpResponseError(`retryable ${status}`, response.status);
     } catch (error) {
       lastError = error;
       // A refused destination is not a flaky one: retrying it is three more
       // attempts to reach somewhere this pipeline is not allowed to reach.
-      if (error instanceof NonRetryableHttpError || error instanceof BlockedDestinationError) throw error;
+      if ((error instanceof HttpResponseError && error.status < 500 && error.status !== 429)
+          || error instanceof BlockedDestinationError) throw error;
       // The request may already have been acted on. Retrying a search costs an
       // extra read; retrying a message send costs a second message, and the
       // error is the same either way, so the method decides rather than the
