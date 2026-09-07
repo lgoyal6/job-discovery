@@ -1,4 +1,4 @@
-import { defineConfig } from 'vitest/config';
+import { configDefaults, defineConfig } from 'vitest/config';
 
 // EMAIL_TO and the Notion ids are required with no default, so that a missing
 // value fails at startup rather than silently pointing production at whatever
@@ -7,5 +7,6 @@ import { defineConfig } from 'vitest/config';
 export default defineConfig({
   test: {
     setupFiles: ['./tests/setup.ts'],
+    exclude: [...configDefaults.exclude, '**/.agent-work/**'],
   },
 });

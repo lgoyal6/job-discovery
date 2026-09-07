@@ -7,7 +7,7 @@ export default tseslint.config(
   // urllib3 vendors a JavaScript web worker inside it, so without this line
   // `npm run lint` reports errors from a dependency's dependency the moment
   // anyone runs the warehouse demo.
-  { ignores: ['dist/', 'coverage/', '**/.venv/'] },
+  { ignores: ['dist/', 'coverage/', '.agent-work/**', '**/.venv/**'] },
   eslint.configs.recommended,
   ...tseslint.configs.recommended,
   {
