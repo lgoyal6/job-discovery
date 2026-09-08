@@ -1,0 +1,26 @@
+name: Pages smoke check
+on:
+  workflow_dispatch:
+  workflow_run:
+    workflows: ["Deploy public analytics proof"]
+    types: [completed]
+permissions: {}
+jobs:
+  smoke:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fetch the served page from the runner network
+        run: curl -fsS --retry 3 https://lgoyal6.github.io/job-discovery/ -o index.html
+      - name: Assert the page identity
+        run: grep -q "Job Market Analytics Proof" index.html
+      - name: Assert the page states its static snapshot boundary
+        run: grep -q "Static by design" index.html
+      - name: Fetch the served report data
+        run: curl -fsS --retry 3 https://lgoyal6.github.io/job-discovery/report.json -o report.json
+      - name: Assert two tables are served
+        run: jq -e '.model.tables == 2' report.json
+      - name: Assert seven DAX measures are served
+        run: jq -e '.model.daxMeasures == 7' report.json
+      - name: Assert the scope names a sanitized snapshot, not a live workspace
+        run: jq -e '.scope | test("snapshot"; "i")' report.json
