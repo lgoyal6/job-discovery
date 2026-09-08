@@ -2,6 +2,11 @@
 
 Finds early-career roles that are actually open to you, and mails them once.
 
+**[Open the public analytics proof](https://lgoyal6.github.io/job-discovery/).**
+It is a sanitized, static view of the bounded Snowflake-backed Power BI run.
+It contains aggregate results only and states exactly where the public snapshot
+ends and the private service model begins.
+
 It reads 450+ employer job boards, 20 community-maintained lists and LinkedIn's
 guest search, then filters roughly 51,000 postings a run down to about 130 that
 are genuinely new, genuinely early-career, and genuinely in the United States.
