@@ -1,0 +1,27 @@
+{
+  "verifiedAt": "2026-09-07",
+  "scope": "Sanitized static snapshot of the bounded two-table Snowflake-backed Power BI model",
+  "model": {"dimensionRows": 15, "factRows": 33, "tables": 2, "daxMeasures": 7, "postRefreshQueryMs": 957.5},
+  "metrics": [
+    {"label":"Observed requisitions","value":"113"},
+    {"label":"Eligible requisitions","value":"103"},
+    {"label":"Eligibility yield","value":"91.2%"},
+    {"label":"Late arrival rate","value":"2.6%"},
+    {"label":"Closed observation rate","value":"9.6%"},
+    {"label":"Eligible unique requisitions","value":"13"},
+    {"label":"Unknown sponsorship","value":"4"}
+  ],
+  "evidence": [
+    "Snowflake imported 15 dimension rows and 33 fact rows into the two-table semantic model.",
+    "TMDL accepted seven DAX measures with zero problems.",
+    "An explicit Power BI Service refresh advanced the workspace timestamp.",
+    "A post-refresh DAX query returned one row with seven columns in 957.5 ms.",
+    "The saved report reopened in reading view with four cards and a source-by-date table."
+  ],
+  "limits": [
+    "This public page is a checked-in snapshot, not a connection to the private Power BI workspace.",
+    "It contains aggregate measures only, with no application history, recipient data, URLs, employer rows, or source-level records.",
+    "The broader six-table design was not deployed and is not presented here as live.",
+    "The live refresh used the Power BI Service web action, not the service-principal REST helper."
+  ]
+}

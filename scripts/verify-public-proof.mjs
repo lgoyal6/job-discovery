@@ -1,0 +1,11 @@
+import { readFile } from "node:fs/promises";
+const report=JSON.parse(await readFile("public-proof/report.json","utf8"));
+const model=JSON.parse(await readFile("warehouse/powerbi/JobMarket.SemanticModel/model.bim","utf8"));
+const tables=model.model.tables;
+const measures=tables.flatMap(table=>table.measures??[]);
+if(tables.length!==report.model.tables)throw Error(`table count ${report.model.tables} does not match ${tables.length}`);
+if(measures.length!==report.model.daxMeasures)throw Error(`measure count ${report.model.daxMeasures} does not match ${measures.length}`);
+if(report.metrics.length!==7)throw Error("public proof must publish seven aggregate answers");
+const text=JSON.stringify(report);
+for(const key of ["workspaceId","semanticModelId","reportId","email","applyUrl"])if(text.includes(key))throw Error(`public proof leaked forbidden key: ${key}`);
+console.log(`public proof valid: ${tables.length} tables, ${measures.length} measures, ${report.metrics.length} aggregates`);
