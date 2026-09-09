@@ -24,6 +24,31 @@ describe('a policy the posting actually states', () => {
   });
 });
 
+describe('a refusal written in the future tense', () => {
+  // Red Hat's Software Engineer Intern, live on 8 Sep 2026, reached the digest's
+  // open list. Both of its sentences say plainly that there is no sponsorship,
+  // and both were missed on a single word each: every rule wanted the bare verb
+  // and Red Hat wrote "will not be providing", and the article rule allowed
+  // "the need for" and "any need for" but not "a need for".
+  //
+  // The bucket is what made it matter. The digest splits on UNSUPPORTED alone,
+  // so anything that lands in UNKNOWN is presented as still open, which is the
+  // opposite of what this posting says. The aggregator feeding the pipeline had
+  // it tagged as sponsoring.
+  it('reads a future-tense refusal, in both the sentences Red Hat used', () => {
+    const redHat: Array<[string, string]> = [
+      ['refusal', 'Red Hat will not be providing visa sponsorship for this position.'],
+      ['requirement', 'Therefore, in order to be considered for this position, you must have the ability to work without a need for current or future visa sponsorship.']
+    ];
+    for (const [part, text] of redHat) expect(verdict(text), part).toBe('UNSUPPORTED');
+  });
+
+  it('still reads the gerunds that were already covered', () => {
+    expect(verdict('We are not able to provide sponsorship for this role.')).toBe('UNSUPPORTED');
+    expect(verdict('This position does not provide visa sponsorship.')).toBe('UNSUPPORTED');
+  });
+});
+
 describe('the word "sponsor" where it is not a policy', () => {
   it('does not read an application form question as an answer', () => {
     // Eight of the forty postings sampled end in this question. It is put to the
