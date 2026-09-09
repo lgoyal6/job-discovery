@@ -21,7 +21,13 @@ unsupported:
   - "(?:do|does|will|can) not (?:currently )?sponsor"
   - "no (?:visa |employment |work )?sponsorship"
   - "sponsorship (?:is )?not (?:available|offered|provided)"
-  - "without (?:the need for |any need for |requiring )?(?:visa |employment |work )?sponsorship"
+  # "a need for" alongside "the need for", and a gap for the qualifier that
+  # usually sits in between. Red Hat's second sentence is "you must have the
+  # ability to work without a need for current or future visa sponsorship",
+  # which the previous form missed on the article and again on "current or
+  # future". Bounded to a short run and no full stop, so this stays a statement
+  # about the role rather than reaching across sentences.
+  - "without (?:a |the |any )?(?:need for |requiring )?[^.]{0,40}(?:visa |employment |work )?sponsorship"
   - "(?:must|need to) be (?:a |an )?(?:u\\.?s\\.?|united states) citizen"
   - "(?:u\\.?s\\.?|united states) citizenship (?:is )?(?:required|a requirement)"
   - "(?:must be|requires?)(?: a| an)? (?:u\\.?s\\.? )?(?:citizen|permanent resident|green card holder)"
@@ -51,7 +57,12 @@ unsupported:
   - "(?:is|are) not (?:currently )?(?:hiring|considering|able to hire|in a position to hire)[^.]{0,90}requires? sponsorship"
   # FTI Consulting: "this position does not provide visa sponsorship".
   # Vanguard: "Vanguard is not offering visa sponsorship for this position."
-  - "(?:does|do|will|is|are) not (?:currently )?(?:able to )?(?:provide|offer|offering|providing|support|supporting)(?: any)? (?:visa |employment |work |immigration )?sponsorship"
+  # "be " is optional because a future-tense refusal puts it there and every
+  # rule above wanted the bare verb. Red Hat: "Red Hat will not be providing
+  # visa sponsorship for this position." That is as plain a statement as an
+  # employer makes, and it classified UNKNOWN, which is the bucket the digest
+  # treats as still open.
+  - "(?:does|do|will|is|are) not (?:currently )?(?:be )?(?:able to )?(?:provide|offer|offering|providing|support|supporting)(?: any)? (?:visa |employment |work |immigration )?sponsorship"
   # CNO Financial: "Candidates must currently possess unrestricted authorization
   # to work in the United States". An F-1 on OPT does not: the authorization is
   # tied to the school and the field of study.
