@@ -189,7 +189,14 @@ export async function classifyRawJob(raw: RawJob, context: { aliases: Map<string
   if (raw.status === 'CLOSED') rejectionReason = 'closed_or_expired';
   else if (policy.requireStudentRole && !STUDENT_ROLE.test(`${title} ${description}`)) rejectionReason = 'not_student_role';
   else if (!place.eligible) rejectionReason = 'outside_us';
-  else if (policy.requireCycle && !cycle && !NEW_GRAD_ROLE.test(`${title} ${description}`)) rejectionReason = 'outside_target_cycles';
+  // Off-cycle means the posting names a term that is not one of ours, which
+  // takes a year to say. A posting that names no year is silent, not off-cycle:
+  // Cisco titles every US internship "(Intern) - United States" and the lists
+  // that carry it have no cycle hint, so all of them died here, and on
+  // 2026-09-12 so did 1,053 postings from 388 employers that were less than a
+  // month old. The reader would rather see them as "Later compatible" and
+  // decline them than not see them.
+  else if (policy.requireCycle && !cycle && !NEW_GRAD_ROLE.test(`${title} ${description}`) && /\b20\d\d\b/.test(`${title} ${description}`)) rejectionReason = 'outside_target_cycles';
   else if (!role.eligible) rejectionReason = role.reason ?? 'not_technical';
   else if (policy.requireGraduationFit && !graduation.eligible) rejectionReason = 'graduation_incompatible';
   else if (policy.requireEarlyCareer && !earlyCareer.eligible) rejectionReason = 'not_open_to_a_student_or_new_grad';
