@@ -221,9 +221,9 @@ export type ClaimedGraduation = 'JUNE_2027' | 'DECEMBER_2027' | 'JUNE_2028';
 const DECEMBER_2027_WINDOW = /\b(december|dec\.?|fall|winter)\s*'?\s*2027\b/i;
 const PRE_2027_WINDOW = /\b(december|dec\.?|fall|winter|spring|may|summer)\s*'?\s*2026\b|\b2026\s+grad(?:uate)?s?\b/i;
 
-export function classifyGraduation(title: string, description = ''): { eligible: boolean; evidence: string; claim: ClaimedGraduation } {
+export function classifyGraduation(title: string, description = '', newGradList = false): { eligible: boolean; evidence: string; claim: ClaimedGraduation } {
   const text = `${title} ${description}`;
-  if (/\bnew grad(?:uate)?\b|university graduate/i.test(title)) {
+  if (newGradList || /\bnew grad(?:uate)?\b|university graduate/i.test(title)) {
     if (PRE_2027_WINDOW.test(text) && !/\b2027\b|\b2028\b/i.test(text)) {
       return { eligible: false, evidence: 'New-grad posting names a 2026 graduating class, which is earlier than any date Laksh can finish.', claim: 'JUNE_2027' };
     }

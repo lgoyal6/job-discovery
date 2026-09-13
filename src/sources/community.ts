@@ -11,7 +11,7 @@ import { extractSourceJobId } from '../normalization.js';
 // full README (these run 50-160 KB) never does.
 const EMPTY_PARSE_MIN_BYTES = 2000;
 
-const sourceConfigSchema = z.object({ community: z.array(z.object({ name: z.string(), url: z.string().url(), format: z.enum(['markdown', 'html', 'intern-list']), cycle: z.string().optional(), profile: z.enum(['technical', 'finance']).default('technical') })) });
+const sourceConfigSchema = z.object({ community: z.array(z.object({ name: z.string(), url: z.string().url(), format: z.enum(['markdown', 'html', 'intern-list']), cycle: z.string().optional(), audience: z.enum(['new-grad']).optional(), profile: z.enum(['technical', 'finance']).default('technical') })) });
 export type CommunityConfig = z.infer<typeof sourceConfigSchema>['community'][number];
 
 function cleanCell(cell: string): string {
@@ -171,7 +171,7 @@ function tableRows(document: string): string[][] {
   return pipe.length ? pipe : htmlTableRows(document);
 }
 
-export function parseMarkdownJobs(markdown: string, source: Pick<CommunityConfig, 'name' | 'url' | 'cycle'>, now = new Date().toISOString()): RawJob[] {
+export function parseMarkdownJobs(markdown: string, source: Pick<CommunityConfig, 'name' | 'url' | 'cycle' | 'audience'>, now = new Date().toISOString()): RawJob[] {
   const jobs: RawJob[] = [];
   let previousCompany = '';
   let columns: ListColumns | undefined;
@@ -227,7 +227,7 @@ export function parseMarkdownJobs(markdown: string, source: Pick<CommunityConfig
       : (postedAt ? cells.slice(3, -1) : cells.slice(3));
     jobs.push({
       sourceName: source.name, sourceJobId, title, company, location, postedAt,
-      sourceUrl: source.url, directApplyUrl: applyUrl, scrapedAt: now, cycleHint: source.cycle,
+      sourceUrl: source.url, directApplyUrl: applyUrl, scrapedAt: now, cycleHint: source.cycle, audienceHint: source.audience,
       description: cleanCell(details.join(' ')), raw: { row: line }
     });
   }

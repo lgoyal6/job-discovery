@@ -215,6 +215,18 @@ describe('source parsers', () => {
     expect(jobs[1]?.sourceJobId).toBe('827a092d-b8a3-4ca9-a84a-e8c236d1aabc');
   });
 
+  it('passes the audience of the list through to every row it yields', () => {
+    const markdown = [
+      '| Company | Role | Location | Application | Age |',
+      '| --- | --- | --- | --- | --- |',
+      '| Cisco | Software Engineer 1 | San Jose, CA | [Apply](https://careers.cisco.com/global/en/job/2023527) | 3d |'
+    ].join('\n');
+    const tagged = parseMarkdownJobs(markdown, { name: 'simplify-newgrad', url: 'https://example.com/feed', audience: 'new-grad' }, '2026-09-12T00:00:00Z');
+    expect(tagged[0]?.audienceHint).toBe('new-grad');
+    const untagged = parseMarkdownJobs(markdown, { name: 'simplify-summer', url: 'https://example.com/feed' }, '2026-09-12T00:00:00Z');
+    expect(untagged[0]?.audienceHint).toBeUndefined();
+  });
+
   it('falls back to <tr>/<td> rows when the pipe table is gone, and drops marker emoji', () => {
     const html = [
       '<table><thead><tr><th>Company</th><th>Role</th><th>Location</th></tr></thead><tbody>',

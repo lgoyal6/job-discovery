@@ -498,6 +498,36 @@ describe('the cycle gate', () => {
   });
 });
 
+describe('the new-grad lists', () => {
+  const raw = (title: string, audienceHint?: 'new-grad') => ({
+    sourceName: 'simplify-newgrad', sourceJobId: title, company: 'Cisco', title, audienceHint,
+    location: 'San Jose, CA', postedAt: '2026-08-25T00:00:00.000Z',
+    sourceUrl: 'https://example.test/1', directApplyUrl: 'https://example.test/1',
+    scrapedAt: '2026-09-12T00:00:00.000Z'
+  });
+  const classify = async (title: string, audienceHint?: 'new-grad') => {
+    const context = { aliases: buildAliasMap(await loadCompanyAliases()), patterns: await loadSponsorshipPatterns(), priorities: new Map<string, number>() };
+    return classifyRawJob(raw(title, audienceHint), context);
+  };
+
+  // Simplify, vanshb03 and speedyapply each keep a list of nothing but new-grad
+  // roles, titled the way the employer titles them: Cisco's is "Software
+  // Engineer 1". Read from the title alone, two thirds of those lists were not
+  // student roles. The list is the evidence the title lacks.
+  it('trusts the list where the title says nothing', async () => {
+    const job = await classify('Software Engineer 1', 'new-grad');
+    expect(job.rejectionReason).toBeUndefined();
+    expect(job.graduationClaim).toBe('JUNE_2027');
+    // The same title off a list that carries every kind of role is still nothing.
+    expect((await classify('Software Engineer 1')).rejectionReason).toBe('not_student_role');
+  });
+
+  it('still reads a graduating class the row does state', async () => {
+    expect((await classify('Software Engineer (December 2026 grads)', 'new-grad')).rejectionReason).toBe('graduation_incompatible');
+    expect((await classify('Software Engineer I (Full Time) - United States', 'new-grad')).rejectionReason).toBeUndefined();
+  });
+});
+
 describe('what counts as a material change', () => {
   const chicago = { title: 'Software Engineer Intern (Summer 2027 - Chicago)', location: 'Chicago, IL', cycle: 'Summer 2027' };
 
