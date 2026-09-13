@@ -11,7 +11,7 @@ import { extractSourceJobId } from '../normalization.js';
 // full README (these run 50-160 KB) never does.
 const EMPTY_PARSE_MIN_BYTES = 2000;
 
-const sourceConfigSchema = z.object({ community: z.array(z.object({ name: z.string(), url: z.string().url(), format: z.enum(['markdown', 'html', 'intern-list']), cycle: z.string().optional(), profile: z.enum(['technical', 'finance']).default('technical') })) });
+const sourceConfigSchema = z.object({ community: z.array(z.object({ name: z.string(), url: z.string().url(), format: z.enum(['markdown', 'html', 'intern-list']), cycle: z.string().optional(), audience: z.enum(['new-grad']).optional(), profile: z.enum(['technical', 'finance']).default('technical') })) });
 export type CommunityConfig = z.infer<typeof sourceConfigSchema>['community'][number];
 
 function cleanCell(cell: string): string {
@@ -37,6 +37,35 @@ function links(cell: string): Array<{ label: string; url: string }> {
   const all = [...markdown, ...html].filter(link => link.url);
   const seen = new Set<string>();
   return all.filter(link => !seen.has(link.url) && seen.add(link.url));
+}
+
+// zapplyjobs wraps every apply link in its own redirector, zapply.jobs/l/d/<slug>,
+// and since at least 2026-09-12 that redirector answers every slug with a 302 to
+// zapply.jobs/jobs, its listings page: 600 of the list's 600 rows reached the
+// digest as an "Apply" link that opened a job board's front page. The slug still
+// names the ATS, the board and the posting, which on these boards is the whole
+// address, and each form below was checked against the live posting. Workday's
+// slug lacks the tenant's host number, so apply-links.ts looks those up; anything
+// else keeps the redirector, ranked as a listing so a real link from another
+// list wins the row.
+const UUID = '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}';
+const ZAPPLY_BOARDS: Array<[RegExp, (match: RegExpExecArray) => string]> = [
+  [/^greenhouse-(.+)-(\d+)$/, match => `https://boards.greenhouse.io/${match[1]}/jobs/${match[2]}`],
+  [new RegExp(`^lever-(.+)-(${UUID})$`), match => `https://jobs.lever.co/${match[1]}/${match[2]}`],
+  [new RegExp(`^ashby-(.+)-(${UUID})$`), match => `https://jobs.ashbyhq.com/${match[1]}/${match[2]}`],
+  [/^sr-(.+)-(\d+)$/, match => `https://jobs.smartrecruiters.com/${match[1]}/${match[2]}`],
+  [/^google-(\d+)$/, match => `https://www.google.com/about/careers/applications/jobs/results/${match[1]}`],
+  [/^bytedance-(\d+)$/, match => `https://joinbytedance.com/search/${match[1]}`],
+  [/^amd-(\d+)$/, match => `https://careers.amd.com/careers-home/jobs/${match[1]}`]
+];
+export function unwrapZapplyLink(url: string): string {
+  const slug = /^https?:\/\/zapply\.jobs\/l\/d\/([^/?#]+)/i.exec(url)?.[1];
+  if (!slug) return url;
+  for (const [pattern, posting] of ZAPPLY_BOARDS) {
+    const match = pattern.exec(slug);
+    if (match) return posting(match);
+  }
+  return url;
 }
 
 // Every list dates its rows in its last column and the pipeline dropped it into
@@ -142,7 +171,7 @@ function tableRows(document: string): string[][] {
   return pipe.length ? pipe : htmlTableRows(document);
 }
 
-export function parseMarkdownJobs(markdown: string, source: Pick<CommunityConfig, 'name' | 'url' | 'cycle'>, now = new Date().toISOString()): RawJob[] {
+export function parseMarkdownJobs(markdown: string, source: Pick<CommunityConfig, 'name' | 'url' | 'cycle' | 'audience'>, now = new Date().toISOString()): RawJob[] {
   const jobs: RawJob[] = [];
   let previousCompany = '';
   let columns: ListColumns | undefined;
@@ -174,10 +203,11 @@ export function parseMarkdownJobs(markdown: string, source: Pick<CommunityConfig
       ?? allLinks.find(link => !/simplify\.jobs\/c\//i.test(link.url))
       ?? allLinks[0];
     if (!applyLink) continue;
+    const applyUrl = unwrapZapplyLink(applyLink.url);
     const location = (columns
       ? (columns.location === undefined ? '' : cleanCell(cells[columns.location] ?? ''))
       : cleanCell(cells[2] ?? '')) || 'Unspecified';
-    const sourceJobId = extractSourceJobId(applyLink.url);
+    const sourceJobId = extractSourceJobId(applyUrl);
     // The header can be wrong about its own table: Simplify's off-season page
     // heads one of its eleven tables without the Terms column that its rows
     // actually carry, which shifts the age one place and left 157 rows undated.
@@ -197,7 +227,7 @@ export function parseMarkdownJobs(markdown: string, source: Pick<CommunityConfig
       : (postedAt ? cells.slice(3, -1) : cells.slice(3));
     jobs.push({
       sourceName: source.name, sourceJobId, title, company, location, postedAt,
-      sourceUrl: source.url, directApplyUrl: applyLink.url, scrapedAt: now, cycleHint: source.cycle,
+      sourceUrl: source.url, directApplyUrl: applyUrl, scrapedAt: now, cycleHint: source.cycle, audienceHint: source.audience,
       description: cleanCell(details.join(' ')), raw: { row: line }
     });
   }

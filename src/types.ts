@@ -26,6 +26,8 @@ export interface RawJob {
   directApplyUrl?: string;
   scrapedAt: string;
   cycleHint?: string;
+  /** Set for rows off a list that carries one kind of role, so a plain title inherits what the list says. */
+  audienceHint?: 'new-grad';
   status?: 'OPEN' | 'CLOSED';
   raw?: unknown;
 }

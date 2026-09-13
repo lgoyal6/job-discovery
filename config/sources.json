@@ -118,16 +118,19 @@
     },
     {
       "name": "simplify-newgrad",
+      "audience": "new-grad",
       "url": "https://raw.githubusercontent.com/SimplifyJobs/New-Grad-Positions/dev/README.md",
       "format": "markdown"
     },
     {
       "name": "vanshb03-newgrad",
+      "audience": "new-grad",
       "url": "https://raw.githubusercontent.com/vanshb03/New-Grad-2027/dev/README.md",
       "format": "markdown"
     },
     {
       "name": "speedyapply-newgrad",
+      "audience": "new-grad",
       "url": "https://raw.githubusercontent.com/speedyapply/2027-SWE-College-Jobs/main/NEW_GRAD_USA.md",
       "format": "markdown"
     }

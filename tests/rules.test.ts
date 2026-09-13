@@ -462,6 +462,72 @@ describe('the student-role gate', () => {
   });
 });
 
+describe('the cycle gate', () => {
+  const raw = (title: string) => ({
+    sourceName: 'phenom:careers.cisco.com', sourceJobId: title, company: 'Cisco', title,
+    location: 'Research Triangle Park, North Carolina, United States of America', postedAt: '2026-09-08T00:00:00.000Z',
+    sourceUrl: 'https://example.test/1', directApplyUrl: 'https://example.test/1',
+    scrapedAt: '2026-09-12T00:00:00.000Z'
+  });
+  const classify = async (title: string) => {
+    const context = { aliases: buildAliasMap(await loadCompanyAliases()), patterns: await loadSponsorshipPatterns(), priorities: new Map<string, number>() };
+    return classifyRawJob(raw(title), context);
+  };
+
+  // Cisco titles every US internship "(Intern) - United States", the posting
+  // body names no term either, and none of the lists carrying it has a cycle
+  // hint. Requiring a cycle rejected all of them, and with them 1,053 postings
+  // from 388 employers that were under a month old on 2026-09-12.
+  it('keeps a student role that names no term at all, as Later compatible', async () => {
+    for (const title of ['Software Consulting Engineer I (Intern) United States', 'Machine Learning Engineer II (Intern) - United States', 'Software Engineer Summer Intern']) {
+      const job = await classify(title);
+      expect(job.rejectionReason, title).toBeUndefined();
+      expect(job.cycle, title).toBe('Later compatible');
+    }
+  });
+
+  // Off-cycle still means what it meant: a posting that names a term that is
+  // not one of ours. That takes a year to say, and a stated year is trusted.
+  it('still rejects a student role that names a year outside the target cycles', async () => {
+    expect((await classify('Software Engineer Intern - Summer 2026')).rejectionReason).toBe('outside_target_cycles');
+    expect((await classify('Software Engineer Intern 2026')).rejectionReason).toBe('outside_target_cycles');
+    expect((await classify('Software Engineer Intern - Fall 2025')).rejectionReason).toBe('outside_target_cycles');
+    const summer = await classify('Software Engineer Intern - Summer 2027');
+    expect(summer.rejectionReason).toBeUndefined();
+    expect(summer.cycle).toBe('Summer 2027');
+  });
+});
+
+describe('the new-grad lists', () => {
+  const raw = (title: string, audienceHint?: 'new-grad') => ({
+    sourceName: 'simplify-newgrad', sourceJobId: title, company: 'Cisco', title, audienceHint,
+    location: 'San Jose, CA', postedAt: '2026-08-25T00:00:00.000Z',
+    sourceUrl: 'https://example.test/1', directApplyUrl: 'https://example.test/1',
+    scrapedAt: '2026-09-12T00:00:00.000Z'
+  });
+  const classify = async (title: string, audienceHint?: 'new-grad') => {
+    const context = { aliases: buildAliasMap(await loadCompanyAliases()), patterns: await loadSponsorshipPatterns(), priorities: new Map<string, number>() };
+    return classifyRawJob(raw(title, audienceHint), context);
+  };
+
+  // Simplify, vanshb03 and speedyapply each keep a list of nothing but new-grad
+  // roles, titled the way the employer titles them: Cisco's is "Software
+  // Engineer 1". Read from the title alone, two thirds of those lists were not
+  // student roles. The list is the evidence the title lacks.
+  it('trusts the list where the title says nothing', async () => {
+    const job = await classify('Software Engineer 1', 'new-grad');
+    expect(job.rejectionReason).toBeUndefined();
+    expect(job.graduationClaim).toBe('JUNE_2027');
+    // The same title off a list that carries every kind of role is still nothing.
+    expect((await classify('Software Engineer 1')).rejectionReason).toBe('not_student_role');
+  });
+
+  it('still reads a graduating class the row does state', async () => {
+    expect((await classify('Software Engineer (December 2026 grads)', 'new-grad')).rejectionReason).toBe('graduation_incompatible');
+    expect((await classify('Software Engineer I (Full Time) - United States', 'new-grad')).rejectionReason).toBeUndefined();
+  });
+});
+
 describe('what counts as a material change', () => {
   const chicago = { title: 'Software Engineer Intern (Summer 2027 - Chicago)', location: 'Chicago, IL', cycle: 'Summer 2027' };
 

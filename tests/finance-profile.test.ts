@@ -505,6 +505,8 @@ describe('which link the digest keeps when one role arrives twice', () => {
     expect(applyLinkRank('https://boards.greenhouse.io/x/jobs/1')).toBeGreaterThan(applyLinkRank('https://www.intern-list.com/x/role_1'));
     expect(applyLinkRank('https://ms.wd5.myworkdayjobs.com/en-US/External/job/x')).toBeGreaterThan(applyLinkRank('https://jobright.ai/jobs/info/abc'));
     expect(applyLinkRank('https://www.linkedin.com/jobs/view/123')).toBeGreaterThan(applyLinkRank('https://raw.githubusercontent.com/x/README.md'));
+    // zapplyjobs' redirector lands on its own listings page, so a row still carrying it loses to any real link.
+    expect(applyLinkRank('https://www.linkedin.com/jobs/view/123')).toBeGreaterThan(applyLinkRank('https://zapply.jobs/l/d/oracle-citizens-financial-49284?s=gh-internships-2027'));
     expect(applyLinkRank(undefined)).toBe(0);
   });
 

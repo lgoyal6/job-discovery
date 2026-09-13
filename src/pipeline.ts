@@ -175,7 +175,13 @@ export async function classifyRawJob(raw: RawJob, context: { aliases: Map<string
   // London one both reached a US-only digest reading "Unspecified".
   const place = classifyLocation(location, `${title} ${raw.directApplyUrl ?? raw.sourceUrl ?? ''}`);
   const cycle = classifyCycle(title, description, raw.cycleHint ?? '');
-  const graduation = classifyGraduation(title, description);
+  // Simplify's New-Grad-Positions, vanshb03's New-Grad-2027 and speedyapply's
+  // NEW_GRAD_USA carry nothing but new-grad roles and title them the way the
+  // employer does: Cisco's is "Software Engineer 1". The student gate read the
+  // title alone and turned two thirds of those lists away. The list is the
+  // evidence the title lacks, so a row off one is a new-grad role.
+  const newGradList = raw.audienceHint === 'new-grad';
+  const graduation = classifyGraduation(title, description, newGradList);
   const earlyCareer = classifyEarlyCareer(title, description);
   let sponsorship = classifySponsorship(`${title}\n${description}`, context.patterns);
   const canonicalUrl = canonicalizeUrl(raw.directApplyUrl ?? raw.sourceUrl);
@@ -187,9 +193,16 @@ export async function classifyRawJob(raw: RawJob, context: { aliases: Map<string
   const normalizedLocation = canonicalLocation(location);
   let rejectionReason: string | undefined;
   if (raw.status === 'CLOSED') rejectionReason = 'closed_or_expired';
-  else if (policy.requireStudentRole && !STUDENT_ROLE.test(`${title} ${description}`)) rejectionReason = 'not_student_role';
+  else if (policy.requireStudentRole && !newGradList && !STUDENT_ROLE.test(`${title} ${description}`)) rejectionReason = 'not_student_role';
   else if (!place.eligible) rejectionReason = 'outside_us';
-  else if (policy.requireCycle && !cycle && !NEW_GRAD_ROLE.test(`${title} ${description}`)) rejectionReason = 'outside_target_cycles';
+  // Off-cycle means the posting names a term that is not one of ours, which
+  // takes a year to say. A posting that names no year is silent, not off-cycle:
+  // Cisco titles every US internship "(Intern) - United States" and the lists
+  // that carry it have no cycle hint, so all of them died here, and on
+  // 2026-09-12 so did 1,053 postings from 388 employers that were less than a
+  // month old. The reader would rather see them as "Later compatible" and
+  // decline them than not see them.
+  else if (policy.requireCycle && !cycle && !newGradList && !NEW_GRAD_ROLE.test(`${title} ${description}`) && /\b20\d\d\b/.test(`${title} ${description}`)) rejectionReason = 'outside_target_cycles';
   else if (!role.eligible) rejectionReason = role.reason ?? 'not_technical';
   else if (policy.requireGraduationFit && !graduation.eligible) rejectionReason = 'graduation_incompatible';
   else if (policy.requireEarlyCareer && !earlyCareer.eligible) rejectionReason = 'not_open_to_a_student_or_new_grad';

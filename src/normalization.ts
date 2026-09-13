@@ -172,7 +172,11 @@ const EMPLOYER_ATS = /greenhouse\.io|lever\.co|ashbyhq\.com|myworkdayjobs\.com|m
 // takes another search. dreamworkhq is here for the same reason jobright is:
 // its list looks like the others and reads well, and every one of its 736 rows
 // routes through a page on its own domain that asks the reader to sign in.
-const LISTING_ONLY = /intern-list\.com|jobright\.ai|dreamworkhq\.com|simplify\.jobs\/c\/|github\.com|githubusercontent\.com/i;
+// zapply.jobs/l/ is the redirector zapplyjobs puts in front of every link, and
+// it now lands on Zapply's own listings page. community.ts rebuilds the posting
+// URL where the slug allows and apply-links.ts looks up the Workday ones, so a
+// link that still carries this prefix when ranked is a link to nothing.
+const LISTING_ONLY = /intern-list\.com|jobright\.ai|dreamworkhq\.com|simplify\.jobs\/c\/|github\.com|githubusercontent\.com|zapply\.jobs\/l\//i;
 
 export function applyLinkRank(url: string | undefined): number {
   if (!url || !url.startsWith('http')) return 0;
