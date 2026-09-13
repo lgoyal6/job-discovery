@@ -74,7 +74,77 @@ function parseCards(html: string): Array<{ title: string; company: string; url: 
   })).filter(card => card.title && card.company && card.url);
 }
 
-async function resolveOne(job: DigestJob): Promise<string | undefined> {
+/**
+ * A Workday posting addressed by the slug zapplyjobs' redirector leaves behind.
+ *
+ * community.ts rebuilds the boards whose URL is a function of that slug.
+ * Workday's is not: the slug names the tenant, the career site and the
+ * requisition, and the host carries a data-centre number (nvidia.wd5, bah.wd1,
+ * td.wd3) the slug never had. It also writes the site in lower case with its
+ * underscores turned to hyphens, bah-jobs for BAH_Jobs, and Workday ignores the
+ * case but not the punctuation. The site's search API answers a requisition
+ * number with the posting's own path, and a wrong host or site answers 422 or
+ * 404 at once, so the numbers are tried in order of how often they occur until
+ * one answers, and the answer is kept for the tenant's other rows.
+ */
+const WORKDAY_HOSTS = [1, 5, 3, 12, 103, 108, 501];
+// Case-sensitive on purpose: the slug lowercases the tenant and site but keeps
+// the requisition as written, so an upper-case prefix is the only way to tell
+// "external-181764" (a site, then a number) from "R-10064679" (one requisition).
+// A requisition may carry a second number group, REQ-2026-18071 or R26-01519;
+// none of the list's sites ends in a digit, so the number after a site is the
+// requisition's and not the site's.
+const ZAPPLY_WORKDAY = /^https?:\/\/zapply\.jobs\/l\/d\/workday-([^-]+)-(.+?)-((?:[A-Z]{1,4}[-_]?)?\d+(?:-\d+)?)(?:[/?#].*)?$/;
+
+export interface WorkdaySlug { tenant: string; site: string; requisition: string }
+interface WorkdaySite { host: number; site: string }
+interface WorkdayAnswer { reached: boolean; url?: string }
+
+export function parseZapplyWorkday(url: string | undefined): WorkdaySlug | undefined {
+  const match = url ? ZAPPLY_WORKDAY.exec(url) : null;
+  return match ? { tenant: match[1] ?? '', site: match[2] ?? '', requisition: match[3] ?? '' } : undefined;
+}
+
+async function searchWorkday(tenant: string, at: WorkdaySite, requisition: string): Promise<WorkdayAnswer> {
+  const base = `https://${tenant}.wd${at.host}.myworkdayjobs.com`;
+  const response = await guardedFetch(`${base}/wday/cxs/${tenant}/${at.site}/jobs`, {
+    method: 'POST',
+    signal: AbortSignal.timeout(config.ENRICHMENT_TIMEOUT_MS),
+    headers: { 'user-agent': BROWSER_UA, accept: 'application/json', 'content-type': 'application/json' },
+    body: JSON.stringify({ appliedFacets: {}, limit: 20, offset: 0, searchText: requisition })
+  });
+  if (!response.ok) return { reached: false };
+  const payload = await response.json() as { jobPostings?: Array<{ externalPath?: string }> };
+  // The path ends in the requisition, sometimes with a posting number after it:
+  // _JR37468-2 for the second posting of JR37468. The requisition is letters,
+  // digits, - and _ by construction, so it needs no escaping.
+  const ends = new RegExp(`_${requisition}(?:-\\d+)?$`, 'i');
+  const posting = payload.jobPostings?.find(candidate => ends.test(candidate.externalPath ?? ''));
+  return { reached: true, url: posting?.externalPath ? `${base}/${at.site}${posting.externalPath}` : undefined };
+}
+
+async function resolveWorkday(slug: WorkdaySlug, known: Map<string, WorkdaySite | null>): Promise<string | undefined> {
+  const key = `${slug.tenant}/${slug.site}`;
+  const hit = known.get(key);
+  if (hit === null) return undefined;
+  const spellings = [...new Set([slug.site.replace(/-/g, '_'), slug.site])];
+  const candidates = hit ? [hit] : WORKDAY_HOSTS.flatMap(host => spellings.map(site => ({ host, site })));
+  for (const candidate of candidates) {
+    const answer = await searchWorkday(slug.tenant, candidate, slug.requisition).catch((): WorkdayAnswer => ({ reached: false }));
+    if (!answer.reached) continue;
+    known.set(key, candidate);
+    return answer.url;
+  }
+  if (!hit) known.set(key, null);
+  return undefined;
+}
+
+async function resolveOne(job: DigestJob, workday: Map<string, WorkdaySite | null>): Promise<string | undefined> {
+  const slug = parseZapplyWorkday(job.directApplyUrl ?? job.canonicalUrl);
+  if (slug) {
+    const posting = await resolveWorkday(slug, workday);
+    if (posting) return posting;
+  }
   const query = `${job.title} ${job.company}`.slice(0, 120);
   const url = `${GUEST_SEARCH}?keywords=${encodeURIComponent(query)}&location=${encodeURIComponent('United States')}&start=0`;
   try {
@@ -102,8 +172,9 @@ export async function resolveListingLinks(jobs: DigestJob[]): Promise<{ attempte
     .filter(job => applyLinkRank(job.directApplyUrl ?? job.canonicalUrl) === 1)
     .slice(0, config.APPLY_LINK_RESOLUTION_MAX);
   let resolved = 0;
+  const workday = new Map<string, WorkdaySite | null>();
   for (const job of listings) {
-    const found = await resolveOne(job);
+    const found = await resolveOne(job, workday);
     if (!found) continue;
     job.directApplyUrl = found;
     resolved += 1;

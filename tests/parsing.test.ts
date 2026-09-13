@@ -181,6 +181,40 @@ describe('source parsers', () => {
     expect(jobs[0]?.sourceJobId).toBe('4400');
   });
 
+  // zapplyjobs' redirector answers every slug with a 302 to its own listings
+  // page (2026-09-12: all 600 rows), so the digest's "Apply" opened
+  // zapply.jobs/jobs. The slug names the board and the posting.
+  it('rebuilds the posting from a zapplyjobs redirect slug where the board makes that possible', () => {
+    const apply = (slug: string) => `[<img src="images/apply.png" width="80" alt="Apply">](https://zapply.jobs/l/d/${slug}?s=gh-internships-2027)`;
+    const markdown = [
+      '| Company | Role | Location | Posted | Visa | **Apply** |',
+      '|---------|------|----------|--------|------|----------|',
+      `| **Lyft** | Software Engineer Intern | San Francisco, CA | 19m | ✅ Sponsor | ${apply('greenhouse-lyft-8797837002')} |`,
+      `| **Diversified Automation** | Software Engineering Co-op | Louisville, KY | 20m |  | ${apply('lever-diversified-automation-827a092d-b8a3-4ca9-a84a-e8c236d1aabc')} |`,
+      `| **Persona AI** | Autonomy Software Engineering Internship | Houston, TX | 20m |  | ${apply('ashby-persona.ai-fd514a3f-4138-48d5-9862-05ff74a4ca08')} |`,
+      `| **Western Digital** | Summer 2027 Intern - Software Engineering | San Jose, CA | 19m | ✅ Sponsor | ${apply('sr-WesternDigital-744000143171017')} |`,
+      `| **Google** | Software Engineering Intern, BS, Summer 2027 | Mountain View, CA | 1h |  | ${apply('google-94172495052972742')} |`,
+      `| **ByteDance** | Site Reliability Engineer Intern | San Jose, CA | 2h |  | ${apply('bytedance-7670354329765464373')} |`,
+      `| **AMD** | 2027 PhD Optical & Photonics Engineering Intern | Austin, TX | 3h |  | ${apply('amd-92358')} |`,
+      `| **NVIDIA** | Solutions Architecture Intern | Santa Clara, CA | 4h | ✅ Sponsor | ${apply('workday-nvidia-nvidiaexternalcareersite-JR2025245')} |`
+    ].join('\n');
+    const jobs = parseMarkdownJobs(markdown, { name: 'zapply-internships', url: 'https://example.com/README.md' }, '2026-09-12T00:00:00Z');
+    expect(jobs.map(job => job.directApplyUrl)).toEqual([
+      'https://boards.greenhouse.io/lyft/jobs/8797837002',
+      'https://jobs.lever.co/diversified-automation/827a092d-b8a3-4ca9-a84a-e8c236d1aabc',
+      'https://jobs.ashbyhq.com/persona.ai/fd514a3f-4138-48d5-9862-05ff74a4ca08',
+      'https://jobs.smartrecruiters.com/WesternDigital/744000143171017',
+      'https://www.google.com/about/careers/applications/jobs/results/94172495052972742',
+      'https://joinbytedance.com/search/7670354329765464373',
+      'https://careers.amd.com/careers-home/jobs/92358',
+      // Workday needs the tenant's host number, which the slug does not carry; apply-links.ts looks it up.
+      'https://zapply.jobs/l/d/workday-nvidia-nvidiaexternalcareersite-JR2025245?s=gh-internships-2027'
+    ]);
+    // Identity reads the rebuilt URL, so the row dedupes against the board's own feed.
+    expect(jobs[0]?.sourceJobId).toBe('8797837002');
+    expect(jobs[1]?.sourceJobId).toBe('827a092d-b8a3-4ca9-a84a-e8c236d1aabc');
+  });
+
   it('falls back to <tr>/<td> rows when the pipe table is gone, and drops marker emoji', () => {
     const html = [
       '<table><thead><tr><th>Company</th><th>Role</th><th>Location</th></tr></thead><tbody>',
