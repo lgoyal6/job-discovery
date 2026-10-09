@@ -196,6 +196,52 @@ export function classifyLocation(location: string, context = ''): { eligible: bo
   return { eligible: true, evidence: 'Location names no country, so it is not treated as foreign.' };
 }
 
+// The finance reader is applying in Dubai first and the US second, so the UAE is
+// the one foreign place that finance digest keeps. LinkedIn writes "Dubai, Dubai,
+// United Arab Emirates", boards write "Abu Dhabi" or "Dubai, AE", and DIFC and
+// ADGM are the two financial free zones postings name in place of a city.
+const UAE_PLACE = /\b(?:dubai|abu dhabi|sharjah|ajman|ras al khaimah|united arab emirates|uae|difc|adgm)\b/i;
+const UAE_CODE = /,\s*AE\b/;
+
+/**
+ * Whether a posting is in the UAE, read the same way `classifyLocation` reads
+ * the US: the location field first, and the posting's own URL only when the
+ * location names no place at all. A role listed in both New York and Dubai
+ * counts as Dubai, because that is the market the reader is applying to first.
+ */
+export function isInUae(location: string, context = ''): boolean {
+  if (UAE_PLACE.test(location) || UAE_CODE.test(location)) return true;
+  if (US_LOCATION.test(location) || NON_US_LOCATION.test(location) || NON_US_CITY.test(location)) return false;
+  return UAE_PLACE.test(context.replace(/[^\p{L}\p{N}]+/gu, ' '));
+}
+
+// Emiratisation programmes hire UAE citizens only, and a large share of the
+// graduate programmes in Dubai are exactly that: "Graduate Development Program
+// (UAE Nationals)", "Graduate Trainee - Emiratization", "Graduate Trainee -
+// Finance - Emirati Talent". A title saying so is decisive. A description is
+// read only for the explicit restriction, because "we support Emiratisation"
+// is a sentence many open roles also carry.
+const UAE_NATIONALS_TITLE = /\b(?:uae|emirati)\s+nationals?\b|\bemirati(?:[sz]ation|s)?\b|\bnafis\b/i;
+const UAE_NATIONALS_BODY = /\b(?:only|exclusively)\s+(?:open\s+)?(?:to\s+|for\s+)?(?:uae|emirati)\s+nationals?\b|\b(?:uae|emirati)\s+nationals?\s+only\b|\b(?:open|restricted)\s+to\s+(?:uae|emirati)\s+nationals?\b/i;
+
+/**
+ * What the US sponsorship question becomes in the UAE. An employer there
+ * obtains the work permit and residence visa for every expatriate it hires, so
+ * H-1B wording says nothing about a Dubai role. The one restriction that does
+ * decide it is a programme for UAE nationals only.
+ */
+// "UAE Nationals Preferred" is a preference, not a restriction: Mastercard's
+// Dubai graduate rotational programme says it and is open to everyone.
+const UAE_NATIONALS_PREFERRED = /\b(?:uae|emirati)\s+nationals?\s+(?:are\s+)?preferred\b|\bpreference\s+(?:will\s+be\s+)?(?:given\s+)?(?:to|for)\s+(?:uae|emirati)\s+nationals?\b/i;
+
+export function classifyUaeHiring(title: string, description = ''): { status: SponsorshipStatus; evidence: string } {
+  const preferred = title.match(UAE_NATIONALS_PREFERRED);
+  if (preferred) return { status: 'UNKNOWN', evidence: `UAE role that prefers UAE nationals but does not require it: "${preferred[0]}".` };
+  const restricted = title.match(UAE_NATIONALS_TITLE) ?? description.match(UAE_NATIONALS_BODY);
+  if (restricted) return { status: 'UNSUPPORTED', evidence: `Open to UAE nationals only: "${restricted[0]}".` };
+  return { status: 'SUPPORTED', evidence: 'UAE role: the employer sponsors the work permit and residence visa for an expatriate hire, and nothing restricts it to UAE nationals.' };
+}
+
 // Laksh can finish at any UC San Diego quarter boundary from June 2027 onward,
 // so the graduation date on a page is a choice rather than a fact to work
 // around. Two dates are worth claiming and the posting decides which:
@@ -488,7 +534,7 @@ export function classifyFinanceCategory(rawTitle: string, _rawDescription = ''):
  * never says so among them, because a LinkedIn card carries no description at
  * the point this runs.
  */
-const EARLY_CAREER = /\b(interns?(?:hips?)?|co-?ops?|students?|campus|undergraduate|new grad(?:uate)?s?|graduate (?:program|programme|scheme|analyst|rotational)|entry[ -]level|summer (?:analyst|associate|intern)|off[ -]cycle|rotational (?:program|programme)|analyst (?:program|programme|class)|trainee|apprentice\w*|early career|placement year|freshman|sophomore|junior year)\b/i;
+const EARLY_CAREER = /\b(interns?(?:hips?)?|co-?ops?|students?|campus|undergraduate|new grad(?:uate)?s?|graduate (?:program|programme|scheme|analyst|rotational)|entry[ -]level|summer (?:analyst|associate|intern)|off[ -]cycle|rotational (?:program|programme)|analyst (?:program|programme|class)|trainee|apprentice\w*|early careers?|emerging talent|fresh grad(?:uate)?s?|graduate development|placement year|freshman|sophomore|junior year)\b/i;
 // A class year beside an analyst or associate title, which is how campus and
 // new-grad hiring names itself when it uses no other word for it: "2027 Harvest
 // Analyst", "Investment Banking Analyst, Full-Time 2027".
@@ -497,12 +543,22 @@ const CLASS_YEAR_ROLE = /\b20[2-9]\d\b[^.]{0,45}\b(?:analyst|associate)\b|\b(?:a
 // postings that count internships towards it, so the floor starts at two.
 const EXPERIENCE_REQUIRED = /\b(?:[2-9]|[1-9]\d)\s*(?:\+|-\s*\d+)?\s*years?(?:\s+of)?\s+(?:\w+\s+){0,3}experience\b/i;
 
-export function classifyEarlyCareer(title: string, description = ''): { eligible: boolean; evidence: string } {
+// Dubai does not hire graduates the way Wall Street does. Outside the
+// Emiratisation programmes there is almost no campus class, and the junior
+// seat at a bank or fund is titled plainly: Deutsche Bank's "IB - Corporate
+// Finance MENA Coverage - Analyst", KPMG's "Analyst - Accounting and Finance".
+// So in the UAE a junior or analyst title is the entry-level role, still subject
+// to the experience test below. Senior titles never reach here: the finance
+// category rules turn them away first.
+const UAE_ENTRY_TITLE = /\b(?:junior|jr\.?|analyst)\b/i;
+
+export function classifyEarlyCareer(title: string, description = '', options: { uae?: boolean } = {}): { eligible: boolean; evidence: string } {
   if (EARLY_CAREER.test(title)) return { eligible: true, evidence: 'The title names an internship, a graduate programme or an entry-level role.' };
   if (CLASS_YEAR_ROLE.test(title)) return { eligible: true, evidence: 'The title pairs an analyst or associate role with its class year.' };
   const years = EXPERIENCE_REQUIRED.exec(`${title}\n${description}`);
   if (years) return { eligible: false, evidence: `The posting asks for ${years[0].trim()}.` };
   if (EARLY_CAREER.test(description)) return { eligible: true, evidence: 'The posting describes an internship or a graduate programme.' };
+  if (options.uae && UAE_ENTRY_TITLE.test(title)) return { eligible: true, evidence: 'UAE junior or analyst title with no stated experience requirement.' };
   return { eligible: false, evidence: 'Neither the title nor the posting names an internship, a graduate programme or an entry-level role.' };
 }
 
