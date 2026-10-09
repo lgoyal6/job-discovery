@@ -1,5 +1,5 @@
 import { activeProfile } from './config.js';
-import { INVESTING_CATEGORIES } from './classification.js';
+import { INVESTING_CATEGORIES, isInUae } from './classification.js';
 import { applyLinkRank } from './normalization.js';
 import type { DigestJob, SourceResult } from './types.js';
 
@@ -115,13 +115,21 @@ function roleText(job: DigestJob): string {
  * reader wants the best match first and the sponsorship answer is what decides
  * whether a role is worth an application at all.
  *
- * The finance digest is sorted newest first and split by what the job actually
- * is. Its reader asked for exactly three sections: the roles that invest money
+ * The finance digest is split by market first, Dubai and the UAE ahead of the
+ * US, because its reader is applying for new-grad roles in Dubai first. Within
+ * the US half it is sorted newest first and split by what the job actually
+ * is, in the three sections its reader asked for: the roles that invest money
  * or research what to invest in, the plain finance roles kept separately so the
  * corporate-finance tail can never dilute the first section, and last the roles
  * that state a sponsorship or citizenship requirement, carried only so that
  * nothing found is silently dropped.
  */
+const INTERNSHIP = /\b(?:interns?(?:hips?)?|summer (?:analyst|associate)|off[ -]cycle|placement)\b/i;
+
+function inUae(job: DigestJob): boolean {
+  return isInUae(job.location ?? '', `${job.title} ${job.directApplyUrl ?? job.sourceUrl ?? ''}`);
+}
+
 function sectionsFor(sorted: DigestJob[]): Array<[string, DigestJob[]]> {
   if (activeProfile !== 'finance') {
     return [
@@ -134,16 +142,25 @@ function sectionsFor(sorted: DigestJob[]): Array<[string, DigestJob[]]> {
       ['Says no sponsorship, decide for yourself', sorted.filter(job => job.sponsorshipStatus === 'UNSUPPORTED')]
     ];
   }
-  const open = sorted.filter(job => job.sponsorshipStatus !== 'UNSUPPORTED');
+  // Dubai first, then the US, because that is the order the reader is applying
+  // in. Within Dubai the full-time roles lead and internships follow, and the
+  // Emiratisation programmes go last for the same reason the US citizenship
+  // roles do: listed so nothing found is silently dropped.
+  const dubai = sorted.filter(inUae);
+  const dubaiOpen = dubai.filter(job => job.sponsorshipStatus !== 'UNSUPPORTED');
+  const open = sorted.filter(job => !inUae(job) && job.sponsorshipStatus !== 'UNSUPPORTED');
   return [
-    ['Investing', open.filter(job => INVESTING_CATEGORIES.has(job.category))],
+    ['Dubai and UAE: new grad and analyst roles', dubaiOpen.filter(job => !INTERNSHIP.test(job.title))],
+    ['Dubai and UAE: internships', dubaiOpen.filter(job => INTERNSHIP.test(job.title))],
+    ['Dubai and UAE: UAE nationals only (listed so nothing is missed)', dubai.filter(job => job.sponsorshipStatus === 'UNSUPPORTED')],
+    ['US: Investing', open.filter(job => INVESTING_CATEGORIES.has(job.category))],
     // Named for what it holds rather than for what it is not. These are the
     // corporate-finance roles: a finance internship, an FP&A or treasury
     // internship, a financial analyst programme at an employer whose business is
     // not investing. They are kept apart from the investing rows on purpose, so
     // that the tail can never dilute the section above it.
-    ['Corporate finance', open.filter(job => !INVESTING_CATEGORIES.has(job.category))],
-    ['Sponsorship or citizenship required (listed so nothing is missed)', sorted.filter(job => job.sponsorshipStatus === 'UNSUPPORTED')]
+    ['US: Corporate finance', open.filter(job => !INVESTING_CATEGORIES.has(job.category))],
+    ['US: Sponsorship or citizenship required (listed so nothing is missed)', sorted.filter(job => !inUae(job) && job.sponsorshipStatus === 'UNSUPPORTED')]
   ];
 }
 
@@ -166,7 +183,9 @@ export function digestOrder(a: DigestJob, b: DigestJob): number {
   if (activeProfile === 'finance') {
     // Same printed day, then best match first: within a day the clock time is
     // not shown, so ordering by it would be invisible and arbitrary.
-    return postedDayKey(b) - postedDayKey(a) || b.score - a.score || a.company.localeCompare(b.company);
+    // Dubai ahead of the US, so the cap and the enrichment budget reach the
+    // market the reader is applying to first.
+    return Number(inUae(b)) - Number(inUae(a)) || postedDayKey(b) - postedDayKey(a) || b.score - a.score || a.company.localeCompare(b.company);
   }
   return b.score - a.score || a.company.localeCompare(b.company);
 }
@@ -191,8 +210,11 @@ export function buildDigest(jobs: DigestJob[], sourceRuns: SourceResult[], times
   // A change with no new roles still deserves its own subject: an email titled
   // "0 roles" reads as noise and gets ignored, which defeats the point of
   // watching for an announcement weeks before the requisition exists.
+  const dubaiCount = activeProfile === 'finance' ? jobs.filter(inUae).length : 0;
   const subject = jobs.length
-    ? `${activeProfile === 'finance' ? 'New finance internships and analyst roles' : 'New technical internships'}: ${jobs.length} roles, ${displayTime}`
+    ? activeProfile === 'finance'
+      ? `New finance roles: ${dubaiCount} Dubai, ${jobs.length - dubaiCount} US, ${displayTime}`
+      : `New technical internships: ${jobs.length} roles, ${displayTime}`
     : `Program page updates: ${programChanges.length} changed, ${displayTime}`;
   const htmlSections = sections.filter(([, items]) => items.length).map(([name, items]) => `<h2>${name}</h2><ol>${items.map(roleHtml).join('')}</ol>`).join('');
   const changeHtml = programChanges.length

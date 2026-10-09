@@ -36,16 +36,45 @@ describe('the finance digest', () => {
       role({ title: 'Investment Banking Analyst', company: 'Citizens Only Bank', category: 'IB', sponsorshipStatus: 'UNSUPPORTED', sponsorshipEvidence: 'Requires U.S. citizenship.' })
     ]);
     const headings = [...digest.html.matchAll(/<h2>([^<]*)<\/h2>/g)].map(match => match[1]);
-    expect(headings).toEqual(['Investing', 'Corporate finance', 'Sponsorship or citizenship required (listed so nothing is missed)']);
+    expect(headings).toEqual(['US: Investing', 'US: Corporate finance', 'US: Sponsorship or citizenship required (listed so nothing is missed)']);
 
     // Each row under the heading that describes what the job is, not merely
     // where it came from. The corporate-finance tail is kept, and kept apart:
     // that separation is the whole reason it is allowed in at all.
-    const investing = digest.html.slice(digest.html.indexOf('Investing'), digest.html.indexOf('>Corporate finance<'));
+    const investing = digest.html.slice(digest.html.indexOf('Investing'), digest.html.indexOf('>US: Corporate finance<'));
     expect(investing).toContain('Private Equity Summer Analyst');
     expect(investing).not.toContain('Intern, Finance');
-    const financeSection = digest.html.slice(digest.html.indexOf('>Corporate finance<'), digest.html.indexOf('Sponsorship or citizenship'));
+    const financeSection = digest.html.slice(digest.html.indexOf('>US: Corporate finance<'), digest.html.indexOf('Sponsorship or citizenship'));
     expect(financeSection).toContain('Intern, Finance');
+  });
+
+  it('puts Dubai ahead of the US, new grad before internships, nationals-only last', async () => {
+    // The reader is applying for new-grad roles in Dubai first and the US second.
+    const digest = await financeDigest([
+      role({ title: 'Equity Research Summer Analyst', company: 'US Fund', category: 'AM/WM', postedAt: '2026-10-09T00:00:00.000Z' }),
+      role({ title: 'Finance Intern', company: 'Dubai Co', location: 'Dubai, Dubai, United Arab Emirates', category: 'Corp Fin', sponsorshipStatus: 'SUPPORTED', postedAt: '2026-10-01T00:00:00.000Z' }),
+      role({ title: 'IB - Corporate Finance MENA Coverage - Analyst', company: 'A Bank', location: 'Dubai, Dubai, United Arab Emirates', category: 'IB', sponsorshipStatus: 'SUPPORTED', postedAt: '2026-10-01T00:00:00.000Z' }),
+      role({ title: 'Graduate Trainee - Emiratization', company: 'Local Bank', location: 'Abu Dhabi', category: 'Corp Fin', sponsorshipStatus: 'UNSUPPORTED', sponsorshipEvidence: 'Open to UAE nationals only.' })
+    ]);
+    const headings = [...digest.html.matchAll(/<h2>([^<]*)<\/h2>/g)].map(match => match[1]);
+    expect(headings).toEqual([
+      'Dubai and UAE: new grad and analyst roles',
+      'Dubai and UAE: internships',
+      'Dubai and UAE: UAE nationals only (listed so nothing is missed)',
+      'US: Investing'
+    ]);
+    expect(digest.text.indexOf('MENA Coverage')).toBeLessThan(digest.text.indexOf('Equity Research Summer Analyst'));
+    expect(digest.subject).toMatch(/^New finance roles: 3 Dubai, 1 US, /);
+  });
+
+  it('ranks a Dubai role ahead of a newer US one, so the cap reaches Dubai first', async () => {
+    vi.resetModules();
+    vi.stubEnv('JOB_PROFILE', 'finance');
+    vi.stubEnv('FINANCE_EMAIL_TO', 'someone@example.edu');
+    const { digestOrder } = await import('../src/digest.js');
+    const us = role({ title: 'Newer US', postedAt: '2026-10-09T00:00:00.000Z' });
+    const dubai = role({ title: 'Older Dubai', location: 'Dubai, AE', postedAt: '2026-09-01T00:00:00.000Z' });
+    expect([us, dubai].sort(digestOrder).map(job => job.title)).toEqual(['Older Dubai', 'Newer US']);
   });
 
   it('sends a role that cannot sponsor to the last section whatever it is', async () => {
@@ -56,7 +85,7 @@ describe('the finance digest', () => {
       role({ title: 'Private Equity Summer Analyst', category: 'PE/VC', sponsorshipStatus: 'UNSUPPORTED', sponsorshipEvidence: 'Listed with 🇺🇸.' })
     ]);
     const headings = [...digest.html.matchAll(/<h2>([^<]*)<\/h2>/g)].map(match => match[1]);
-    expect(headings).toEqual(['Sponsorship or citizenship required (listed so nothing is missed)']);
+    expect(headings).toEqual(['US: Sponsorship or citizenship required (listed so nothing is missed)']);
   });
 
   it('orders every section newest first, and breaks a tie on score', async () => {
