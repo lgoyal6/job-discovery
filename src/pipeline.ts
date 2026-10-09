@@ -4,7 +4,7 @@ import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import { config, loadCompanyAliases, loadVerifiedNonSponsors, loadSponsorshipPatterns, projectRoot, watchlistPath, activeProfile } from './config.js';
 import { applyLinkRank, buildAliasMap, canonicalizeUrl, canonicalKey, canonicalLocation, extractSourceJobId, locationBucket, normalizeCompany, normalizeText, requisitionSignature, titleSignature } from './normalization.js';
-import { NEW_GRAD_ROLE, classifyCycle, classifyEarlyCareer, classifyGraduation, classifyLocation, classifySponsorship, extractSkills, scoreJob, STUDENT_ROLE, rolePolicies } from './classification.js';
+import { NEW_GRAD_ROLE, classifyCycle, classifyEarlyCareer, classifyGraduation, classifyLocation, classifySponsorship, classifyUaeHiring, extractSkills, isInUae, scoreJob, STUDENT_ROLE, rolePolicies } from './classification.js';
 import { parseWatchlist, rotateWatchlist, type WatchlistCompany } from './watchlist.js';
 import type { ClassifiedJob, DigestJob, NotionExclusionSample, NotionExclusionSource, PipelineReport, RawJob, SourceAdapter, SourceResult } from './types.js';
 import { enrichSponsorship } from './enrichment.js';
@@ -173,11 +173,17 @@ export async function classifyRawJob(raw: RawJob, context: { aliases: Map<string
   // names no country: it is the employer's path to the job and it spells the
   // city out, which is how Ontario Teachers' Toronto internship and Tikehau's
   // London one both reached a US-only digest reading "Unspecified".
-  const place = classifyLocation(location, `${title} ${raw.directApplyUrl ?? raw.sourceUrl ?? ''}`);
+  const placeContext = `${title} ${raw.directApplyUrl ?? raw.sourceUrl ?? ''}`;
+  const place = classifyLocation(location, placeContext);
+  // The finance reader is applying in Dubai first, so the UAE is the one place
+  // outside the US that profile keeps. The technical digest is unchanged.
+  const uae = activeProfile === 'finance' && isInUae(location, placeContext);
   const cycle = classifyCycle(title, description, raw.cycleHint ?? '');
   const graduation = classifyGraduation(title, description);
-  const earlyCareer = classifyEarlyCareer(title, description);
-  let sponsorship = classifySponsorship(`${title}\n${description}`, context.patterns);
+  const earlyCareer = classifyEarlyCareer(title, description, { uae });
+  // H-1B wording means nothing to a Dubai role; whether it is open to someone
+  // who is not a UAE national is the question that decides it there.
+  let sponsorship = uae ? classifyUaeHiring(title, description) : classifySponsorship(`${title}\n${description}`, context.patterns);
   const canonicalUrl = canonicalizeUrl(raw.directApplyUrl ?? raw.sourceUrl);
   const skills = extractSkills(`${title}\n${description}`);
   const normalizedTitle = normalizeText(title);
@@ -188,7 +194,7 @@ export async function classifyRawJob(raw: RawJob, context: { aliases: Map<string
   let rejectionReason: string | undefined;
   if (raw.status === 'CLOSED') rejectionReason = 'closed_or_expired';
   else if (policy.requireStudentRole && !STUDENT_ROLE.test(`${title} ${description}`)) rejectionReason = 'not_student_role';
-  else if (!place.eligible) rejectionReason = 'outside_us';
+  else if (!place.eligible && !uae) rejectionReason = 'outside_us';
   else if (policy.requireCycle && !cycle && !NEW_GRAD_ROLE.test(`${title} ${description}`)) rejectionReason = 'outside_target_cycles';
   else if (!role.eligible) rejectionReason = role.reason ?? 'not_technical';
   else if (policy.requireGraduationFit && !graduation.eligible) rejectionReason = 'graduation_incompatible';
@@ -215,7 +221,7 @@ export async function classifyRawJob(raw: RawJob, context: { aliases: Map<string
   // config/uscis-aliases.json carries the checked ones, and its nulls are the
   // employers genuinely absent from the export: defense and space companies
   // that hire citizens, and anything renamed after the data was cut.
-  if (sponsorship.status === 'UNKNOWN' && context.verifiedNonSponsors?.has(company.normalized)) {
+  if (!uae && sponsorship.status === 'UNKNOWN' && context.verifiedNonSponsors?.has(company.normalized)) {
     sponsorship = { status: 'UNKNOWN', evidence: `${sponsorship.evidence} This employer has no H-1B approvals in the USCIS export, checked by name, so sponsorship is unlikely.` };
   }
 
@@ -321,7 +327,11 @@ export function applyEnrichment(
   // finally distinguish it from everything merely unstated, and record a
   // confirmed no so the sponsorship-unlikely section is built on what the
   // posting actually says rather than on what the listing omitted.
-  if (verdict?.status === 'SUPPORTED' || verdict?.status === 'UNSUPPORTED') {
+  // Not for a UAE role: the page is read for US sponsorship wording, and a
+  // Dubai posting's verdict is whether it is open to non-nationals, settled at
+  // classification.
+  const uae = isInUae(job.location ?? '', `${job.title} ${job.directApplyUrl ?? job.sourceUrl ?? ''}`);
+  if (!uae && (verdict?.status === 'SUPPORTED' || verdict?.status === 'UNSUPPORTED')) {
     job.sponsorshipStatus = verdict.status;
     job.sponsorshipEvidence = verdict.evidence ?? job.sponsorshipEvidence;
   }
