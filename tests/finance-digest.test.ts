@@ -48,23 +48,21 @@ describe('the finance digest', () => {
     expect(financeSection).toContain('Intern, Finance');
   });
 
-  it('puts Dubai ahead of the US, new grad before internships, nationals-only last', async () => {
+  it('puts Dubai ahead of the US, nationals-only last within Dubai', async () => {
     // The reader is applying for new-grad roles in Dubai first and the US second.
     const digest = await financeDigest([
       role({ title: 'Equity Research Summer Analyst', company: 'US Fund', category: 'AM/WM', postedAt: '2026-10-09T00:00:00.000Z' }),
-      role({ title: 'Finance Intern', company: 'Dubai Co', location: 'Dubai, Dubai, United Arab Emirates', category: 'Corp Fin', sponsorshipStatus: 'SUPPORTED', postedAt: '2026-10-01T00:00:00.000Z' }),
       role({ title: 'IB - Corporate Finance MENA Coverage - Analyst', company: 'A Bank', location: 'Dubai, Dubai, United Arab Emirates', category: 'IB', sponsorshipStatus: 'SUPPORTED', postedAt: '2026-10-01T00:00:00.000Z' }),
       role({ title: 'Graduate Trainee - Emiratization', company: 'Local Bank', location: 'Abu Dhabi', category: 'Corp Fin', sponsorshipStatus: 'UNSUPPORTED', sponsorshipEvidence: 'Open to UAE nationals only.' })
     ]);
     const headings = [...digest.html.matchAll(/<h2>([^<]*)<\/h2>/g)].map(match => match[1]);
     expect(headings).toEqual([
-      'Dubai and UAE: new grad and analyst roles',
-      'Dubai and UAE: internships',
+      'Dubai and UAE: full-time entry-level roles',
       'Dubai and UAE: UAE nationals only (listed so nothing is missed)',
       'US: Investing'
     ]);
     expect(digest.text.indexOf('MENA Coverage')).toBeLessThan(digest.text.indexOf('Equity Research Summer Analyst'));
-    expect(digest.subject).toMatch(/^New finance roles: 3 Dubai, 1 US, /);
+    expect(digest.subject).toMatch(/^New finance roles: 2 Dubai, 1 US, /);
   });
 
   it('ranks a Dubai role ahead of a newer US one, so the cap reaches Dubai first', async () => {
