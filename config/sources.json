@@ -4389,56 +4389,80 @@
       "keywords": "finance graduate programme",
       "location": "United Arab Emirates",
       "profile": "finance",
-      "pages": 4
+      "pages": 4,
+      "fullTimeOnly": true
     },
     {
       "name": "linkedin:uae-graduate-analyst",
       "keywords": "graduate analyst",
       "location": "United Arab Emirates",
       "profile": "finance",
-      "pages": 4
+      "pages": 4,
+      "fullTimeOnly": true
     },
     {
       "name": "linkedin:uae-investment-analyst",
       "keywords": "investment analyst",
       "location": "United Arab Emirates",
       "profile": "finance",
-      "pages": 4
+      "pages": 4,
+      "fullTimeOnly": true
     },
     {
       "name": "linkedin:uae-investment-banking",
       "keywords": "investment banking analyst",
       "location": "United Arab Emirates",
       "profile": "finance",
-      "pages": 4
-    },
-    {
-      "name": "linkedin:uae-private-equity",
-      "keywords": "private equity analyst",
-      "location": "United Arab Emirates",
-      "profile": "finance",
-      "pages": 4
+      "pages": 4,
+      "fullTimeOnly": true
     },
     {
       "name": "linkedin:uae-asset-management",
       "keywords": "asset management analyst",
       "location": "United Arab Emirates",
       "profile": "finance",
-      "pages": 4
+      "pages": 4,
+      "fullTimeOnly": true
     },
     {
-      "name": "linkedin:uae-finance-intern",
-      "keywords": "finance intern",
+      "name": "linkedin:uae-wealth-management",
+      "keywords": "wealth management analyst",
       "location": "United Arab Emirates",
       "profile": "finance",
-      "pages": 4
+      "pages": 4,
+      "fullTimeOnly": true
     },
     {
-      "name": "linkedin:uae-investment-intern",
-      "keywords": "investment intern",
+      "name": "linkedin:uae-financial-advisory",
+      "keywords": "financial advisory analyst",
       "location": "United Arab Emirates",
       "profile": "finance",
-      "pages": 4
+      "pages": 4,
+      "fullTimeOnly": true
+    },
+    {
+      "name": "linkedin:uae-broker",
+      "keywords": "financial broker",
+      "location": "United Arab Emirates",
+      "profile": "finance",
+      "pages": 4,
+      "fullTimeOnly": true
+    },
+    {
+      "name": "linkedin:uae-trader",
+      "keywords": "trader",
+      "location": "United Arab Emirates",
+      "profile": "finance",
+      "pages": 4,
+      "fullTimeOnly": true
+    },
+    {
+      "name": "linkedin:uae-sales-trading",
+      "keywords": "sales and trading",
+      "location": "United Arab Emirates",
+      "profile": "finance",
+      "pages": 4,
+      "fullTimeOnly": true
     }
   ],
   "watchPages": [
