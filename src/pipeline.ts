@@ -4,7 +4,7 @@ import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import { config, loadCompanyAliases, loadVerifiedNonSponsors, loadSponsorshipPatterns, projectRoot, watchlistPath, activeProfile } from './config.js';
 import { applyLinkRank, buildAliasMap, canonicalizeUrl, canonicalKey, canonicalLocation, extractSourceJobId, locationBucket, normalizeCompany, normalizeText, requisitionSignature, titleSignature } from './normalization.js';
-import { NEW_GRAD_ROLE, classifyCycle, classifyEarlyCareer, classifyGraduation, classifyLocation, classifySponsorship, classifyUaeHiring, extractSkills, isInUae, scoreJob, STUDENT_ROLE, rolePolicies } from './classification.js';
+import { NEW_GRAD_ROLE, classifyCycle, classifyEarlyCareer, classifyGraduation, classifyLocation, classifySponsorship, classifyUaeEmployment, classifyUaeHiring, classifyUaeRole, extractSkills, isInUae, scoreJob, STUDENT_ROLE, rolePolicies } from './classification.js';
 import { parseWatchlist, rotateWatchlist, type WatchlistCompany } from './watchlist.js';
 import type { ClassifiedJob, DigestJob, NotionExclusionSample, NotionExclusionSource, PipelineReport, RawJob, SourceAdapter, SourceResult } from './types.js';
 import { enrichSponsorship } from './enrichment.js';
@@ -168,7 +168,6 @@ export async function classifyRawJob(raw: RawJob, context: { aliases: Map<string
   const location = raw.location?.trim() || 'Unspecified';
   const description = raw.description ?? '';
   const policy = rolePolicies[activeProfile];
-  const role = policy.classifyRole(title, description);
   // The posting's own URL is the fallback evidence when the location field
   // names no country: it is the employer's path to the job and it spells the
   // city out, which is how Ontario Teachers' Toronto internship and Tikehau's
@@ -178,6 +177,10 @@ export async function classifyRawJob(raw: RawJob, context: { aliases: Map<string
   // The finance reader is applying in Dubai first, so the UAE is the one place
   // outside the US that profile keeps. The technical digest is unchanged.
   const uae = activeProfile === 'finance' && isInUae(location, placeContext);
+  // Dubai is held to the six desks Ishita is applying to; the US keeps the
+  // profile's own rules.
+  const role = uae ? classifyUaeRole(title, description) : policy.classifyRole(title, description);
+  const employment = uae ? classifyUaeEmployment(title, description) : undefined;
   const cycle = classifyCycle(title, description, raw.cycleHint ?? '');
   const graduation = classifyGraduation(title, description);
   const earlyCareer = classifyEarlyCareer(title, description, { uae });
@@ -199,6 +202,7 @@ export async function classifyRawJob(raw: RawJob, context: { aliases: Map<string
   else if (!role.eligible) rejectionReason = role.reason ?? 'not_technical';
   else if (policy.requireGraduationFit && !graduation.eligible) rejectionReason = 'graduation_incompatible';
   else if (policy.requireEarlyCareer && !earlyCareer.eligible) rejectionReason = 'not_open_to_a_student_or_new_grad';
+  else if (employment && !employment.eligible) rejectionReason = employment.reason;
   // Sponsorship is deliberately not a rejection. A posting that says it cannot
   // sponsor is carried through and reported in its own digest section, because
   // the sentence is boilerplate an employer sometimes departs from and the call
