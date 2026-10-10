@@ -124,8 +124,6 @@ function roleText(job: DigestJob): string {
  * that state a sponsorship or citizenship requirement, carried only so that
  * nothing found is silently dropped.
  */
-const INTERNSHIP = /\b(?:interns?(?:hips?)?|summer (?:analyst|associate)|off[ -]cycle|placement)\b/i;
-
 function inUae(job: DigestJob): boolean {
   return isInUae(job.location ?? '', `${job.title} ${job.directApplyUrl ?? job.sourceUrl ?? ''}`);
 }
@@ -143,15 +141,14 @@ function sectionsFor(sorted: DigestJob[]): Array<[string, DigestJob[]]> {
     ];
   }
   // Dubai first, then the US, because that is the order the reader is applying
-  // in. Within Dubai the full-time roles lead and internships follow, and the
-  // Emiratisation programmes go last for the same reason the US citizenship
-  // roles do: listed so nothing found is silently dropped.
+  // in. Dubai carries permanent full-time roles only, and the Emiratisation
+  // programmes go last for the same reason the US citizenship roles do: listed
+  // so nothing found is silently dropped.
   const dubai = sorted.filter(inUae);
   const dubaiOpen = dubai.filter(job => job.sponsorshipStatus !== 'UNSUPPORTED');
   const open = sorted.filter(job => !inUae(job) && job.sponsorshipStatus !== 'UNSUPPORTED');
   return [
-    ['Dubai and UAE: new grad and analyst roles', dubaiOpen.filter(job => !INTERNSHIP.test(job.title))],
-    ['Dubai and UAE: internships', dubaiOpen.filter(job => INTERNSHIP.test(job.title))],
+    ['Dubai and UAE: full-time entry-level roles', dubaiOpen],
     ['Dubai and UAE: UAE nationals only (listed so nothing is missed)', dubai.filter(job => job.sponsorshipStatus === 'UNSUPPORTED')],
     ['US: Investing', open.filter(job => INVESTING_CATEGORIES.has(job.category))],
     // Named for what it holds rather than for what it is not. These are the
