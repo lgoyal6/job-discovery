@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { classifyEarlyCareer, classifyUaeHiring, isInUae } from '../src/classification.js';
+import { classifyEarlyCareer, classifyUaeEmployment, classifyUaeHiring, classifyUaeRole, isInUae } from '../src/classification.js';
 import type { RawJob } from '../src/types.js';
 
 // The finance reader is applying for new-grad roles in Dubai first and the US
@@ -71,6 +71,57 @@ describe('early career in the UAE', () => {
   });
 });
 
+describe('the six Dubai desks', () => {
+  it('keeps banking, asset and wealth management, advisory, brokerage and trading', () => {
+    for (const title of [
+      'IB - Corporate Finance MENA Coverage - Analyst',
+      'Asset Management Analyst',
+      'Wealth Management Analyst',
+      'Financial Advisor',
+      'Transaction Advisory Analyst',
+      'Valuation Advisory Analyst',
+      'Junior Trader',
+      'Equity Sales Trader',
+      'Securities Broker',
+      'Sales and Trading Analyst'
+    ]) {
+      expect(classifyUaeRole(title), title).toMatchObject({ eligible: true });
+    }
+  });
+
+  it('drops private equity and corporate finance in Dubai', () => {
+    // Richemont's "Junior Market Analyst" is retail market research, not a desk.
+    for (const title of ['Private Equity Analyst', 'Venture Capital Analyst', 'FP&A Analyst', 'Financial Analyst', 'Treasury Analyst', 'Junior Market Analyst']) {
+      expect(classifyUaeRole(title), title).toMatchObject({ eligible: false });
+    }
+  });
+
+  it('keeps the shared rejections, like the back office', () => {
+    expect(classifyUaeRole('Trading Operations Analyst')).toMatchObject({ eligible: false, reason: 'back_office_operations' });
+  });
+});
+
+describe('permanent, full time, not an internship, open to June 2027', () => {
+  it('drops internships in Dubai', () => {
+    for (const title of ['Finance Intern', 'Intern, Finance (3 Months Internship Contract)', 'Investment Banking Summer Analyst']) {
+      expect(classifyUaeEmployment(title), title).toMatchObject({ eligible: false, reason: 'dubai_internship' });
+    }
+  });
+
+  it('drops contract, temporary and hourly work', () => {
+    expect(classifyUaeEmployment('Financial Modeling & Investment Banking Analyst (Remote | $150–$220/hr)').reason).toBe('not_permanent_full_time');
+    expect(classifyUaeEmployment('Investment Analyst - Contract').reason).toBe('not_permanent_full_time');
+    expect(classifyUaeEmployment('Investment Analyst', 'This is a 6-month contract position.').reason).toBe('not_permanent_full_time');
+    expect(classifyUaeEmployment('Investment Analyst', 'A full-time role with a standard employment contract.').eligible).toBe(true);
+  });
+
+  it('drops a programme for an earlier graduating class, keeps one for 2027', () => {
+    expect(classifyUaeEmployment('Graduate Analyst Programme', 'Open to 2026 graduates.').reason).toBe('graduation_incompatible');
+    expect(classifyUaeEmployment('Graduate Analyst Programme', 'Open to 2026 and 2027 graduates.').eligible).toBe(true);
+    expect(classifyUaeEmployment('Graduate Rotational Program 2027').eligible).toBe(true);
+  });
+});
+
 describe('the pipeline under each profile', () => {
   afterEach(() => { vi.unstubAllEnvs(); vi.resetModules(); });
 
@@ -95,6 +146,15 @@ describe('the pipeline under each profile', () => {
     const job = await classifyUnder('finance', dubaiRole);
     expect(job.rejectionReason).toBeUndefined();
     expect(job.sponsorshipStatus).toBe('SUPPORTED');
+  });
+
+  it('drops a Dubai internship and a Dubai private equity role, and keeps both in the US', async () => {
+    const intern = { ...dubaiRole, sourceJobId: '2', title: 'Investment Banking Intern' };
+    const pe = { ...dubaiRole, sourceJobId: '3', title: 'Private Equity Analyst 2027' };
+    expect((await classifyUnder('finance', intern)).rejectionReason).toBe('dubai_internship');
+    expect((await classifyUnder('finance', pe)).rejectionReason).toBe('outside_dubai_desks');
+    expect((await classifyUnder('finance', { ...intern, location: 'New York, NY' })).rejectionReason).toBeUndefined();
+    expect((await classifyUnder('finance', { ...pe, location: 'New York, NY' })).rejectionReason).toBeUndefined();
   });
 
   it('still rejects the rest of the world for the finance digest', async () => {

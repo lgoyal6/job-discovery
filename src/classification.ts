@@ -571,6 +571,52 @@ export interface RolePolicy {
   requireEarlyCareer: boolean;
 }
 
+// What Ishita is applying for in Dubai, and only in Dubai: a permanent,
+// full-time, entry-level seat on one of six desks, starting after a June 2027
+// graduation. Investment banking, asset management, wealth management,
+// financial advisory, brokerage and the trading desk. Private equity and
+// corporate finance are kept for the US half of the digest and dropped here.
+const UAE_DESKS: ReadonlySet<Category> = new Set<Category>(['IB', 'AM/WM', 'Quant']);
+// Brokerage, the trading desk and advisory, which the shared finance patterns
+// either miss ("Junior Trader", "Equity Sales Trader") or file as corporate
+// finance ("Transaction Advisory Analyst", "Valuation Advisory"). Banks in Dubai
+// also write "IB" and "coverage" for the banking desk: Deutsche Bank's
+// "IB - Corporate Finance MENA Coverage - Analyst" never says investment banking.
+const UAE_MARKETS_OR_ADVISORY = /\b(?:ib|coverage|trader|trading (?:analyst|associate|assistant|desk)|dealer|dealing room|(?:stock|securities|equit(?:y|ies)|fx|forex|commodit(?:y|ies)|derivatives?|financial|investment)\s+brok(?:er|erage|ing)|stockbroker|broker[ -]dealer|equity sales|institutional sales|markets analyst|(?:financial|transaction|deal|corporate finance|valuation|m&a)\s+advisory|advisory analyst)\b/i;
+
+export function classifyUaeRole(title: string, description = ''): { category: Category; eligible: boolean; reason?: string } {
+  const base = classifyFinanceCategory(title, description);
+  if (base.eligible && UAE_DESKS.has(base.category)) return base;
+  // Senior, back office, accounting and the like stay rejected for their own reason.
+  if (!base.eligible && base.reason !== 'no_finance_signal') return base;
+  if (UAE_MARKETS_OR_ADVISORY.test(title)) return { category: 'IB', eligible: true };
+  return { category: base.category, eligible: false, reason: base.eligible ? 'outside_dubai_desks' : base.reason };
+}
+
+const UAE_INTERNSHIP = /\b(?:interns?(?:hips?)?|summer (?:analyst|associate)|off[ -]cycle|placement|work experience)\b/i;
+// "Intern, Finance (3 Months Internship Contract)" and "Investment Banking
+// Analyst (Remote | $150-$220/hr)" are the shapes this catches. The description
+// is read only for the explicit terms, because "employment contract" and "full
+// time" are what a permanent role's description says too.
+const NOT_PERMANENT_TITLE = /\b(?:contract(?:or)?|temporary|temp|part[- ]time|freelance|fixed[- ]term|seasonal|hourly|per hour)\b|\/\s*hr\b/i;
+const NOT_PERMANENT_BODY = /\b(?:part[- ]time|fixed[- ]term|temporary (?:role|position|contract|assignment)|\d+[- ]months? contract)\b/i;
+
+/**
+ * Whether a UAE role is the kind Ishita is applying for: permanent, full time,
+ * not an internship, and not closed to a June 2027 graduate. A posting that
+ * names a class of 2026 or earlier is the one graduation date that rules her
+ * out, the same test the new-grad lists get.
+ */
+export function classifyUaeEmployment(title: string, description = ''): { eligible: boolean; reason?: string; evidence: string } {
+  if (UAE_INTERNSHIP.test(title)) return { eligible: false, reason: 'dubai_internship', evidence: 'Internships are not wanted in Dubai.' };
+  const temporary = title.match(NOT_PERMANENT_TITLE) ?? description.match(NOT_PERMANENT_BODY);
+  if (temporary) return { eligible: false, reason: 'not_permanent_full_time', evidence: `Not a permanent full-time role: "${temporary[0]}".` };
+  const text = `${title} ${description}`;
+  const earlier = text.match(PRE_2027_WINDOW) ?? text.match(/\bclass of 202[3-6]\b/i);
+  if (earlier && !/\b2027\b|\b2028\b/.test(text)) return { eligible: false, reason: 'graduation_incompatible', evidence: `Names a graduating class before June 2027: "${earlier[0]}".` };
+  return { eligible: true, evidence: 'Permanent full-time entry-level role open to a June 2027 graduate.' };
+}
+
 export const rolePolicies: Record<Profile, RolePolicy> = {
   // The technical digest already requires a student title and a target cycle,
   // which is a stricter test than this one and makes it redundant there.
