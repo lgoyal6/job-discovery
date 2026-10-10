@@ -61,7 +61,13 @@ const linkedinConfigSchema = z.object({
     // distinct postings, "investment analyst intern" has 98 and "private equity
     // internship" 63, so five pages was discarding about half of every one of
     // them before the digest's own rules ever saw a row.
-    pages: z.coerce.number().int().min(1).max(40).optional()
+    pages: z.coerce.number().int().min(1).max(40).optional(),
+    // LinkedIn's own job-type filter (f_JT=F). The Dubai searches want
+    // permanent full-time roles only, and measured on the UAE it drops a quarter
+    // of the results, the contract and part-time ones, before any rule runs.
+    // Its experience filter (f_E) is not used: on the same searches it changed
+    // nothing and senior roles still came back.
+    fullTimeOnly: z.boolean().optional()
   })).default([])
 });
 export type LinkedInQuery = z.infer<typeof linkedinConfigSchema>['linkedin'][number];
@@ -108,6 +114,7 @@ export class LinkedInGuestSource extends SafeSource {
       const url = `${GUEST_SEARCH}?keywords=${encodeURIComponent(this.query.keywords)}`
         + `&location=${encodeURIComponent(this.query.location)}`
         + `&f_TPR=r${config.LINKEDIN_RECENCY_SECONDS}`
+        + (this.query.fullTimeOnly ? '&f_JT=F' : '')
         + `&start=${page * PAGE_SIZE}`;
       const response = await paced(() => guardedFetch(url, {
         signal: AbortSignal.timeout(config.SOURCE_TIMEOUT_MS),
